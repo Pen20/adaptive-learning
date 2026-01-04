@@ -1,0 +1,27 @@
+import { limitsLogic } from "./calculus/limits";
+import { derivativesLogic } from "./calculus/derivatives";
+import { piecewiseLogic } from "./calculus/piecewise";
+import { domainRangeLogic } from "./calculus/domain-range";
+
+import { quadraticLogic } from "./linear/quadratic";
+import { systemsLogic } from "./linear/systems";
+import { linearEquationLogic } from "./linear/linear-eq";
+import { eigenvalueLogic } from "./linear/eigenvalues"; 
+import { determinantLogic } from "./linear/determinants";
+
+// Map the dynamic topicId (from URL) to the specific math engine
+export const topicRegistry: Record<string, any> = {
+  "limits": limitsLogic,
+  "limits_continuity": limitsLogic, 
+  "derivatives": derivativesLogic,
+  "derivatives_practice": derivativesLogic,
+  "piecewise_continuity": piecewiseLogic,
+  "domain_range": domainRangeLogic,
+  
+  // Linear Algebra Topics
+  "quadratic_equations": quadraticLogic,
+  "linear_systems": systemsLogic,
+  "linear_equations": linearEquationLogic,
+  "eigenvalues": eigenvalueLogic, 
+  "determinants": determinantLogic,
+};
