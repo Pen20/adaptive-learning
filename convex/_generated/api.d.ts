@@ -9,6 +9,7 @@
  */
 
 import type * as courses from "../courses.js";
+import type * as feedback from "../feedback.js";
 import type * as grading from "../grading.js";
 import type * as recommendations from "../recommendations.js";
 import type * as submissions from "../submissions.js";
@@ -22,6 +23,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   courses: typeof courses;
+  feedback: typeof feedback;
   grading: typeof grading;
   recommendations: typeof recommendations;
   submissions: typeof submissions;

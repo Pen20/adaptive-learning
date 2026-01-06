@@ -8,6 +8,7 @@ import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, GraduationCap } from "lucide-react";
+import FeedbackForm from "@/components/FeedbackForm";
 
 export default async function Home() {
   const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
@@ -90,6 +91,10 @@ export default async function Home() {
           ))}
         </div>
 
+      
+          <section className="mb-20">
+            <FeedbackForm />
+          </section>
 
       </main>
     </div>

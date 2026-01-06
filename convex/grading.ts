@@ -1,6 +1,6 @@
 import { action } from "./_generated/server";
 import { v } from "convex/values";
-import { HfInference } from "@huggingface/inference";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export const gradeSubmission = action({
   args: {
@@ -11,15 +11,7 @@ export const gradeSubmission = action({
   },
   handler: async (ctx, args) => {
     try {
-        const HUGGINGFACE_API_KEY = process.env.HUGGINGFACE_API_KEY;
-        if (!HUGGINGFACE_API_KEY) {
-          console.error("Missing HUGGINGFACE_API_KEY");
-          return { grade: 0, feedback: "System Error: API Configuration Missing (HUGGINGFACE_API_KEY)" };
-        }
-
-        const hf = new HfInference(HUGGINGFACE_API_KEY);
-
-    const prompt = `
+        const prompt = `
     You are a strict but helpful math tutor. Grade the following student submission for correctness and logic.
     Address the student directly in the second person (e.g., "Your answer is...").
     Problem: ${args.problemStatement}
@@ -32,8 +24,47 @@ export const gradeSubmission = action({
     IMPORTANT: Double-escape all backslashes in the JSON string (e.g., "\\\\text", "\\\\frac").
         `;
 
-        // OpenAI Logic
-        if (args.model === "gpt-4o" || args.model === "gpt-4o-mini") {
+        if (args.model === "gemini-1.5-flash" || args.model === "gemini-1.5-flash-001") {
+             const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
+             if (!GOOGLE_API_KEY) return { grade: 0, feedback: "Error: Missing GOOGLE_API_KEY" };
+
+             const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
+             const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-001" });
+
+             // Gemini prompt slightly adjusted for JSON structure enforcement via prompt engineering as strict JSON mode varies
+             const geminiPrompt = `
+             System: You are a helpful math tutor. Grade the following student submission.
+             
+             Problem: ${args.problemStatement}
+             Student Answer: ${args.studentAnswer}
+             Reasoning: ${args.reasoning}
+
+             Instructions:
+             1. Address the student directly in the second person.
+             2. Return ONLY a valid JSON object. Do not wrap it in markdown code blocks.
+             3. The JSON must have "grade" (1 or 0) and "feedback" (string).
+             4. Double escape LaTeX backslashes.
+
+             JSON Output:
+             `;
+
+             const result = await model.generateContent(geminiPrompt);
+             const response = await result.response;
+             const text = response.text();
+             
+             // Clean potential markdown blocks if Gemini adds them
+             const cleaned = text.replace(/```json/g, "").replace(/```/g, "").trim();
+             
+             try {
+                const parsed = JSON.parse(cleaned);
+                return { grade: parsed.grade, feedback: parsed.feedback };
+             } catch (e) {
+                 console.error("Gemini JSON Parse Error", text);
+                 return { grade: 0, feedback: "Error parsing Gemini response." };
+             }
+        }
+
+        if (args.model === "gpt-4o" || args.model === "gpt-4o-mini" || true) { // Fallback to OpenAI for everything or handle errors for others
              const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
              if (!OPENAI_API_KEY) return { grade: 0, feedback: "Error: Missing OPENAI_API_KEY" };
 
@@ -44,7 +75,7 @@ export const gradeSubmission = action({
                     "Authorization": `Bearer ${OPENAI_API_KEY}`
                 },
                 body: JSON.stringify({
-                    model: args.model,
+                    model: args.model.startsWith("gpt") ? args.model : "gpt-4o-mini", // Default to mini if unknown/deprecated model passed
                     messages: [
                         { role: "system", content: "You are a helpful math tutor. Grade the student's work. Talk directly to the student in the second person (e.g., 'You did...'). Return strictly valid JSON. IMPORTANT: You must DOUBLE-ESCAPE all LaTeX backslashes in the JSON string (e.g., use '\\\\text', '\\\\frac', '\\\\infty')." },
                         { role: "user", content: prompt }
@@ -59,69 +90,6 @@ export const gradeSubmission = action({
              const content = data.choices[0].message.content;
              const parsed = JSON.parse(content);
              return { grade: parsed.grade, feedback: parsed.feedback };
-        }
-
-        // Default to Zephyr 7B Beta
-        let modelId = "HuggingFaceH4/zephyr-7b-beta"; 
-        
-        if (args.model === "mistral") modelId = "mistralai/Mistral-7B-Instruct-v0.3"; 
-        if (args.model === "llama3") modelId = "meta-llama/Meta-Llama-3-8B-Instruct";
-        if (args.model === "phi3") modelId = "microsoft/Phi-3-mini-4k-instruct";
-
-        const makeHfRequest = async (id: string) => {
-             // Using chatCompletion (most models support this now) or textGeneration
-             // Using textGeneration typically works reliably for older checkpoints, but chat is better for instruct models.
-             // We'll stick to textGeneration with the same payload we were using manually, or use hf.chatCompletion if we specifically want chat structure.
-             // Given the prompt is one string, let's use hf.textGeneration which maps closely to the previous raw call.
-             
-             return hf.textGeneration({
-                model: id,
-                inputs: prompt,
-                parameters: {
-                    max_new_tokens: 500,
-                    return_full_text: false,
-                    temperature: 0.1
-                }
-             });
-        };
-
-        let generatedText = "";
-
-        try {
-            const result = await makeHfRequest(modelId);
-            generatedText = result.generated_text;
-        } catch (e: any) {
-            console.warn(`Model ${modelId} failed:`, e);
-
-             // Fallback
-             if (modelId !== "mistralai/Mistral-7B-Instruct-v0.1") {
-                 console.log("Attempting fallback to Mistral v0.1");
-                 try {
-                     const result = await makeHfRequest("mistralai/Mistral-7B-Instruct-v0.1");
-                     generatedText = result.generated_text;
-                 } catch (fallbackErr: any) {
-                    return { grade: 0, feedback: `AI Service Error (Fallback failed): ${fallbackErr.message}` };
-                 }
-             } else {
-                 return { grade: 0, feedback: `AI Service Error: ${e.message}` };
-             }
-        }
-
-        // Attempt to parse JSON from the LLM output
-        const cleanedText = generatedText.replace(/```json/g, "").replace(/```/g, "").trim();
-        
-        try {
-          const parsed = JSON.parse(cleanedText);
-          return {
-            grade: parsed.grade,
-            feedback: parsed.feedback,
-          };
-        } catch (e) {
-          console.error("Failed to parse LLM response:", cleanedText);
-           return {
-            grade: 0,
-            feedback: "Error parsing AI response. Raw output: " + cleanedText.substring(0, 50) + "...",
-          };
         }
     } catch (err: any) {
         console.error("Unexpected Grading Error:", err);

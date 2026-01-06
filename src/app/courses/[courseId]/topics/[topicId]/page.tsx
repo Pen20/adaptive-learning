@@ -28,7 +28,7 @@ export default function ProblemPage() {
   // State
   const [finalAnswer, setFinalAnswer] = useState("");
   const [reasoning, setReasoning] = useState("");
-  const [model, setModel] = useState("mistral");
+  const [model, setModel] = useState("gpt-4o-mini");
   const [grading, setGrading] = useState(false);
   const [result, setResult] = useState<{ grade: number; feedback: string } | null>(null);
   const [showHint, setShowHint] = useState(false);
@@ -165,11 +165,9 @@ export default function ProblemPage() {
                     <SelectValue placeholder="Select Model" />
                 </SelectTrigger>
                 <SelectContent>
-                    <SelectItem value="mistral">Mistral 7B</SelectItem>
-                    <SelectItem value="llama3">Llama 3 (8B)</SelectItem>
-                    <SelectItem value="phi3">Phi-3 Mini</SelectItem>
                     <SelectItem value="gpt-4o">OpenAI GPT-4o</SelectItem>
                     <SelectItem value="gpt-4o-mini">OpenAI GPT-4o Mini</SelectItem>
+                    <SelectItem value="gemini-1.5-flash-001">Gemini 1.5 Flash</SelectItem>
                 </SelectContent>
             </Select>
         </div>

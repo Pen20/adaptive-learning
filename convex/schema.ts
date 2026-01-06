@@ -29,4 +29,12 @@ export default defineSchema({
     masteryScore: v.number(), 
     lastAttempt: v.number(),
   }).index("by_user_mastery", ["userId", "masteryScore"]),
+
+  feedback: defineTable({
+    name: v.optional(v.string()),
+    email: v.optional(v.string()),
+    type: v.string(),
+    message: v.string(),
+    submittedAt: v.number(),
+  }),
 });
