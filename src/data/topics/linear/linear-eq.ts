@@ -10,6 +10,14 @@ export const linearEquationLogic = {
       statement: `Solve for $x$: $$ ${a}x + ${b} = ${result} $$`,
       prompt: "x =",
       solution: `${x}`,
+      explanation: `We start with the equation:
+$$ ${a}x + ${b} = ${result} $$
+Subtract ${b} from both sides:
+$$ ${a}x = ${result} - ${b} $$
+$$ ${a}x = ${result - b} $$
+Divide both sides by ${a}:
+$$ x = \\frac{${result - b}}{${a}} $$
+$$ x = ${x} $$`,
       hint: "First, subtract the constant from both sides, then divide by the coefficient of $x$.",
       guide: {
         title: "Solving Linear Equations",

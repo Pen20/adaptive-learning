@@ -36,5 +36,9 @@ export default defineSchema({
     type: v.string(),
     message: v.string(),
     submittedAt: v.number(),
+    institution: v.optional(v.string()),
+    gender: v.optional(v.string()),
+    profession: v.optional(v.string()),
   }),
+
 });

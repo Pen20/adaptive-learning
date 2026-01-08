@@ -34,6 +34,16 @@ ${a2}x + ky = ${c2}
 $$`,
       prompt: "k =",
       solution: `${k_ans}`,
+      explanation: `For a system of linear equations to have no solution, the lines must be parallel. This means their slopes are equal, or equivalently, the ratio of the coefficients of $x$ and $y$ must be the same:
+$$ \\frac{a_1}{a_2} = \\frac{b_1}{b_2} $$
+Substituting the values from the system:
+$$ \\frac{${a1}}{${a2}} = \\frac{${b1}}{k} $$
+We can simplify the left side:
+$$ \\frac{1}{${ratio}} = \\frac{${b1}}{k} $$
+Cross-multiplying to solve for $k$:
+$$ 1 \\cdot k = ${b1} \\cdot ${ratio} $$
+$$ k = ${k_ans} $$
+(Note: We also verified that the constants do not have the same ratio, ensuring the lines are distinct and parallel, not identical.)`,
       hint: "For a system to have no solution, the lines must be parallel (same slope) but have different intercepts. Compare the ratios of the coefficients of $x$ and $y$.",
       guide: {
         title: "Conditions for No Solution",

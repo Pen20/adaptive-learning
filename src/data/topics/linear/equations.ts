@@ -18,6 +18,15 @@ export const equationsLogic = {
       statement: `Solve for: $$ ${a}x^2 ${bString}x ${cString} = 0 $$`,
       prompt: "Find the values of x:",
       solution: `x = ${r1}, x = ${r2}`,
+      explanation: `We are given the quadratic equation:
+$$ x^2 ${bString}x ${cString} = 0 $$
+We can look for two numbers that multiply to $c = ${c}$ and add up to $b = ${b}$.
+These numbers are $${-r1}$ and $${-r2}$.
+Thus, the equation factors as:
+$$ (x - (${r1}))(x - (${r2})) = 0 $$
+Setting each factor to zero gives the solutions:
+$$ x - (${r1}) = 0 \\implies x = ${r1} $$
+$$ x - (${r2}) = 0 \\implies x = ${r2} $$`,
       hint: "Use the quadratic formula or try factoring the expression into $(x - r_1)(x - r_2) = 0$.",
       guide: {
         title: "Quadratic Formula Guide",

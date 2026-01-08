@@ -20,13 +20,27 @@ export const limitsLogic = {
 
     const types = [
       {
-        statement: `$$ \\lim_{x \\to ${a}} \\frac{x^2 - ${a * a}}{${term}} $$`,
+        statement: `Compute the limit: $$ \\lim_{x \\to ${a}} \\frac{x^2 - ${a * a}}{${term}} $$`,
         solution: `${2 * a}`,
+        explanation: `If we try direct substitution, we get $\\frac{${a}^2 - ${a * a}}{${a} - ${a}} = \\frac{0}{0}$, which is an indeterminate form.
+We can factor the numerator as a difference of squares:
+$$ x^2 - ${a * a} = (x - ${a})(x + ${a}) $$
+Now the limit becomes:
+$$ \\lim_{x \\to ${a}} \\frac{(x - ${a})(x + ${a})}{x - ${a}} $$
+We can cancel the $(x - ${a})$ terms:
+$$ \\lim_{x \\to ${a}} (x + ${a}) $$
+By direct substitution:
+$$ ${a} + ${a} = ${2 * a} $$`,
         hint: "This is a 0/0 indeterminate form. Try factoring the numerator as a difference of squares.",
       },
       {
         statement: `$$ \\lim_{x \\to ${a}} \\frac{(${b}x + ${c})(${term})}{${term}} $$`,
         solution: `${b * a + c}`,
+        explanation: `Direct substitution gives $\\frac{0}{0}$.
+We can cancel the common factor $(${term})$ from the numerator and denominator:
+$$ \\lim_{x \\to ${a}} (${b}x + ${c}) $$
+Now, proceed with direct substitution:
+$$ ${b}(${a}) + ${c} = ${b * a} + ${c} = ${b * a + c} $$`,
         hint: "Notice that common factors can be cancelled from the numerator and denominator.",
       }
     ];

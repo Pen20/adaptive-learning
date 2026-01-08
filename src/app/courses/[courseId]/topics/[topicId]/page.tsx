@@ -19,6 +19,7 @@ import { Loader2, Lightbulb, CheckCircle, XCircle, Sparkles, BookOpenIcon, Arrow
 import { useUser } from "@clerk/nextjs";
 import { useParams } from "next/navigation";
 
+
 export default function ProblemPage() {
   const { user } = useUser();
   const params = useParams();
@@ -33,9 +34,10 @@ export default function ProblemPage() {
   const [result, setResult] = useState<{ grade: number; feedback: string } | null>(null);
   const [showHint, setShowHint] = useState(false);
   const [showSolution, setShowSolution] = useState(false);
+  const [showExplanation, setShowExplanation] = useState(false);
 
   // Dynamic Problem State
-  const [problemData, setProblemData] = useState<{ statement: string; hint: string; solution: string; guide?: { title: string; content: string } } | null>(null);
+  const [problemData, setProblemData] = useState<{ statement: string; hint: string; solution: string; explanation?: string; guide?: { title: string; content: string } } | null>(null);
 
   // Recommendation State
   const [recommending, setRecommending] = useState(false);
@@ -60,8 +62,16 @@ export default function ProblemPage() {
         statement: generated.statement,
         hint: generated.hint,
         solution: generated.solution || generated.domainSolution + ", " + generated.rangeSolution || "See explanation",
+        explanation: generated.explanation,
         guide: engine.guide // Optional guide from the engine
       });
+      // Reset states
+      setShowHint(false);
+      setShowSolution(false);
+      setShowExplanation(false);
+      setResult(null);
+      setReasoning("");
+      setFinalAnswer("");
     } else {
         // Fallback for linear algebra topics not in registry yet
         setProblemData({
@@ -181,7 +191,7 @@ export default function ProblemPage() {
                     <CardTitle>Problem</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="text-lg py-4">
+                    <div className="text-lg py-4 overflow-x-auto max-w-full">
                         <MathRenderer content={problemData.statement} />
                     </div>
                 </CardContent>
@@ -197,6 +207,10 @@ export default function ProblemPage() {
 
                 <Button variant="outline" onClick={() => setShowSolution(!showSolution)}>
                     {showSolution ? "Hide Solution" : "Show Solution"}
+                </Button>
+
+                <Button variant="outline" className="text-blue-600 border-blue-200 hover:bg-blue-50 dark:border-blue-800 dark:hover:bg-blue-900/20" onClick={() => setShowExplanation(!showExplanation)}>
+                    {showExplanation ? "Hide Detailed Solution" : "Detailed Solution"}
                 </Button>
             </div>
             
@@ -218,6 +232,19 @@ export default function ProblemPage() {
                         <BlockMath math={problemData.solution} />
                     </AlertDescription>
                 </Alert>
+            )}
+
+            {showExplanation && problemData.explanation && (
+                <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/10 mt-4">
+                    <CardHeader>
+                        <CardTitle className="text-blue-700 dark:text-blue-300">Step-by-Step Explanation</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-lg space-y-4">
+                            <MathRenderer content={problemData.explanation} />
+                        </div>
+                    </CardContent>
+                </Card>
             )}
 
             {/* Recommendations Section */}
@@ -335,6 +362,7 @@ export default function ProblemPage() {
             )}
         </div>
       </div>
+
     </div>
   );
 }

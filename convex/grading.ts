@@ -20,7 +20,7 @@ export const gradeSubmission = action({
 
     Return ONLY a valid JSON object with no markdown formatting. The JSON must have:
     - "grade": 1 for correct, 0 for incorrect.
-    - "feedback": A concise, encouraging explanation in LaTeX format where appropriate (e.g., wrap math in $...$).
+    - "feedback": A concise, encouraging explanation. Use $$...$$ for block math and $...$ for inline math. Do NOT wrap text in $.
     IMPORTANT: Double-escape all backslashes in the JSON string (e.g., "\\\\text", "\\\\frac").
         `;
 
@@ -44,6 +44,10 @@ export const gradeSubmission = action({
              2. Return ONLY a valid JSON object. Do not wrap it in markdown code blocks.
              3. The JSON must have "grade" (1 or 0) and "feedback" (string).
              4. Double escape LaTeX backslashes.
+             5. STRICTLY use $$...$$ delimiters for block math (matrices, separate equations).
+             6. STRICTLY use $...$ delimiters for ALL inline math (e.g., $x$, $\frac{1}{2}$, $5x + 3$).
+             7. NEVER output raw LaTeX without delimiters. For example, never write \frac{a}{b}, always write $\frac{a}{b}$.
+             8. Do NOT wrap normal text explanations in $.
 
              JSON Output:
              `;
@@ -77,7 +81,7 @@ export const gradeSubmission = action({
                 body: JSON.stringify({
                     model: args.model.startsWith("gpt") ? args.model : "gpt-4o-mini", // Default to mini if unknown/deprecated model passed
                     messages: [
-                        { role: "system", content: "You are a helpful math tutor. Grade the student's work. Talk directly to the student in the second person (e.g., 'You did...'). Return strictly valid JSON. IMPORTANT: You must DOUBLE-ESCAPE all LaTeX backslashes in the JSON string (e.g., use '\\\\text', '\\\\frac', '\\\\infty')." },
+                        { role: "system", content: "You are a helpful math tutor. Grade the student's work. Talk directly to the student in the second person (e.g., 'You did...'). Return strictly valid JSON. IMPORTANT: You must DOUBLE-ESCAPE all LaTeX backslashes in the JSON string (e.g., use '\\\\text', '\\\\frac', '\\\\infty'). STRICTLY wrap all math in $...$ (inline) or $$...$$ (block)." },
                         { role: "user", content: prompt }
                     ],
                     response_format: { type: "json_object" }
@@ -128,7 +132,7 @@ export const checkPracticeAnswer = action({
             body: JSON.stringify({
                 model: "gpt-4o",
                 messages: [
-                    { role: "system", content: "You are a helpful math tutor. Verify the student's answer. Return strictly valid JSON. IMPORTANT: You must DOUBLE-ESCAPE all LaTeX backslashes in the JSON string (e.g., use '\\\\text', '\\\\frac', '\\\\infty')." },
+                    { role: "system", content: "You are a helpful math tutor. Verify the student's answer. Return strictly valid JSON. IMPORTANT: You must DOUBLE-ESCAPE all LaTeX backslashes in the JSON string (e.g., use '\\\\text', '\\\\frac', '\\\\infty'). STRICTLY wrap all math in $...$ (inline) or $$...$$ (block)." },
                     { role: "user", content: prompt }
                 ],
                 response_format: { type: "json_object" }

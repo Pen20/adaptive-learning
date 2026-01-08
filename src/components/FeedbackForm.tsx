@@ -26,6 +26,9 @@ export default function FeedbackForm() {
     email: "",
     type: "Feedback",
     message: "",
+    institution: "",
+    gender: "",
+    profession: "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -39,9 +42,20 @@ export default function FeedbackForm() {
         email: formData.email || undefined,
         type: formData.type,
         message: formData.message,
+        institution: formData.institution || undefined,
+        gender: formData.gender || undefined,
+        profession: formData.profession || undefined,
       });
       setSubmitted(true);
-      setFormData({ name: "", email: "", type: "Feedback", message: "" });
+      setFormData({ 
+          name: "", 
+          email: "", 
+          type: "Feedback", 
+          message: "",
+          institution: "",
+          gender: "",
+          profession: "",
+      });
     } catch (error) {
       console.error("Failed to submit feedback:", error);
     } finally {
@@ -85,10 +99,10 @@ export default function FeedbackForm() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Name (Optional)</Label>
+                <Label htmlFor="name">Full name (Optional)</Label>
                 <Input
                   id="name"
-                  placeholder="Your name"
+                  placeholder="Your full name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 />
@@ -110,6 +124,45 @@ export default function FeedbackForm() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                    <Label htmlFor="institution">Institution/University (Optional)</Label>
+                    <Input
+                    id="institution"
+                    placeholder="University of ..."
+                    value={formData.institution}
+                    onChange={(e) => setFormData({ ...formData, institution: e.target.value })}
+                    />
+                </div>
+                 <div className="space-y-2">
+                    <Label htmlFor="profession">Profession/Title (Optional)</Label>
+                    <Input
+                    id="profession"
+                    placeholder="Student, Teacher, etc."
+                    value={formData.profession}
+                    onChange={(e) => setFormData({ ...formData, profession: e.target.value })}
+                    />
+                </div>
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor="gender">Gender (Optional)</Label>
+                <Select
+                  value={formData.gender}
+                  onValueChange={(value) => setFormData({ ...formData, gender: value })}
+                >
+                  <SelectTrigger id="gender">
+                    <SelectValue placeholder="Select gender" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Male">Male</SelectItem>
+                    <SelectItem value="Female">Female</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                    <SelectItem value="Prefer not to say">Prefer not to say</SelectItem>
+                  </SelectContent>
+                </Select>
             </div>
 
             <div className="space-y-2">
@@ -135,7 +188,7 @@ export default function FeedbackForm() {
               />
             </div>
 
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
+            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white" disabled={isSubmitting}>
               {isSubmitting ? "Submitting..." : "Submit Feedback"}
             </Button>
           </form>
