@@ -197,7 +197,7 @@ export default function ProblemPage() {
                 </CardContent>
             </Card>
 
-            <div className="flex gap-4">
+            <div className="flex flex-wrap gap-2">
                 <Button variant="outline" onClick={() => setShowHint(true)} disabled={showHint}>
                     <Lightbulb className="mr-2 h-4 w-4 text-yellow-500" />
                     {showHint ? "Hint Revealed" : "Need Help?"}
