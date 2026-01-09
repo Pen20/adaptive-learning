@@ -37,7 +37,7 @@ export default function ProblemPage() {
   const [showExplanation, setShowExplanation] = useState(false);
 
   // Dynamic Problem State
-  const [problemData, setProblemData] = useState<{ statement: string; hint: string; solution: string; explanation?: string; guide?: { title: string; content: string } } | null>(null);
+  const [problemData, setProblemData] = useState<{ statement: string; hint: string; solution: string; explanation?: string; guide?: { title: string; content: string }; title?: string } | null>(null);
 
   // Recommendation State
   const [recommending, setRecommending] = useState(false);
@@ -63,7 +63,8 @@ export default function ProblemPage() {
         hint: generated.hint,
         solution: generated.solution || generated.domainSolution + ", " + generated.rangeSolution || "See explanation",
         explanation: generated.explanation,
-        guide: engine.guide // Optional guide from the engine
+        guide: engine.guide, // Optional guide from the engine
+        title: generated.title
       });
       // Reset states
       setShowHint(false);
@@ -134,7 +135,8 @@ export default function ProblemPage() {
         const data = await generatePractice({
             userId: user.id,
             courseName: courseId === "linear_algebra" ? "Linear Algebra" : "Differential Calculus",
-            topicName: topicId
+            topicName: topicId,
+            currentProblemType: problemData?.title
         });
         setRecommendations(data);
     } catch (err) {

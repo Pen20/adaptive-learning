@@ -7,6 +7,7 @@ export const generatePractice = action({
     userId: v.string(),
     courseName: v.string(),
     topicName: v.string(),
+    currentProblemType: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const HUGGINGFACE_API_KEY = process.env.HUGGINGFACE_API_KEY;
@@ -40,7 +41,14 @@ export const generatePractice = action({
     ).join("\n\n");
 
     const prompt = `
-The student is struggling with the following problems in ${args.courseName} - ${args.topicName}:
+The student is working on ${args.courseName} - ${args.topicName}.
+${args.currentProblemType ? `Current Focus: ${args.currentProblemType}. 
+IMPORTANT: Generate questions STRICTLY related to "${args.currentProblemType}". 
+- If the focus is Trigonometric, use ONLY trigonometric functions (and basic polynomials). Do NOT introduce exponentials (e^x) or logarithms (ln) unless they are explicitly part of this topic title.
+- If the focus is Logarithmic, focus on logarithms.
+- Keep the difficulty consistent with the current problem.` : ""}
+
+The student recently struggled with:
 
 ${mistakes}
 
