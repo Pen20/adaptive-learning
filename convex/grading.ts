@@ -24,12 +24,12 @@ export const gradeSubmission = action({
     IMPORTANT: Double-escape all backslashes in the JSON string (e.g., "\\\\text", "\\\\frac").
         `;
 
-        if (args.model === "gemini-1.5-flash" || args.model === "gemini-1.5-flash-001") {
+        if (args.model === "gemini-2.5-flash") {
              const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
              if (!GOOGLE_API_KEY) return { grade: 0, feedback: "Error: Missing GOOGLE_API_KEY" };
 
              const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
-             const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-001" });
+             const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
              // Gemini prompt slightly adjusted for JSON structure enforcement via prompt engineering as strict JSON mode varies
              const geminiPrompt = `
