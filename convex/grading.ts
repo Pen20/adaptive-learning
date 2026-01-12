@@ -148,3 +148,53 @@ export const checkPracticeAnswer = action({
     }
   },
 });
+
+export const transcribeReasoning = action({
+  args: {
+    image: v.string(), // base64 string
+  },
+  handler: async (ctx, args) => {
+    const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+    if (!OPENAI_API_KEY) throw new Error("Missing OPENAI_API_KEY");
+
+    try {
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${OPENAI_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: "You are a math transcription assistant. Transcribe the handwritten or printed math solution in the image into LaTeX-formatted text. Use $...$ for inline math and $$...$$ for block math. Do not include any conversational text, just the transcription. If steps are numbered, maintain the numbering. Output should be ready to be pasted into a reasoning box."
+            },
+            {
+              role: "user",
+              content: [
+                { type: "text", text: "Transcribe this image." },
+                {
+                  type: "image_url",
+                  image_url: {
+                    url: args.image,
+                  }
+                }
+              ]
+            }
+          ],
+          max_tokens: 1000
+        })
+      });
+
+      const data = await response.json();
+      if (data.error) throw new Error(data.error.message);
+
+      return data.choices[0].message.content;
+    } catch (err: any) {
+      console.error("Transcription Error:", err);
+      throw new Error("Failed to transcribe image. Please try again.");
+    }
+  },
+});

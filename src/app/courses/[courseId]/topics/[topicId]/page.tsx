@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import Link from "next/link";
 import AdaptivePractice from "@/components/AdaptivePractice";
-import { Loader2, Lightbulb, CheckCircle, XCircle, Sparkles, BookOpenIcon, ArrowLeft } from "lucide-react";
+import { Loader2, Lightbulb, CheckCircle, XCircle, Sparkles, BookOpenIcon, ArrowLeft, Camera, Upload } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import { useParams } from "next/navigation";
 
@@ -43,6 +43,9 @@ export default function ProblemPage() {
   const [recommending, setRecommending] = useState(false);
   const [recommendations, setRecommendations] = useState<{ message: string; questions: any[] } | null>(null);
 
+  // Image Upload State
+  const [transcribing, setTranscribing] = useState(false);
+
             {/* Recommendations Section */}
 
 
@@ -51,6 +54,7 @@ export default function ProblemPage() {
   const saveSubmission = useMutation(api.submissions.saveSubmission);
   const generatePractice = useAction(api.recommendations.generatePractice);
   const updateMastery = useMutation(api.users.updateMastery);
+  const transcribeReasoning = useAction(api.grading.transcribeReasoning);
 
   useEffect(() => {
     if (topicRegistry[topicId]) {
@@ -155,6 +159,32 @@ export default function ProblemPage() {
       });
       alert("Practice Complete! Mastery score updated.");
       setRecommendations(null); // Clear practice
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+        alert("File size too large. Please upload an image smaller than 5MB.");
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = async () => {
+        const base64 = reader.result as string;
+        setTranscribing(true);
+        try {
+            const transcription = await transcribeReasoning({ image: base64 });
+            setReasoning(prev => prev ? prev + "\n\n" + transcription : transcription);
+        } catch (error) {
+            console.error("Transcription failed:", error);
+            alert("Failed to transcribe image. Please try again.");
+        } finally {
+            setTranscribing(false);
+        }
+    };
   };
 
   return (
@@ -310,7 +340,29 @@ export default function ProblemPage() {
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-sm font-medium leading-none">Reasoning Steps (LaTeX supported)</label>
+                        <div className="flex justify-between items-center">
+                            <label className="text-sm font-medium leading-none">Reasoning Steps (LaTeX supported)</label>
+                            <div>
+                                <input 
+                                    type="file" 
+                                    accept="image/*" 
+                                    capture="environment" // detailed for mobile
+                                    id="reasoning-image-upload" 
+                                    className="hidden" 
+                                    onChange={handleImageUpload}
+                                />
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="h-8 gap-1" 
+                                    onClick={() => document.getElementById("reasoning-image-upload")?.click()}
+                                    disabled={transcribing}
+                                >
+                                    {transcribing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+                                    <span className="hidden sm:inline">Scan Solution</span>
+                                </Button>
+                            </div>
+                        </div>
                         <Textarea 
                             className="min-h-[150px] font-mono text-sm"
                             placeholder="Type your steps here... Use $...$ for equations."
