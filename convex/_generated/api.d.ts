@@ -9,10 +9,15 @@
  */
 
 import type * as courses from "../courses.js";
+import type * as email from "../email.js";
+import type * as exams from "../exams.js";
 import type * as feedback from "../feedback.js";
 import type * as grading from "../grading.js";
+import type * as migrations from "../migrations.js";
+import type * as permissions from "../permissions.js";
 import type * as recommendations from "../recommendations.js";
 import type * as submissions from "../submissions.js";
+import type * as tempAdmin from "../tempAdmin.js";
 import type * as users from "../users.js";
 
 import type {
@@ -23,10 +28,15 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   courses: typeof courses;
+  email: typeof email;
+  exams: typeof exams;
   feedback: typeof feedback;
   grading: typeof grading;
+  migrations: typeof migrations;
+  permissions: typeof permissions;
   recommendations: typeof recommendations;
   submissions: typeof submissions;
+  tempAdmin: typeof tempAdmin;
   users: typeof users;
 }>;
 

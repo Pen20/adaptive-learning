@@ -8,6 +8,7 @@ export const generatePractice = action({
     courseName: v.string(),
     topicName: v.string(),
     currentProblemType: v.optional(v.string()),
+    transcribedWork: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const HUGGINGFACE_API_KEY = process.env.HUGGINGFACE_API_KEY;
@@ -29,9 +30,10 @@ export const generatePractice = action({
       limit: 2 
     });
 
-    if (!incorrectSubmissions || incorrectSubmissions.length === 0) {
+    // If no past mistakes AND no transcribed work, we can't really personalize much beyond generic topic practice
+    if ((!incorrectSubmissions || incorrectSubmissions.length === 0) && !args.transcribedWork) {
       return {
-        message: "Great job! You don't have enough incorrect attempts to generate targeted practice yet.",
+        message: "Great job! You don't have enough incorrect attempts to generate targeted practice yet. Try scanning your work if you are stuck!",
         questions: []
       };
     }
@@ -39,6 +41,24 @@ export const generatePractice = action({
     const mistakes = incorrectSubmissions.map(s => 
       `Problem: ${s.problemStatement}\nWrong Answer: ${s.finalAnswer}\nReasoning: ${s.reasoningSteps}\nFeedback: ${s.aiFeedback}`
     ).join("\n\n");
+
+    let context = "";
+    if (args.transcribedWork) {
+        context = `
+The student has uploaded an image of their work on a problem they are currently stuck on.
+Here is the transcription of their work:
+"${args.transcribedWork}"
+
+Analyze this work to identify their misconceptions or where they are getting stuck.
+Generate practice questions that specifically target these issues.
+`;
+    } else {
+        context = `
+The student recently struggled with:
+
+${mistakes}
+`;
+    }
 
     const prompt = `
 The student is working on ${args.courseName} - ${args.topicName}.
@@ -48,9 +68,7 @@ IMPORTANT: Generate questions STRICTLY related to "${args.currentProblemType}".
 - If the focus is Logarithmic, focus on logarithms.
 - Keep the difficulty consistent with the current problem.` : ""}
 
-The student recently struggled with:
-
-${mistakes}
+${context}
 
 Generate 3 new practice questions. 
 Structure your response STRICTLY as a JSON object with a "questions" key containing an array of objects.
@@ -83,7 +101,7 @@ Example:
             body: JSON.stringify({
                 model: "gpt-4o",
                 messages: [
-                    { role: "system", content: "You are a helpful math tutor. Generate practice problems based on the student's mistakes. Return strictly valid JSON. IMPORTANT: You must DOUBLE-ESCAPE all LaTeX backslashes in the JSON string (e.g., use '\\\\text', '\\\\frac', '\\\\infty')." },
+                    { role: "system", content: "You are a helpful math tutor. Generate practice problems based on the student's mistakes or current work. Return strictly valid JSON. IMPORTANT: You must DOUBLE-ESCAPE all LaTeX backslashes in the JSON string (e.g., use '\\\\text', '\\\\frac', '\\\\infty')." },
                     { role: "user", content: prompt }
                 ],
                 response_format: { type: "json_object" }
@@ -97,7 +115,7 @@ Example:
         const parsed = JSON.parse(content);
         
         return {
-            message: "Based on your recent mistakes, here are some recommended problems:",
+            message: args.transcribedWork ? "Based on your scanned work, here are some recommended problems to help you practice:" : "Based on your recent mistakes, here are some recommended problems:",
             questions: parsed.questions || []
         };
 

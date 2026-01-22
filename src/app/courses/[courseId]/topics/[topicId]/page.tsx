@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useAction, useMutation } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../../../../../convex/_generated/api"; 
 import { topicRegistry } from "@/data/topics";
 import { BlockMath, InlineMath } from "react-katex";
@@ -55,6 +55,19 @@ export default function ProblemPage() {
   const generatePractice = useAction(api.recommendations.generatePractice);
   const updateMastery = useMutation(api.users.updateMastery);
   const transcribeReasoning = useAction(api.grading.transcribeReasoning);
+
+  // Permissions
+  const normalizedCourseName = courseId === "linear_algebra" ? "Linear Algebra" : "Differential Calculus";
+  const permissions = useQuery(api.permissions.getPermissions, { 
+    courseName: normalizedCourseName, 
+    topicName: topicId 
+  });
+  
+  // Defaults to true if loading or not found (handled in backend query too, but good to be safe)
+  const allowHints = permissions?.allowHints ?? true;
+  const allowSolution = permissions?.allowSolution ?? true;
+  const allowDetailed = permissions?.allowDetailedSolution ?? true;
+  const allowPractice = permissions?.allowPractice ?? true;
 
   useEffect(() => {
     if (topicRegistry[topicId]) {
@@ -187,6 +200,8 @@ export default function ProblemPage() {
     };
   };
 
+
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
       <div className="mb-6">
@@ -230,23 +245,29 @@ export default function ProblemPage() {
             </Card>
 
             <div className="flex flex-wrap gap-2">
-                <Button variant="outline" onClick={() => setShowHint(true)} disabled={showHint}>
-                    <Lightbulb className="mr-2 h-4 w-4 text-yellow-500" />
-                    {showHint ? "Hint Revealed" : "Need Help?"}
-                </Button>
+                {allowHints && (
+                    <Button variant="outline" onClick={() => setShowHint(true)} disabled={showHint}>
+                        <Lightbulb className="mr-2 h-4 w-4 text-yellow-500" />
+                        {showHint ? "Hint Revealed" : "Need Help?"}
+                    </Button>
+                )}
                 
                 <NotationHelp />
 
-                <Button variant="outline" onClick={() => setShowSolution(!showSolution)}>
-                    {showSolution ? "Hide Solution" : "Show Solution"}
-                </Button>
+                {allowSolution && (
+                    <Button variant="outline" onClick={() => setShowSolution(!showSolution)}>
+                        {showSolution ? "Hide Solution" : "Show Solution"}
+                    </Button>
+                )}
 
-                <Button variant="outline" className="text-blue-600 border-blue-200 hover:bg-blue-50 dark:border-blue-800 dark:hover:bg-blue-900/20" onClick={() => setShowExplanation(!showExplanation)}>
-                    {showExplanation ? "Hide Detailed Solution" : "Detailed Solution"}
-                </Button>
+                {allowDetailed && (
+                    <Button variant="outline" className="text-blue-600 border-blue-200 hover:bg-blue-50 dark:border-blue-800 dark:hover:bg-blue-900/20" onClick={() => setShowExplanation(!showExplanation)}>
+                        {showExplanation ? "Hide Detailed Solution" : "Detailed Solution"}
+                    </Button>
+                )}
             </div>
             
-            {showHint && (
+            {showHint && allowHints && (
                 <Alert className="bg-yellow-50 border-yellow-200">
                     <Lightbulb className="h-4 w-4 text-yellow-600" />
                     <AlertTitle>Hint</AlertTitle>
@@ -256,7 +277,7 @@ export default function ProblemPage() {
                 </Alert>
             )}
 
-            {showSolution && (
+            {showSolution && allowSolution && (
                  <Alert className="bg-green-50 border-green-200">
                     <CheckCircle className="h-4 w-4 text-green-600" />
                     <AlertTitle>Solution</AlertTitle>
@@ -266,7 +287,7 @@ export default function ProblemPage() {
                 </Alert>
             )}
 
-            {showExplanation && problemData.explanation && (
+            {showExplanation && allowDetailed && problemData.explanation && (
                 <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/10 mt-4">
                     <CardHeader>
                         <CardTitle className="text-blue-700 dark:text-blue-300">Step-by-Step Explanation</CardTitle>
@@ -280,32 +301,34 @@ export default function ProblemPage() {
             )}
 
             {/* Recommendations Section */}
-            {!recommendations ? (
-                <Card className="bg-blue-50/50 border-blue-100 mt-8">
-                    <CardHeader>
-                        <CardTitle className="text-blue-900 flex items-center gap-2">
-                             <Sparkles className="h-5 w-5 text-blue-600" />
-                             Adaptive Practice
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-center py-6">
-                            <p className="text-muted-foreground mb-4">
-                                Struggling? Let AI generate 3 personalized practice questions based on your mistakes.
-                            </p>
-                            <Button onClick={handleGetRecommendations} disabled={recommending}>
-                                {recommending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Get Recommended Questions
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
-            ) : (
-                <AdaptivePractice 
-                    questions={recommendations.questions} 
-                    message={recommendations.message} 
-                    onComplete={handleCompletePractice} 
-                />
+            {allowPractice && (
+                !recommendations ? (
+                    <Card className="bg-blue-50/50 border-blue-100 mt-8">
+                        <CardHeader>
+                            <CardTitle className="text-blue-900 flex items-center gap-2">
+                                 <Sparkles className="h-5 w-5 text-blue-600" />
+                                 Adaptive Practice
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-center py-6">
+                                <p className="text-muted-foreground mb-4">
+                                    Struggling? Let AI generate 3 personalized practice questions based on your mistakes.
+                                </p>
+                                <Button onClick={handleGetRecommendations} disabled={recommending}>
+                                    {recommending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Get Recommended Questions
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                ) : (
+                    <AdaptivePractice 
+                        questions={recommendations.questions} 
+                        message={recommendations.message} 
+                        onComplete={handleCompletePractice} 
+                    />
+                )
             )}
 
             {/* Math Guide / Cheatsheet */}

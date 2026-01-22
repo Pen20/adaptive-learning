@@ -21,10 +21,12 @@ interface AdaptivePracticeProps {
 
 export default function AdaptivePractice({ questions, message, onComplete }: AdaptivePracticeProps) {
   const checkAnswer = useAction(api.grading.checkPracticeAnswer);
+  const transcribeReasoning = useAction(api.grading.transcribeReasoning);
   
   const [userAnswers, setUserAnswers] = useState<Record<string, string>>({});
   const [feedbacks, setFeedbacks] = useState<Record<string, { isCorrect: boolean; feedback: string }>>({});
   const [loadingIds, setLoadingIds] = useState<Record<string, boolean>>({});
+  const [scanningIds, setScanningIds] = useState<Record<string, boolean>>({});
 
   const handleSubmit = async (q: Question) => {
     const answer = userAnswers[q.id];
@@ -44,6 +46,32 @@ export default function AdaptivePractice({ questions, message, onComplete }: Ada
     } finally {
         setLoadingIds(prev => ({ ...prev, [q.id]: false }));
     }
+  };
+
+  const handleScan = async (q: Question, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+        alert("File size too large. Please upload an image smaller than 5MB.");
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = async () => {
+        const base64 = reader.result as string;
+        setScanningIds(prev => ({ ...prev, [q.id]: true }));
+        try {
+            const transcription = await transcribeReasoning({ image: base64 });
+            setUserAnswers(prev => ({ ...prev, [q.id]: transcription }));
+        } catch (error) {
+            console.error("Transcription failed:", error);
+            alert("Failed to transcribe image.");
+        } finally {
+            setScanningIds(prev => ({ ...prev, [q.id]: false }));
+        }
+    };
   };
 
   const allCorrect = questions.every(q => feedbacks[q.id]?.isCorrect);
@@ -73,6 +101,27 @@ export default function AdaptivePractice({ questions, message, onComplete }: Ada
                             className="max-w-xs"
                             disabled={feedbacks[q.id]?.isCorrect}
                         />
+
+                        <div className="relative">
+                            <input 
+                                type="file" 
+                                accept="image/*" 
+                                capture="environment"
+                                id={`scan-${q.id}`}
+                                className="hidden" 
+                                onChange={(e) => handleScan(q, e)}
+                            />
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => document.getElementById(`scan-${q.id}`)?.click()}
+                                disabled={scanningIds[q.id] || feedbacks[q.id]?.isCorrect}
+                                title="Scan Solution"
+                            >
+                                {scanningIds[q.id] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                            </Button>
+                        </div>
+
                         <Button 
                             onClick={() => handleSubmit(q)} 
                             disabled={!userAnswers[q.id] || loadingIds[q.id] || feedbacks[q.id]?.isCorrect}

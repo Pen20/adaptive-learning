@@ -9,7 +9,45 @@ export default defineSchema({
     email: v.string(),
     birthDay: v.string(),
     institutionName: v.string(),
+    // Temporary field to support migration logic
+    role: v.optional(v.union(v.literal("student"), v.literal("admin"))),
+    // New unified field for unique or multiple roles
+    roles: v.optional(v.array(v.string())), 
   }).index("by_userId", ["userId"]),
+
+  topicPermissions: defineTable({
+    courseName: v.string(),
+    topicName: v.string(),
+    allowHints: v.boolean(),
+    allowSolution: v.boolean(),
+    allowDetailedSolution: v.boolean(),
+    allowPractice: v.boolean(),
+  }).index("by_course_topic", ["courseName", "topicName"]),
+
+  exams: defineTable({
+    title: v.string(),
+    courseName: v.union(v.literal("Linear Algebra"), v.literal("Differential Calculus")),
+    topics: v.array(v.string()), // topicIds
+    questionCount: v.number(),
+    startDate: v.number(), // timestamp
+    endDate: v.number(),   // timestamp
+    isActive: v.boolean(),
+    feedbackMode: v.union(v.literal("immediate"), v.literal("on_close")),
+    resultsReleased: v.optional(v.boolean()),
+  }).index("by_course_active", ["courseName", "isActive"]),
+
+  examSubmissions: defineTable({
+    examId: v.id("exams"),
+    userId: v.string(),
+    answers: v.optional(v.string()), // JSON string map of question index -> answer/reasoning
+    score: v.optional(v.number()),
+    results: v.optional(v.string()), // JSON string map of question index -> boolean (isCorrect)
+    questions: v.optional(v.string()), // JSON string snapshot of generated questions
+    status: v.optional(v.union(v.literal("in_progress"), v.literal("submitted"))),
+    totalQuestions: v.number(),
+    submittedAt: v.optional(v.number()),
+    startedAt: v.optional(v.number()),
+  }).index("by_exam_user", ["examId", "userId"]),
 
   submissions: defineTable({
     userId: v.string(),

@@ -24,4 +24,12 @@ export const topicRegistry: Record<string, any> = {
   "linear_equations": linearEquationLogic,
   "eigenvalues": eigenvalueLogic, 
   "determinants": determinantLogic,
+  
+  // Aliases for Admin Panel compatibility
+  "systems": systemsLogic,
+  "equations": linearEquationLogic,
+  "quadratic": quadraticLogic,
+  "matrices": determinantLogic,
+  "continuity": piecewiseLogic,
+  "piecewise": piecewiseLogic,
 };

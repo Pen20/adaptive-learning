@@ -60,8 +60,9 @@ export const createUser = mutation({
     firstName: v.string(),
     surname: v.string(),
     email: v.string(),
-    birthDay: v.string(), // Assuming string for simplicity based on schema
+    birthDay: v.string(),
     institutionName: v.string(),
+    roles: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     // Check if user already exists
@@ -81,6 +82,7 @@ export const createUser = mutation({
       email: args.email,
       birthDay: args.birthDay,
       institutionName: args.institutionName,
+      roles: args.roles ?? ["student"],
     });
 
     return newUserId;
@@ -162,6 +164,7 @@ export const syncUser = mutation({
       email: identity.email || "",
       birthDay: "", 
       institutionName: "",
+      roles: ["student"],
     });
 
     return newUserId;
