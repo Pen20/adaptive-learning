@@ -66,7 +66,7 @@ export default async function Home() {
               <CardFooter className='border-t bg-slate-50/50 p-6 flex justify-between items-center'>
                 <div className="flex items-center text-sm font-medium text-slate-600">
                   <BookOpen className="mr-2 h-4 w-4" />
-                  {course.title === "Linear Algebra" ? "5 Topics" : "4 Topics"}
+                  {course.title === "Linear Algebra" ? "7 Topics" : "4 Topics"}
                 </div>
 
                 {/* Logged In Flow */}
