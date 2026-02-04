@@ -79,6 +79,22 @@ export const NotationHelp = () => {
                             </div>
                         </div>
                     </div>
+
+                    <div className="space-y-4">
+                        <h3 className="font-semibold text-sm text-blue-600 uppercase tracking-wider">Linear Algebra</h3>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="border p-3 rounded-md bg-slate-50">
+                                <p className="text-xs font-mono text-slate-500 mb-1">Matrix</p>
+                                <code className="text-sm bg-white border px-1 rounded text-xs">\begin{'{'}pmatrix{'}'} a & b \\ c & d \end{'{'}pmatrix{'}'}</code>
+                                <div className="mt-2 text-center"><BlockMath math="\begin{pmatrix} a & b \\ c & d \end{pmatrix}" /></div>
+                            </div>
+                             <div className="border p-3 rounded-md bg-slate-50">
+                                <p className="text-xs font-mono text-slate-500 mb-1">Vector</p>
+                                <code className="text-sm bg-white border px-1 rounded">\mathbf{'{'}v{'}'} or \vec{'{'}v{'}'}</code>
+                                <div className="mt-2 text-center"><BlockMath math="\mathbf{v}, \vec{v}" /></div>
+                            </div>
+                        </div>
+                    </div>
                      <div className="bg-blue-50 p-4 rounded-md border border-blue-100 text-sm">
                         <p className="font-medium text-blue-800 mb-1">Pro Tip:</p>
                         <p className="text-blue-700">
