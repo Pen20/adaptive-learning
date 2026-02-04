@@ -8,6 +8,8 @@ import { systemsLogic } from "./linear/systems";
 import { linearEquationLogic } from "./linear/linear-eq";
 import { eigenvalueLogic } from "./linear/eigenvalues"; 
 import { determinantLogic } from "./linear/determinants";
+import { independenceLogic } from "./linear/independence";
+import { gramSchmidtLogic } from "./linear/gram_schmidt";
 
 // Map the dynamic topicId (from URL) to the specific math engine
 export const topicRegistry: Record<string, any> = {
@@ -24,6 +26,8 @@ export const topicRegistry: Record<string, any> = {
   "linear_equations": linearEquationLogic,
   "eigenvalues": eigenvalueLogic, 
   "determinants": determinantLogic,
+  "linear_independence": independenceLogic,
+  "gram_schmidt": gramSchmidtLogic,
   
   // Aliases for Admin Panel compatibility
   "systems": systemsLogic,

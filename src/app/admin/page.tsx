@@ -17,7 +17,7 @@ import { topicRegistry } from "@/data/topics";
 // Helper to get topics by course
 const getTopicsByCourse = (courseId: string) => {
   if (courseId === "linear_algebra") {
-      return ["linear_equations", "quadratic_equations", "linear_systems", "determinants", "eigenvalues"];
+      return ["linear_equations", "quadratic_equations", "linear_systems", "determinants", "eigenvalues", "linear_independence", "gram_schmidt"];
   }
   if (courseId === "calculus") {
       return ["limits", "derivatives", "piecewise_continuity", "domain_range"];
@@ -128,7 +128,7 @@ export default function AdminDashboard() {
             <CardContent>
                 <div className="rounded-md border">
                     {/* Updated to match canonical IDs from convex/courses.ts for correct permission mapping */}
-                    {["linear_systems", "linear_equations", "determinants", "eigenvalues", "quadratic_equations"].map(topic => 
+                    {["linear_systems", "linear_equations", "determinants", "eigenvalues", "quadratic_equations", "linear_independence", "gram_schmidt"].map(topic => 
                         renderTopicRow(topic, "Linear Algebra", topic)
                     )}
                 </div>

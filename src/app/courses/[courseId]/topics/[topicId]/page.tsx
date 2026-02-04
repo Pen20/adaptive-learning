@@ -282,7 +282,7 @@ export default function ProblemPage() {
                     <CheckCircle className="h-4 w-4 text-green-600" />
                     <AlertTitle>Solution</AlertTitle>
                     <AlertDescription>
-                        <BlockMath math={problemData.solution} />
+                        <MathRenderer content={problemData.solution} />
                     </AlertDescription>
                 </Alert>
             )}

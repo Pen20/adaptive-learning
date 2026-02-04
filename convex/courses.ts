@@ -33,6 +33,8 @@ export const getCourseTopics = query({
         { id: "linear_systems", title: "Linear Systems (No Solution)", description: "Identify systems with no solutions." },
         { id: "determinants", title: "Determinants", description: "Calculate determinants of 2x2 matrices." },
         { id: "eigenvalues", title: "Eigenvalues & Vectors", description: "Finding eigenvalues of matrices." },
+        { id: "linear_independence", title: "Linear Independence", description: "Determine if vectors are linearly independent." },
+        { id: "gram_schmidt", title: "Basis & Gram-Schmidt", description: "Eigenbases and orthonormalization." },
       ];
     } else if (args.courseId === "differential_calculus") {
       return [
