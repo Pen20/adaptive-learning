@@ -34,7 +34,7 @@ export const sendResultEmail = action({
                 <p><strong>Your Score: ${args.score}%</strong></p>
                 <p>You can view the detailed solution and feedback by logging into the platform.</p>
                 <br />
-                <a href="${process.env.SITE_URL ?? "https://my-math-course.vercel.app"}/exams/${args.examId}">View Results</a>
+                <a href="${process.env.SITE_URL ?? "https://ai-math-adaptive.vercel.app"}/exams/${args.examId}">View Results</a>
             `
         });
     } catch (error) {
