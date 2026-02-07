@@ -72,7 +72,7 @@ const ExamsLink = () => {
       className='flex items-center gap-1 px-3 py-2 rounded-md text-sm font-medium text-pink-600 hover:text-pink-700 hover:bg-pink-50 transition-colors'
     >
       <BookOpenIcon className='size-4' />
-      <span className='hidden sm:inline'>Exams</span>
+      <span className='hidden sm:inline'>Exams/ Quizzes</span>
       {count > 0 && (
         <span className="flex h-4 w-4 shrink-0 items-center justify-center text-[10px] font-medium text-white bg-pink-600 rounded-full">
             {count}
