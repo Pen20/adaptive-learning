@@ -42,3 +42,48 @@ export const sendResultEmail = action({
     }
   },
 });
+export const sendFeedbackEmail = action({
+  args: {
+    name: v.optional(v.string()),
+    email: v.optional(v.string()),
+    type: v.string(),
+    message: v.string(),
+    institution: v.optional(v.string()),
+    gender: v.optional(v.string()),
+    profession: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const apiKey = process.env.RESEND_API_KEY;
+    const adminEmail = "wastalasdassise@gmail.com";
+    
+    // If no API key, log simply.
+    if (!apiKey) {
+        console.log(`[MOCK EMAIL] To Admin: ${adminEmail} | From: ${args.email ?? "Anonymous"} | Type: ${args.type} | Message: ${args.message}`);
+        return;
+    }
+
+    const resend = new Resend(apiKey);
+
+    try {
+        await resend.emails.send({
+            from: "Math Course Feedback <onboarding@resend.dev>", 
+            to: adminEmail,
+            subject: `New ${args.type} from ${args.name ?? "Anonymous"}`,
+            html: `
+                <h1>New Feedback Received</h1>
+                <p><strong>Type:</strong> ${args.type}</p>
+                <p><strong>Name:</strong> ${args.name ?? "N/A"}</p>
+                <p><strong>Email:</strong> ${args.email ?? "N/A"}</p>
+                <p><strong>Institution:</strong> ${args.institution ?? "N/A"}</p>
+                <p><strong>Profession:</strong> ${args.profession ?? "N/A"}</p>
+                <p><strong>Gender:</strong> ${args.gender ?? "N/A"}</p>
+                <hr />
+                <p><strong>Message:</strong></p>
+                <p>${args.message}</p>
+            `
+        });
+    } catch (error) {
+        console.error("Failed to send feedback email to admin", error);
+    }
+  },
+});
