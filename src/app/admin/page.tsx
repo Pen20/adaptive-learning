@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Loader2, ShieldAlert, Trash2 } from "lucide-react";
 import { topicRegistry } from "@/data/topics";
+import { CorrectionModerator } from "@/components/admin/CorrectionModerator";
 
 // Helper to get topics by course
 // Helper to get topics by course
@@ -55,9 +56,9 @@ export default function AdminDashboard() {
     });
   };
 
-  const getPermissionValue = (courseName: string, topicName: string, field: "allowHints" | "allowSolution" | "allowDetailedSolution" | "allowPractice") => {
+  const getPermissionValue = (courseName: string, topicName: string, field: "allowHints" | "allowSolution" | "allowDetailedSolution" | "allowPractice" | "allowRLHF") => {
     const perm = permissions?.find(p => p.courseName === courseName && p.topicName === topicName);
-    return perm ? perm[field] : true; // Default to true if not set
+    return perm ? (perm as any)[field] : true; // Default to true if not set
   };
 
   const renderTopicRow = (topicId: string, courseName: string, displayName: string) => (
@@ -96,6 +97,14 @@ export default function AdminDashboard() {
                     onCheckedChange={() => handleToggle(courseName, topicId, "allowPractice", getPermissionValue(courseName, topicId, "allowPractice"))}
                 />
             </div>
+            <div className="flex flex-col items-center gap-2">
+                <Label htmlFor={`${topicId}-rlhf`} className="text-xs text-muted-foreground">RLHF</Label>
+                <Switch 
+                    id={`${topicId}-rlhf`}
+                    checked={getPermissionValue(courseName, topicId, "allowRLHF")}
+                    onCheckedChange={() => handleToggle(courseName, topicId, "allowRLHF", getPermissionValue(courseName, topicId, "allowRLHF"))}
+                />
+            </div>
         </div>
     </div>
   );
@@ -117,6 +126,7 @@ export default function AdminDashboard() {
           <TabsTrigger value="linear_algebra">Linear Algebra</TabsTrigger>
           <TabsTrigger value="calculus">Calculus</TabsTrigger>
           <TabsTrigger value="exams">Exam Management</TabsTrigger>
+          <TabsTrigger value="moderation">Correction Moderation</TabsTrigger>
         </TabsList>
 
         <TabsContent value="linear_algebra">
@@ -154,6 +164,10 @@ export default function AdminDashboard() {
 
         <TabsContent value="exams">
             <ExamManager />
+        </TabsContent>
+
+        <TabsContent value="moderation">
+            <CorrectionModerator />
         </TabsContent>
       </Tabs>
     </div>

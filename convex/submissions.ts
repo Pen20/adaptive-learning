@@ -11,20 +11,22 @@ export const saveSubmission = mutation({
     reasoningSteps: v.string(),
     grade: v.number(),
     aiFeedback: v.string(),
+    judgeFeedback: v.optional(v.string()),
+    isJudgeModified: v.optional(v.boolean()),
+    judgeConfidence: v.optional(v.number()),
+    errorType: v.optional(v.string()),
     usedHints: v.boolean(),
   },
   handler: async (ctx, args) => {
     // Check for existing user logic could go here if needed to link strictly to internal ID
     // For now we just store the submission with the Clerk User ID as per schema
-    await ctx.db.insert("submissions", args);
+    const submissionId = await ctx.db.insert("submissions", args);
     
     // Update mastery (simple logic: increment if correct)
     if (args.grade === 1) {
        const existingMastery = await ctx.db
          .query("studentMastery")
-         .withIndex("by_user_mastery", (q) => q.eq("userId", args.userId)) // This index is actually by score, user needs different query or index
-         // Schema index "by_user_mastery" is ["userId", "masteryScore"] which is weird associated with unique user/topic
-         // Let's rely on finding by userId and filtering for now, or assume schema meant userId+topic
+         .withIndex("by_user_mastery", (q) => q.eq("userId", args.userId)) 
          .filter((q) => q.eq(q.field("topicName"), args.topicName))
          .first();
        
@@ -42,6 +44,8 @@ export const saveSubmission = mutation({
          });
        }
     }
+
+    return submissionId;
   },
 });
 
@@ -62,5 +66,18 @@ export const getIncorrectSubmissions = query({
       .take(args.limit);
       
     return submissions;
+  },
+});
+export const getStudentMastery = query({
+  args: {
+    userId: v.string(),
+    topicName: v.string(),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("studentMastery")
+      .filter((q) => q.eq(q.field("userId"), args.userId))
+      .filter((q) => q.eq(q.field("topicName"), args.topicName))
+      .first();
   },
 });

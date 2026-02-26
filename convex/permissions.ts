@@ -13,12 +13,12 @@ export const getPermissions = query({
         q.eq("courseName", args.courseName).eq("topicName", args.topicName)
       )
       .first();
-
     return permissions || {
       allowHints: true,
       allowSolution: true,
       allowDetailedSolution: true,
       allowPractice: true,
+      allowRLHF: (permissions as any)?.allowRLHF ?? true,
     };
   },
 });
@@ -49,7 +49,7 @@ export const updatePermission = mutation({
   args: {
     courseName: v.string(),
     topicName: v.string(),
-    field: v.string(), // "allowHints" | "allowSolution" | "allowDetailedSolution" | "allowPractice"
+    field: v.string(), // "allowHints" | "allowSolution" | "allowDetailedSolution" | "allowPractice" | "allowRLHF"
     value: v.boolean(),
   },
   handler: async (ctx, args) => {
@@ -84,6 +84,7 @@ export const updatePermission = mutation({
         allowSolution: true,
         allowDetailedSolution: true,
         allowPractice: true,
+        allowRLHF: true,
         [args.field]: args.value,
       });
     }

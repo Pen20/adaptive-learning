@@ -8,11 +8,13 @@
  * @module
  */
 
+import type * as corrections from "../corrections.js";
 import type * as courses from "../courses.js";
 import type * as email from "../email.js";
 import type * as exams from "../exams.js";
 import type * as feedback from "../feedback.js";
 import type * as grading from "../grading.js";
+import type * as judge from "../judge.js";
 import type * as migrations from "../migrations.js";
 import type * as permissions from "../permissions.js";
 import type * as recommendations from "../recommendations.js";
@@ -27,11 +29,13 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  corrections: typeof corrections;
   courses: typeof courses;
   email: typeof email;
   exams: typeof exams;
   feedback: typeof feedback;
   grading: typeof grading;
+  judge: typeof judge;
   migrations: typeof migrations;
   permissions: typeof permissions;
   recommendations: typeof recommendations;

@@ -18,6 +18,9 @@ import AdaptivePractice from "@/components/AdaptivePractice";
 import { Loader2, Lightbulb, CheckCircle, XCircle, Sparkles, BookOpenIcon, ArrowLeft, Camera, Upload } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import { useParams } from "next/navigation";
+import { useRole } from "@/hooks/useRole";
+import { CorrectionWidget } from "@/components/math/CorrectionWidget";
+import { Id } from "../../../../../../convex/_generated/dataModel";
 
 
 export default function ProblemPage() {
@@ -25,16 +28,18 @@ export default function ProblemPage() {
   const params = useParams();
   const courseId = params.courseId as string;
   const topicId = params.topicId as string;
+  const { isAdmin, isLoading: roleLoading } = useRole();
 
   // State
   const [finalAnswer, setFinalAnswer] = useState("");
   const [reasoning, setReasoning] = useState("");
   const [model, setModel] = useState("gpt-4o-mini");
   const [grading, setGrading] = useState(false);
-  const [result, setResult] = useState<{ grade: number; feedback: string } | null>(null);
+  const [result, setResult] = useState<{ grade: number; feedback: string; errorType?: string } | null>(null);
   const [showHint, setShowHint] = useState(false);
   const [showSolution, setShowSolution] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
+  const [lastSubmissionId, setLastSubmissionId] = useState<Id<"submissions"> | null>(null);
 
   // Dynamic Problem State
   const [problemData, setProblemData] = useState<{ statement: string; hint: string; solution: string; explanation?: string; guide?: { title: string; content: string }; title?: string } | null>(null);
@@ -50,7 +55,7 @@ export default function ProblemPage() {
 
 
   // Actions/Mutations
-  const gradeSubmission = useAction(api.grading.gradeSubmission);
+  const gradeWithJudge = useAction(api.grading.gradeWithJudge);
   const saveSubmission = useMutation(api.submissions.saveSubmission);
   const generatePractice = useAction(api.recommendations.generatePractice);
   const updateMastery = useMutation(api.users.updateMastery);
@@ -68,6 +73,7 @@ export default function ProblemPage() {
   const allowSolution = permissions?.allowSolution ?? true;
   const allowDetailed = permissions?.allowDetailedSolution ?? true;
   const allowPractice = permissions?.allowPractice ?? true;
+  const allowRLHF = permissions?.allowRLHF ?? true;
 
   useEffect(() => {
     if (topicRegistry[topicId]) {
@@ -107,23 +113,21 @@ export default function ProblemPage() {
     setGrading(true);
     setResult(null);
 
-    setResult(null);
-
     try {
-      const gradeResult = await gradeSubmission({
+      const gradeResult = await gradeWithJudge({
         problemStatement: problemData.statement,
         studentAnswer: finalAnswer,
         reasoning,
         model,
+        topicName: topicId,
       });
 
-      setResult(gradeResult);
+      setResult({ grade: gradeResult.grade, feedback: gradeResult.feedback, errorType: gradeResult.errorType });
+      setLastSubmissionId(null); // Reset for new result
 
-      // Only save if it's a valid grade/feedback, or we can save failed attempts too with strict checks
-      // If feedback contains "Error", maybe dont save? 
-      // Actually saving it is fine, just maybe 0 grade.
+      // Save with judge metadata
       if (!gradeResult.feedback.includes("Error")) {
-          await saveSubmission({
+          const subId = await saveSubmission({
             userId: user.id,
             courseName: courseId === "linear_algebra" ? "Linear Algebra" : "Differential Calculus",
             topicName: topicId,
@@ -132,8 +136,13 @@ export default function ProblemPage() {
             reasoningSteps: reasoning,
             grade: gradeResult.grade,
             aiFeedback: gradeResult.feedback,
+            errorType: gradeResult.errorType,
+            judgeFeedback: gradeResult.judgeMetadata?.judgeFeedback,
+            isJudgeModified: gradeResult.judgeMetadata?.isJudgeModified,
+            judgeConfidence: gradeResult.judgeMetadata?.judgeConfidence,
             usedHints: showHint,
           });
+          setLastSubmissionId(subId);
       }
 
     } catch (error) {
@@ -252,7 +261,7 @@ export default function ProblemPage() {
                     </Button>
                 )}
                 
-                <NotationHelp />
+                <NotationHelp onInsert={(code) => setReasoning(prev => prev ? `${prev} ${code}` : code)} />
 
                 {allowSolution && (
                     <Button variant="outline" onClick={() => setShowSolution(!showSolution)}>
@@ -364,7 +373,7 @@ export default function ProblemPage() {
 
                     <div className="space-y-2">
                         <div className="flex justify-between items-center">
-                            <label className="text-sm font-medium leading-none">Reasoning Steps (LaTeX supported)</label>
+                            <label className="text-sm font-medium leading-none">Reasoning Steps (Mandatory: Must include final answer for grading)</label>
                             <div>
                                 <input 
                                     type="file" 
@@ -429,11 +438,29 @@ export default function ProblemPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="prose prose-sm max-w-none">
-                            <p className="font-semibold mb-2">AI Feedback:</p>
+                            <div className="flex justify-between items-start mb-2">
+                                <p className="font-semibold">AI Feedback:</p>
+                                {result.errorType && (
+                                    <Badge variant="secondary" className="bg-red-100 text-red-700 hover:bg-red-100 border-red-200">
+                                        {result.errorType}
+                                    </Badge>
+                                )}
+                            </div>
                             <div className="bg-slate-50 p-4 rounded-md">
                                 <MathRenderer content={result.feedback || "No feedback provided."} />
                             </div>
                         </div>
+
+                        {(isAdmin || allowRLHF) && lastSubmissionId && user && (
+                            <CorrectionWidget 
+                                submissionId={lastSubmissionId}
+                                initialGrade={result.grade}
+                                initialFeedback={result.feedback}
+                                topicName={topicId}
+                                userId={user.id}
+                                isAdmin={isAdmin}
+                            />
+                        )}
                     </CardContent>
                 </Card>
             )}

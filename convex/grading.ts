@@ -1,13 +1,16 @@
 import { action } from "./_generated/server";
 import { v } from "convex/values";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { api } from "./_generated/api";
 
 export const gradeSubmission = action({
+// ... (omitting for brevity as I'm replacing the whole file structure or a large chunk)
   args: {
     problemStatement: v.string(),
     studentAnswer: v.string(),
     reasoning: v.string(),
     model: v.string(), // "mistral", "llama3", "phi3", "gpt-4o"
+    topicName: v.string(),
   },
   handler: async (ctx, args) => {
     try {
@@ -21,6 +24,7 @@ export const gradeSubmission = action({
     Return ONLY a valid JSON object with no markdown formatting. The JSON must have:
     - "grade": 1 for correct, 0 for incorrect.
     - "feedback": A concise, encouraging explanation. Use $$...$$ for block math and $...$ for inline math. Do NOT wrap text in $.
+    - "errorType": If grade is 0, a 2-4 word category of the error (e.g., "Calculation Error", "Conceptual Misunderstanding", "Sign Error", "Incomplete Steps"). If grade is 1, return an empty string.
     IMPORTANT: Double-escape all backslashes in the JSON string (e.g., "\\\\text", "\\\\frac").
         `;
 
@@ -195,6 +199,59 @@ export const transcribeReasoning = action({
     } catch (err: any) {
       console.error("Transcription Error:", err);
       throw new Error("Failed to transcribe image. Please try again.");
+    }
+  },
+});
+
+export const gradeWithJudge = action({
+  args: {
+    problemStatement: v.string(),
+    studentAnswer: v.string(),
+    reasoning: v.string(),
+    model: v.string(),
+    topicName: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // 1. Get initial grade
+    const initialResult = (await ctx.runAction(api.grading.gradeSubmission, args)) as { grade: number; feedback: string; errorType?: string };
+
+    try {
+      // 2. Invoke Judge
+      const judgeResult = (await ctx.runAction(api.judge.evaluateEvaluator, {
+        problemStatement: args.problemStatement,
+        studentAnswer: args.studentAnswer,
+        studentReasoning: args.reasoning,
+        assistantGrade: initialResult.grade,
+        assistantFeedback: initialResult.feedback,
+        topicName: args.topicName,
+      })) as {
+        suggestedGrade: number;
+        refinedFeedback: string;
+        errorType: string;
+        isModified: boolean;
+        judgeConfidence: number;
+        reasoning: string;
+      };
+
+      // 3. Prepare final result
+      return {
+        grade: judgeResult.suggestedGrade,
+        feedback: judgeResult.isModified ? judgeResult.refinedFeedback : initialResult.feedback,
+        errorType: judgeResult.errorType || initialResult.errorType,
+        judgeMetadata: {
+          judgeFeedback: judgeResult.refinedFeedback,
+          isJudgeModified: judgeResult.isModified,
+          judgeConfidence: judgeResult.judgeConfidence,
+          judgeReasoning: judgeResult.reasoning
+        }
+      };
+    } catch (err) {
+      console.error("Judge failed, falling back to initial result", err);
+      return {
+        grade: initialResult.grade,
+        feedback: initialResult.feedback,
+        errorType: initialResult.errorType,
+      };
     }
   },
 });

@@ -22,6 +22,7 @@ export default defineSchema({
     allowSolution: v.boolean(),
     allowDetailedSolution: v.boolean(),
     allowPractice: v.boolean(),
+    allowRLHF: v.optional(v.boolean()),
   }).index("by_course_topic", ["courseName", "topicName"]),
 
   exams: defineTable({
@@ -58,6 +59,10 @@ export default defineSchema({
     reasoningSteps: v.string(),
     grade: v.number(), 
     aiFeedback: v.string(),
+    judgeFeedback: v.optional(v.string()),
+    isJudgeModified: v.optional(v.boolean()),
+    judgeConfidence: v.optional(v.number()),
+    errorType: v.optional(v.string()),
     usedHints: v.boolean(),
   }).index("by_user_topic", ["userId", "topicName"]),
 
@@ -78,5 +83,16 @@ export default defineSchema({
     gender: v.optional(v.string()),
     profession: v.optional(v.string()),
   }),
+
+  humanCorrections: defineTable({
+    submissionId: v.id("submissions"),
+    correctedGrade: v.number(), // 0 or 1
+    correctedFeedback: v.string(),
+    topicName: v.string(),
+    status: v.union(v.literal("pending"), v.literal("approved"), v.literal("rejected")),
+    createdBy: v.string(), // Clerk ID
+    createdAt: v.number(),
+  }).index("by_topic_status", ["topicName", "status"])
+    .index("by_status", ["status"]),
 
 });

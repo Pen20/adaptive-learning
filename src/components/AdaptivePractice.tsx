@@ -6,6 +6,7 @@ import { Input } from "./ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Loader2, CheckCircle2, XCircle, Sparkles } from "lucide-react";
 import { MathRenderer } from "./MathRenderer";
+import { NotationHelp } from "./math/NotationHelp";
 
 interface Question {
   id: string;
@@ -81,7 +82,7 @@ export default function AdaptivePractice({ questions, message, onComplete }: Ada
       <CardHeader>
         <CardTitle className="text-blue-900 flex items-center gap-2">
              <Sparkles className="h-5 w-5 text-blue-600" />
-             Adaptive Practice
+             Advanced Adaptive Practice 
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -129,7 +130,25 @@ export default function AdaptivePractice({ questions, message, onComplete }: Ada
                         >
                             {loadingIds[q.id] ? <Loader2 className="h-4 w-4 animate-spin" /> : "Check"}
                         </Button>
+
+                        {!feedbacks[q.id]?.isCorrect && (
+                            <NotationHelp 
+                                onInsert={(code) => setUserAnswers(prev => ({
+                                    ...prev, 
+                                    [q.id]: prev[q.id] ? `${prev[q.id]} ${code}` : code
+                                }))} 
+                            />
+                        )}
                     </div>
+
+                    {!feedbacks[q.id]?.isCorrect && userAnswers[q.id] && (
+                        <div className="mt-3">
+                            <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider font-semibold">Live Preview:</p>
+                            <div className="p-3 bg-slate-50 rounded-md border border-slate-100 text-sm overflow-x-auto min-h-[40px] flex items-center">
+                                <MathRenderer content={userAnswers[q.id]} />
+                            </div>
+                        </div>
+                    )}
 
                     {feedbacks[q.id] && (
                         <div className={`mt-3 text-sm p-3 rounded-md flex items-start gap-2 ${feedbacks[q.id].isCorrect ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"}`}>
