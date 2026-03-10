@@ -14,7 +14,7 @@ export const gradeSubmission = action({
   },
   handler: async (ctx, args) => {
     try {
-        const prompt = `
+    const prompt = `
     You are a strict but helpful math tutor. Grade the following student submission for correctness and logic.
     Address the student directly in the second person (e.g., "Your answer is...").
     
@@ -24,10 +24,18 @@ export const gradeSubmission = action({
 
     IMPORTANT: If "Student's Final Answer" is empty or missing, you MUST identify their intended final answer from their "Reasoning" steps. If no final answer can be found in the reasoning, the grade should be 0.
 
+    IMPORTANT: STRICT MATH DELIMITER PROTOCOL
+    - You MUST wrap EVERY mathematical symbol, variable, matrix, or expression in LaTeX delimiters.
+    - Use $...$ for inline math (e.g., $x$, $\mathbf{u}$, $\frac{1}{2}$).
+    - Use $$...$$ for block math (e.g., matrices, long equations).
+    - NEVER output raw LaTeX commands like \boldsymbol, \begin{bmatrix}, or \frac without delimiters.
+    - Example of CORRECT formatting: "Your vector $\mathbf{u}$ is independent."
+    - Example of INCORRECT formatting: "Your vector \mathbf{u} is independent."
+
     Return ONLY a valid JSON object with no markdown formatting. The JSON must have:
     - "grade": 1 for correct, 0 for incorrect.
-    - "feedback": A concise, encouraging explanation. Use $$...$$ for block math and $...$ for inline math. Do NOT wrap text in $.
-    - "errorType": If grade is 0, a 2-4 word category of the error (e.g., "Calculation Error", "Conceptual Misunderstanding", "Sign Error", "Incomplete Steps"). If grade is 1, return an empty string.
+    - "feedback": A concise, encouraging explanation. ALWAYS follow the DELIMITER PROTOCOL above.
+    - "errorType": If grade is 0, a 2-4 word category of the error. If grade is 1, return an empty string.
     IMPORTANT: Double-escape all backslashes in the JSON string (e.g., "\\\\text", "\\\\frac").
         `;
 
@@ -266,13 +274,16 @@ export const gradeOptimized = action({
     1. **Final Answer Detection**: If "Student's Final Answer" is empty, you MUST find the answer within the "Reasoning" steps.
     2. **Reasoning Consistency**: If the reasoning is incorrect, inconsistent with the final answer, or appears to be a "lucky guess", the grade MUST be 0.
     3. **Final Answer in Steps**: The student must include a clear final answer within their reasoning steps.
-    3. **Tone**: Be professional, encouraging, and direct (use "You" / second person).
-    4. **Formatting**: Use LaTeX $...$ for inline math and $$...$$ for block math. Double-escape backslashes (e.g., "\\\\frac").
+    4. **Tone**: Be professional, encouraging, and direct (use "You" / second person).
+    5. **STRICT MATH DELIMITER PROTOCOL**: 
+       - You MUST wrap EVERY mathematical symbol, variable, matrix, or expression in delimiters ($...$ for inline, $$...$$ for block).
+       - NEVER output raw LaTeX (e.g., \boldsymbol, \begin) without delimiters.
+       - Use LaTeX $...$ for inline math and $$...$$ for block math. Double-escape backslashes (e.g., "\\\\frac").
 
     Return ONLY a valid JSON object:
     {
       "grade": number (0 or 1),
-      "feedback": "Concise pedagogical explanation",
+      "feedback": "Concise pedagogical explanation following STRICT MATH DELIMITER PROTOCOL",
       "errorType": "2-4 word category if grade 0, else empty"
     }
     `;

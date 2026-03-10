@@ -309,36 +309,6 @@ export default function ProblemPage() {
                 </Card>
             )}
 
-            {/* Recommendations Section */}
-            {allowPractice && (
-                !recommendations ? (
-                    <Card className="bg-blue-50/50 border-blue-100 mt-8">
-                        <CardHeader>
-                            <CardTitle className="text-blue-900 flex items-center gap-2">
-                                 <Sparkles className="h-5 w-5 text-blue-600" />
-                                 Adaptive Practice
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-center py-6">
-                                <p className="text-muted-foreground mb-4">
-                                    Struggling? Let AI generate 3 personalized practice questions based on your mistakes.
-                                </p>
-                                <Button onClick={handleGetRecommendations} disabled={recommending}>
-                                    {recommending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Get Recommended Questions
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-                ) : (
-                    <AdaptivePractice 
-                        questions={recommendations.questions} 
-                        message={recommendations.message} 
-                        onComplete={handleCompletePractice} 
-                    />
-                )
-            )}
 
             {/* Math Guide / Cheatsheet */}
             {problemData.guide && (
@@ -465,7 +435,38 @@ export default function ProblemPage() {
                 </Card>
             )}
         </div>
-      </div>
+
+            {/* Recommendations Section */}
+            {allowPractice && (
+                !recommendations ? (
+                    <Card className="bg-blue-50/50 border-blue-100 mt-8">
+                        <CardHeader>
+                            <CardTitle className="text-blue-900 flex items-center gap-2">
+                                 <Sparkles className="h-5 w-5 text-blue-600" />
+                                 Adaptive Practice
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-center py-6">
+                                <p className="text-muted-foreground mb-4">
+                                    Struggling? Let AI generate 3 personalized practice questions based on your mistakes.
+                                </p>
+                                <Button onClick={handleGetRecommendations} disabled={recommending}>
+                                    {recommending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Get Recommended Questions
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                ) : (
+                    <AdaptivePractice 
+                        questions={recommendations.questions} 
+                        message={recommendations.message} 
+                        onComplete={handleCompletePractice} 
+                    />
+                )
+            )}
+        </div>
 
     </div>
   );

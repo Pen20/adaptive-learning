@@ -57,22 +57,23 @@ export const evaluateEvaluator = action({
       1. Determine if the Assistant's grade is accurate based on the Problem and the Student's work.
       2. Assess if the Assistant's feedback is helpful, encouraging, and pedagogically sound.
       3. **Reasoning Check**: If the student provides reasoning steps, they must be logically sound. If the reasoning is incorrect or inconsistent with the final answer (e.g., "lucky guess" or "copied answer"), the grade MUST be 0 (Incorrect), even if the final result matches the solution.
-      4. If the Assistant made a mistake (like marking a lucky guess as correct) or the feedback could be significantly improved, provide a "Refined Feedback" and a corrected grade.
-      5. Categorize the error type specifically for the topic "${args.topicName}". Use categories like "Inconsistent Reasoning", "Calculation Error", etc.
-      6. Provide a confidence score (0.0 to 1.0) for your judgment.
+      4. **STRICT DELIMITER CHECK**: You MUST ensure ALL math in the feedback is wrapped in delimiters ($...$ or $$...$$). If the assistant provided raw LaTeX (e.g., \boldsymbol{u} or \frac{a}{b} without $), you MUST refine the feedback to wrap it correctly.
+      5. If the Assistant made a mistake (like marking a lucky guess as correct) or the feedback could be significantly improved, provide a "Refined Feedback" and a corrected grade.
+      6. Categorize the error type specifically for the topic "${args.topicName}". Use categories like "Inconsistent Reasoning", "Calculation Error", etc.
+      7. Provide a confidence score (0.0 to 1.0) for your judgment.
 
       Return ONLY a valid JSON object with the following structure:
       {
         "isAssistantCorrect": boolean,
         "suggestedGrade": number (0 or 1),
-        "refinedFeedback": string (Explain clearly why the reasoning was wrong even if the answer was right. Use LaTeX $...$ for inline and $$...$$ for blocks),
+        "refinedFeedback": string (STRICTLY wrap ALL math in $...$ or $$...$$. Double-escape all backslashes in the LaTeX strings, e.g., "\\\\text", "\\\\frac"),
         "errorType": string (descriptive topic-specific category if grade is 0, otherwise empty string),
         "isModified": boolean,
         "judgeConfidence": number (0.0 - 1.0),
         "reasoning": "Briefly explains your decision as a judge"
       }
 
-      IMPORTANT: Double-escape all backslashes in the LaTeX strings (e.g., "\\\\text", "\\\\frac").
+      IMPORTANT: Double-escape all backslashes in the LaTeX strings.
     `;
 
     try {
