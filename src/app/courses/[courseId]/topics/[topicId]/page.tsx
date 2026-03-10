@@ -137,9 +137,9 @@ export default function ProblemPage() {
             grade: gradeResult.grade,
             aiFeedback: gradeResult.feedback,
             errorType: gradeResult.errorType,
-            judgeFeedback: gradeResult.judgeMetadata?.judgeFeedback,
-            isJudgeModified: gradeResult.judgeMetadata?.isJudgeModified,
-            judgeConfidence: gradeResult.judgeMetadata?.judgeConfidence,
+            judgeFeedback: (gradeResult as any).judgeMetadata?.judgeFeedback,
+            isJudgeModified: (gradeResult as any).judgeMetadata?.isJudgeModified,
+            judgeConfidence: (gradeResult as any).judgeMetadata?.judgeConfidence,
             usedHints: showHint,
           });
           setLastSubmissionId(subId);

@@ -68,10 +68,10 @@ export const gradeSubmission = action({
              
              try {
                 const parsed = JSON.parse(cleaned);
-                return { grade: parsed.grade, feedback: parsed.feedback };
+                return { grade: parsed.grade, feedback: parsed.feedback, errorType: "" };
              } catch (e) {
                  console.error("Gemini JSON Parse Error", text);
-                 return { grade: 0, feedback: "Error parsing Gemini response." };
+                 return { grade: 0, feedback: "Error parsing Gemini response.", errorType: "Parse Error" };
              }
         }
 
@@ -96,15 +96,15 @@ export const gradeSubmission = action({
              });
 
              const data = await completion.json();
-             if (data.error) return { grade: 0, feedback: `OpenAI Error: ${data.error.message}` };
+             if (data.error) return { grade: 0, feedback: `OpenAI Error: ${data.error.message}`, errorType: "API Error" };
              
              const content = data.choices[0].message.content;
              const parsed = JSON.parse(content);
-             return { grade: parsed.grade, feedback: parsed.feedback };
+             return { grade: parsed.grade, feedback: parsed.feedback, errorType: "" };
         }
     } catch (err: any) {
         console.error("Unexpected Grading Error:", err);
-        return { grade: 0, feedback: `Unexpected system error: ${err.message}` };
+        return { grade: 0, feedback: `Unexpected system error: ${err.message}`, errorType: "System Error" };
     }
   },
 });
@@ -305,7 +305,7 @@ export const gradeOptimized = action({
       };
     } catch (e: any) {
       console.error("Optimized Grading Error:", e);
-      return { grade: 0, feedback: "Error during fast-pass grading. Please try again." };
+      return { grade: 0, feedback: "Error during fast-pass grading. Please try again.", errorType: "Feedback Error", isOptimized: true };
     }
   },
 });
@@ -344,7 +344,7 @@ export const gradeWithJudge = action({
       return {
         grade: judgeResult.suggestedGrade,
         feedback: judgeResult.isModified ? judgeResult.refinedFeedback : initialResult.feedback,
-        errorType: judgeResult.errorType || initialResult.errorType,
+        errorType: judgeResult.errorType || initialResult.errorType || "",
         judgeMetadata: {
           judgeFeedback: judgeResult.refinedFeedback,
           isJudgeModified: judgeResult.isModified,
@@ -357,7 +357,8 @@ export const gradeWithJudge = action({
       return {
         grade: initialResult.grade,
         feedback: initialResult.feedback,
-        errorType: initialResult.errorType,
+        errorType: initialResult.errorType || "",
+        judgeMetadata: undefined
       };
     }
   },
