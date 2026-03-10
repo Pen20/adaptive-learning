@@ -27,18 +27,17 @@ export const getAllPermissions = query({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthorized");
+    if (!identity) return null;
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
       .first();
 
-    if (!user) throw new Error("User not found");
+    if (!user) return null;
 
     if (!user.roles?.includes("admin") && user.role !== "admin") {
-       // Ideally throw, but for now we might just return empty or handle gracefully in UI
-       // throw new Error("Admin access required"); 
+       return null;
     }
 
     return await ctx.db.query("topicPermissions").collect();

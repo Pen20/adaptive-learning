@@ -100,7 +100,7 @@ export const getAllExams = query({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthorized");
+    if (!identity) return null;
     
     // Check admin role
     const user = await ctx.db
@@ -108,8 +108,9 @@ export const getAllExams = query({
         .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
         .first();
 
-    if (!user) throw new Error("User not found");
-    if (!user.roles?.includes("admin") && user.role !== "admin") throw new Error("Admin access required");
+    if (!user || (!user.roles?.includes("admin") && user.role !== "admin")) {
+        return null;
+    }
 
     return await ctx.db.query("exams").order("desc").collect();
   },

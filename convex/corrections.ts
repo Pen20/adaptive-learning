@@ -56,6 +56,18 @@ export const rejectCorrection = mutation({
 
 export const getPendingCorrections = query({
   handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .first();
+
+    if (!user || (!user.roles?.includes("admin") && user.role !== "admin")) {
+      return [];
+    }
+
     return await ctx.db
       .query("humanCorrections")
       .withIndex("by_status", (q) => q.eq("status", "pending"))
@@ -67,6 +79,18 @@ export const getPendingCorrections = query({
 export const getRecentApprovedCorrections = query({
   args: { limit: v.number() },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .first();
+
+    if (!user || (!user.roles?.includes("admin") && user.role !== "admin")) {
+      return [];
+    }
+
     return await ctx.db
       .query("humanCorrections")
       .withIndex("by_status", (q) => q.eq("status", "approved"))

@@ -177,7 +177,8 @@ export default function AdminDashboard() {
   );
 
   const getPermissionValue = (courseName: string, topicName: string, field: "allowHints" | "allowSolution" | "allowDetailedSolution" | "allowPractice" | "allowRLHF") => {
-    const perm = permissions?.find(p => p.courseName === courseName && p.topicName === topicName);
+    if (!permissions) return true; // Default to true if not loaded
+    const perm = permissions.find(p => p.courseName === courseName && p.topicName === topicName);
     return perm ? (perm as any)[field] : true; // Default to true if not set
   };
 
@@ -234,7 +235,7 @@ export default function AdminDashboard() {
 
 
         <AdminTabContent value="linear_algebra" title="Linear Algebra Management" description="Control feature access and visibility for linear algebra modules.">
-            {linearTopics === undefined ? <div className="p-12 text-center text-slate-500"><Loader2 className="animate-spin h-8 w-8 mx-auto mb-2" /> Loading Topics...</div> : 
+            {linearTopics === undefined || permissions === undefined ? <div className="p-12 text-center text-slate-500"><Loader2 className="animate-spin h-8 w-8 mx-auto mb-2" /> Loading Topics...</div> : 
              linearTopics.length === 0 ? <div className="p-12 text-center text-slate-500 font-medium">No topics discovered in database.</div> :
              linearTopics.map(topic => 
                 renderTopicRow(topic.topicId, "Linear Algebra", topic.title)
@@ -242,7 +243,7 @@ export default function AdminDashboard() {
         </AdminTabContent>
 
         <AdminTabContent value="differential_calculus" title="Calculus Management" description="Manage visibility settings and pedagogical tools for calculus topics.">
-             {calculusTopics === undefined ? <div className="p-12 text-center text-slate-500"><Loader2 className="animate-spin h-8 w-8 mx-auto mb-2" /> Loading Topics...</div> : 
+             {calculusTopics === undefined || permissions === undefined ? <div className="p-12 text-center text-slate-500"><Loader2 className="animate-spin h-8 w-8 mx-auto mb-2" /> Loading Topics...</div> : 
               calculusTopics.length === 0 ? <div className="p-12 text-center text-slate-500 font-medium">No calculus topics found.</div> :
               calculusTopics.map(topic => 
                 renderTopicRow(topic.topicId, "Differential Calculus", topic.title)
@@ -425,7 +426,7 @@ function ExamManager({ style }: { style: any }) {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {exams === undefined ? <div className="col-span-full py-12 text-center text-slate-600">Querying central database...</div> :
-                 exams.length === 0 ? <div className="col-span-full py-12 text-center text-slate-600 font-bold uppercase tracking-widest">No active sessions located.</div> :
+                 (!exams || exams.length === 0) ? <div className="col-span-full py-12 text-center text-slate-600 font-bold uppercase tracking-widest">No active sessions located.</div> :
                  exams.map(exam => (
                     <div key={exam._id} className={`${style.card} border rounded-2xl overflow-hidden shadow-xl group hover:border-${style.highlight}-500/40 transition-all`}>
                         <div className="p-6">

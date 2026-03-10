@@ -187,6 +187,18 @@ export const updateLastActive = mutation({
 export const getStudentAnalytics = query({
   args: {},
   handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .first();
+
+    if (!user || (!user.roles?.includes("admin") && user.role !== "admin")) {
+      return [];
+    }
+
     const students = await ctx.db
       .query("users")
       .collect();
