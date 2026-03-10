@@ -170,3 +170,158 @@ export const syncUser = mutation({
     return newUserId;
   },
 });
+
+export const updateLastActive = mutation({
+  args: { userId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .first();
+    if (user) {
+      await ctx.db.patch(user._id, { lastActive: Date.now() });
+    }
+  },
+});
+
+export const getStudentAnalytics = query({
+  args: {},
+  handler: async (ctx) => {
+    const students = await ctx.db
+      .query("users")
+      .collect();
+
+    const analytics = await Promise.all(
+      students.map(async (student) => {
+        // Topics attempted
+        const mastery = await ctx.db
+          .query("studentMastery")
+          .withIndex("by_user_mastery", (q) => q.eq("userId", student.userId))
+          .collect();
+
+        // Submissions for success rate
+        const submissions = await ctx.db
+          .query("submissions")
+          .withIndex("by_user_topic", (q) => q.eq("userId", student.userId))
+          .collect();
+
+        // Exam status
+        const examSubmissions = await ctx.db
+          .query("examSubmissions")
+          .filter((q) => q.eq(q.field("userId"), student.userId))
+          .collect();
+
+        const correctSubmissions = submissions.filter(s => s.grade === 1).length;
+        const totalSubmissions = submissions.length;
+        const successRate = totalSubmissions > 0 
+          ? Math.round((correctSubmissions / totalSubmissions) * 100) 
+          : 0;
+
+        const averageMastery = mastery.length > 0 
+          ? Math.round(mastery.reduce((acc, m) => acc + m.masteryScore, 0) / mastery.length) 
+          : 0;
+
+        return {
+          userId: student.userId,
+          name: `${student.firstName} ${student.surname}`,
+          email: student.email,
+          lastActive: student.lastActive,
+          topicsAttempted: mastery.length,
+          averageMastery,
+          successRate,
+          examsTaken: examSubmissions.length,
+          isOnline: student.lastActive ? (Date.now() - student.lastActive < 5 * 60 * 1000) : false,
+          recentTopic: mastery.length > 0 ? mastery.sort((a, b) => b.lastAttempt - a.lastAttempt)[0].topicName : "N/A"
+        };
+      })
+    );
+
+    return analytics;
+  },
+});
+ 
+export const updateThemePreference = mutation({
+  args: { userId: v.string(), theme: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .first();
+    if (user) {
+      await ctx.db.patch(user._id, { themePreference: args.theme });
+    }
+  },
+});
+
+export const getUserStats = query({
+  args: { userId: v.string() },
+  handler: async (ctx, args) => {
+    const submissions = await ctx.db
+      .query("submissions")
+      .withIndex("by_user_topic", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    const correctSubmissions = submissions.filter((s) => s.grade === 1).length;
+    const totalSubmissions = submissions.length;
+    const successRate = totalSubmissions > 0 
+      ? Math.round((correctSubmissions / totalSubmissions) * 100) 
+      : 0;
+
+    // Calculate Level (1 level per 5 correct answers, starting at level 1)
+    const level = Math.floor(correctSubmissions / 5) + 1;
+
+    // Modules Mastered
+    const mastery = await ctx.db
+      .query("studentMastery")
+      .withIndex("by_user_mastery", (q) => q.eq("userId", args.userId))
+      .collect();
+    const modulesMastered = mastery.filter(m => m.masteryScore >= 80).length;
+
+    // Total Topics count
+    const totalTopics = (await ctx.db.query("topics").collect()).length;
+
+    // Calculate Streak
+    // Get unique days from submission timestamps (UTC)
+    const dates = submissions
+      .map(s => new Date(s._creationTime).toDateString());
+    const uniqueDates = Array.from(new Set(dates)).map(d => new Date(d));
+    uniqueDates.sort((a, b) => b.getTime() - a.getTime()); // reverse chronological
+
+    let streak = 0;
+    if (uniqueDates.length > 0) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      let checkDate = new Date(uniqueDates[0]);
+      checkDate.setHours(0, 0, 0, 0);
+
+      // Can be today or yesterday to continue/start a streak
+      const diffDays = Math.floor((today.getTime() - checkDate.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (diffDays <= 1) {
+        streak = 1;
+        for (let i = 0; i < uniqueDates.length - 1; i++) {
+          const current = new Date(uniqueDates[i]);
+          const next = new Date(uniqueDates[i+1]);
+          current.setHours(0,0,0,0);
+          next.setHours(0,0,0,0);
+          
+          if ((current.getTime() - next.getTime()) === (1000 * 60 * 60 * 24)) {
+            streak++;
+          } else {
+            break;
+          }
+        }
+      }
+    }
+
+    return {
+      totalSubmissions,
+      successRate,
+      level,
+      streak,
+      modulesMastered,
+      totalTopics
+    };
+  },
+});

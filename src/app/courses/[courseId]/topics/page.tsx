@@ -17,6 +17,19 @@ export default function TopicsPage() {
     return <div className="p-10 text-center">Loading topics...</div>;
   }
 
+  // Group topics by chapter
+  const groupedTopics: Record<string, typeof topics> = {};
+  const chapterOrder: string[] = [];
+
+  topics.forEach((topic: any) => {
+    const chapter = topic.chapter || "Other";
+    if (!groupedTopics[chapter]) {
+      groupedTopics[chapter] = [];
+      chapterOrder.push(chapter);
+    }
+    groupedTopics[chapter].push(topic);
+  });
+
   return (
     <div className="container mx-auto px-4 py-10">
       <div className="mb-8">
@@ -31,24 +44,33 @@ export default function TopicsPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {topics.map((topic) => (
-          <Card key={topic.id} className="hover:shadow-md transition-shadow">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Book className="h-4 w-4 text-blue-500" />
-                {topic.title}
-              </CardTitle>
-              <CardDescription>{topic.description}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Link href={`/courses/${courseId}/topics/${topic.id}`}>
-                <Button className="w-full gap-2">
-                  Start Practice <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
+      <div className="space-y-12">
+        {chapterOrder.map((chapter) => (
+          <div key={chapter} className="space-y-6">
+            <h2 className="text-xl font-semibold tracking-tight text-indigo-900 border-l-4 border-indigo-600 pl-4 py-1.5 bg-indigo-50/50 rounded-r-lg">
+              {chapter}
+            </h2>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {groupedTopics[chapter].map((topic) => (
+                <Card key={topic.id} className="hover:shadow-md transition-shadow">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Book className="h-4 w-4 text-blue-500" />
+                      {topic.title}
+                    </CardTitle>
+                    <CardDescription>{topic.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Link href={`/courses/${courseId}/topics/${topic.id}`}>
+                      <Button className="w-full gap-2">
+                        Start Practice <ArrowRight className="h-4 w-4" />
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
     </div>

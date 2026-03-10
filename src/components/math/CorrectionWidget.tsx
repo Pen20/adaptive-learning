@@ -112,16 +112,16 @@ export function CorrectionWidget({
 
         <div className="flex justify-between items-center">
           <Badge variant="outline" className="text-[10px] uppercase font-bold tracking-tight text-amber-700 border-amber-200">
-            {isAdmin ? "Admin Correction" : "Student Report"}
+            {isAdmin ? "EXPERT EVALUATION" : "QUALITY REPORT"}
           </Badge>
           <Button 
             size="sm" 
             variant="ghost" 
-            className="h-8 gap-2 text-amber-900 hover:bg-amber-100 border border-amber-200"
+            className="h-8 gap-2 text-amber-900 font-bold hover:bg-amber-100 border border-amber-200"
             onClick={handleSubmit}
             disabled={loading}
           >
-            {loading ? "Submitting..." : isAdmin ? "Apply Expert Review" : "Report Error"}
+            {loading ? "Submitting..." : isAdmin ? "Apply Expert Review" : "Submit for Review"}
             <Send className="h-3 w-3" />
           </Button>
         </div>

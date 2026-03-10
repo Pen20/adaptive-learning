@@ -7,7 +7,7 @@ import Image from "next/image";
 import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, GraduationCap } from "lucide-react";
+import { BookOpen, GraduationCap, Info } from "lucide-react";
 import FeedbackForm from "@/components/FeedbackForm";
 
 export default async function Home() {
@@ -34,6 +34,17 @@ export default async function Home() {
             <span className="text-slate-900 font-medium"> Linear Algebra</span> and 
             <span className="text-slate-900 font-medium"> Differential Calculus</span> through AI-powered feedback.
           </p>
+          <div className="flex justify-center mt-8">
+            <Link href="/help">
+              <Button variant="outline" className="gap-2 border-slate-300 text-slate-700 hover:bg-slate-100 px-6 py-6 h-auto">
+                <Info className="h-5 w-5 text-blue-600" />
+                <div className="text-left">
+                  <div className="font-bold text-sm">System Guide & Rules</div>
+                  <div className="text-xs text-muted-foreground">Read before you start</div>
+                </div>
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {/* Course Grid */}
@@ -66,7 +77,7 @@ export default async function Home() {
               <CardFooter className='border-t bg-slate-50/50 p-6 flex justify-between items-center'>
                 <div className="flex items-center text-sm font-medium text-slate-600">
                   <BookOpen className="mr-2 h-4 w-4" />
-                  {course.title === "Linear Algebra" ? "7 Topics" : "4 Topics"}
+                  {course.topicCount} Topics
                 </div>
 
                 {/* Logged In Flow */}

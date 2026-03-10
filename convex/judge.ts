@@ -56,15 +56,16 @@ export const evaluateEvaluator = action({
       Your Goal:
       1. Determine if the Assistant's grade is accurate based on the Problem and the Student's work.
       2. Assess if the Assistant's feedback is helpful, encouraging, and pedagogically sound.
-      3. If the Assistant made a mistake or the feedback could be significantly improved, provide a "Refined Feedback" and a corrected grade.
-      4. Categorize the error type specifically for the topic "${args.topicName}" (e.g., if topic is "Derivatives", use categories like "Chain Rule Error", "Power Rule Misapplication", etc.).
-      5. Provide a confidence score (0.0 to 1.0) for your judgment.
+      3. **Reasoning Check**: If the student provides reasoning steps, they must be logically sound. If the reasoning is incorrect or inconsistent with the final answer (e.g., "lucky guess" or "copied answer"), the grade MUST be 0 (Incorrect), even if the final result matches the solution.
+      4. If the Assistant made a mistake (like marking a lucky guess as correct) or the feedback could be significantly improved, provide a "Refined Feedback" and a corrected grade.
+      5. Categorize the error type specifically for the topic "${args.topicName}". Use categories like "Inconsistent Reasoning", "Calculation Error", etc.
+      6. Provide a confidence score (0.0 to 1.0) for your judgment.
 
       Return ONLY a valid JSON object with the following structure:
       {
         "isAssistantCorrect": boolean,
         "suggestedGrade": number (0 or 1),
-        "refinedFeedback": string (Use LaTeX $...$ for inline and $$...$$ for blocks),
+        "refinedFeedback": string (Explain clearly why the reasoning was wrong even if the answer was right. Use LaTeX $...$ for inline and $$...$$ for blocks),
         "errorType": string (descriptive topic-specific category if grade is 0, otherwise empty string),
         "isModified": boolean,
         "judgeConfidence": number (0.0 - 1.0),

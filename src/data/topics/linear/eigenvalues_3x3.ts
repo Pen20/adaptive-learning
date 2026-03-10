@@ -1,0 +1,95 @@
+export const eigenvalues3x3Logic = {
+  generate: () => {
+    // Generate roots: r1 (integer), r2,3 = p +/- sqrt(q)
+    // Characteristic poly: (L - r1)(L^2 - 2pL + p^2 - q) = L^3 - (r1+2p)L^2 + (2pr1 + p^2-q)L - r1(p^2-q) = 0
+    
+    // Randomize roots to keep numbers manageable
+    const r1 = Math.floor(Math.random() * 6) + 1; // 1 to 6
+    const p = Math.floor(Math.random() * 4) + 1;  // 1 to 4
+    const qList = [2, 3, 5, 6, 4]; // Some non-squares + one square for variety
+    const q = qList[Math.floor(Math.random() * qList.length)];
+    
+    const c2 = -(r1 + 2 * p);
+    const c1 = (2 * p * r1) + (p * p - q);
+    const c0 = -r1 * (p * p - q);
+    
+    // Matrix A in companion form:
+    // [ 0  1  0 ]
+    // [ 0  0  1 ]
+    // [ -c0 -c1 -c2 ]
+    const a31 = -c0;
+    const a32 = -c1;
+    const a33 = -c2;
+
+    const matrixStr = `A = \\begin{bmatrix} 0 & 1 & 0 \\\\ 0 & 0 & 1 \\\\ ${a31} & ${a32} & ${a33} \\end{bmatrix}`;
+
+    const statement = `Find the eigenvalues of the following $3 \\times 3$ matrix:
+$$ ${matrixStr} $$`;
+
+    const charPolyStr = `\\det(\\lambda I - A) = \\lambda^3 ${c2 >= 0 ? "+" : ""}${c2}\\lambda^2 ${c1 >= 0 ? "+" : ""}${c1}\\lambda ${c0 >= 0 ? "+" : ""}${c0} = 0`;
+
+    // Solution formatting
+    const isSquare = Math.sqrt(q) % 1 === 0;
+    let solution;
+    if (isSquare) {
+      const r2 = p + Math.sqrt(q);
+      const r3 = p - Math.sqrt(q);
+      const roots = Array.from(new Set([r1, r2, r3])).sort((a, b) => a - b);
+      solution = `$${roots.join(", ")}$`;
+    } else {
+      solution = `$${r1}, ${p} \\pm \\sqrt{${q}}$`;
+    }
+
+    const explanation = `To find the eigenvalues, we solve the characteristic equation $\\det(\\lambda I - A) = 0$:
+
+1. Find the Characteristic Polynomial:
+   The determinant of $\\lambda I - A$ for this companion matrix is:
+   $$ ${charPolyStr} $$
+
+2. Find an Integer Root:
+   Using the Rational Root Theorem, we check divisors of the constant term $c_0 = ${c0}$.
+   By substitution, we find that $\\lambda = ${r1}$ is a root:
+   $$ (${r1})^3 ${c2}(${r1})^2 + ${c1}(${r1}) + ${c0} = 0 $$
+   Thus, $(\\lambda - ${r1})$ is a factor.
+
+3. Polynomial Division:
+   Divide the cubic polynomial by $(\\lambda - ${r1})$ to find the quadratic factor:
+   $$ (\\lambda - ${r1})(\\lambda^2 - ${2*p}\\lambda + ${p*p - q}) = 0 $$
+
+4. Solve the Quadratic Factor:
+   Set the quadratic factor to zero: $\\lambda^2 - ${2*p}\\lambda + ${p*p - q} = 0$.
+   Using the quadratic formula:
+   $$ \\lambda = \\frac{-(-${2*p}) \\pm \\sqrt{(-${2*p})^2 - 4(1)(${p*p - q})}}{2(1)} = \\frac{${2*p} \\pm \\sqrt{${4*q}}}{2} = ${p} \\pm \\sqrt{${q}} $$
+
+5. Final Eigenvalues:
+   The eigenvalues are $ ${solution.replace(/\$/g, "")} $.`;
+
+    return {
+      title: "Eigenvalues of a 3x3 Matrix",
+      statement,
+      prompt: "Final Answer: List the eigenvalues separated by commas (e.g., 4, 2 + sqrt(3), 2 - sqrt(3)).",
+      solution,
+      explanation,
+      hint: "For a companion matrix, the characteristic polynomial coefficients are simply the negated entries of the last row. Try to find one integer root first.",
+      guide: eigenvalues3x3Guide
+    };
+  }
+};
+
+const eigenvalues3x3Guide = {
+  title: "Eigenvalues of 3x3 Matrices",
+  content: `
+Finding eigenvalues of a $3 \\times 3$ matrix involves solving a cubic characteristic equation:
+$$ \\det(\\lambda I - A) = 0 $$
+
+General Steps:
+1. Set up the determinant: Subtract $\\lambda$ from the diagonal and calculate the determinant.
+2. Rational Root Theorem: If the coefficients are integers, any integer root must divide the constant term. Test these divisors to find one root, $\\lambda_1$.
+3. Factoring: Use synthetic or long division to divide the cubic by $(\\lambda - \\lambda_1)$.
+4. Quadratic Formula: Solve the resulting quadratic equation to find the remaining two eigenvalues ($\\lambda_2, \\lambda_3$).
+
+Special Cases:
+- Triangular Matrices: The eigenvalues are simply the diagonal entries.
+- Companion Matrices: These have a specific form where the last row contains the coefficients of the characteristic polynomial.
+`
+};

@@ -17,9 +17,12 @@ export const gradeSubmission = action({
         const prompt = `
     You are a strict but helpful math tutor. Grade the following student submission for correctness and logic.
     Address the student directly in the second person (e.g., "Your answer is...").
+    
     Problem: ${args.problemStatement}
     Student's Final Answer: ${args.studentAnswer}
     Student's Reasoning: ${args.reasoning}
+
+    IMPORTANT: If "Student's Final Answer" is empty or missing, you MUST identify their intended final answer from their "Reasoning" steps. If no final answer can be found in the reasoning, the grade should be 0.
 
     Return ONLY a valid JSON object with no markdown formatting. The JSON must have:
     - "grade": 1 for correct, 0 for incorrect.
@@ -134,7 +137,7 @@ export const checkPracticeAnswer = action({
                 "Authorization": `Bearer ${OPENAI_API_KEY}`
             },
             body: JSON.stringify({
-                model: "gpt-4o",
+                model: "gpt-4o-mini",
                 messages: [
                     { role: "system", content: "You are a helpful math tutor. Verify the student's answer. Return strictly valid JSON. IMPORTANT: You must DOUBLE-ESCAPE all LaTeX backslashes in the JSON string (e.g., use '\\\\text', '\\\\frac', '\\\\infty'). STRICTLY wrap all math in $...$ (inline) or $$...$$ (block)." },
                     { role: "user", content: prompt }
@@ -173,7 +176,24 @@ export const transcribeReasoning = action({
           messages: [
             {
               role: "system",
-              content: "You are a math transcription assistant. Transcribe the handwritten or printed math solution in the image into LaTeX-formatted text. Use $...$ for inline math and $$...$$ for block math. Do not include any conversational text, just the transcription. If steps are numbered, maintain the numbering. Output should be ready to be pasted into a reasoning box."
+              content: `You are a high-precision Math Transcription Expert specializing in handwritten pedagogical solutions.
+              
+              YOUR TASK:
+              Transcribe the provided image into clean, professionally formatted LaTeX.
+              
+              HANDWRITING RULES:
+              1. **Ambiguity Resolution**: Carefully distinguish between 'x' (variable) and '×' (multiplication), '0' (zero) and 'o' (letter), 'l' (ell) and '1' (one).
+              2. **Structural Fidelity**: If a solution is written in multi-line steps with alignment (e.g., sequels of equations), use the LaTeX 'aligned' environment or multiple $$...$$ blocks to maintain that vertical flow.
+              3. **Matrix/Vector Support**: For handwritten matrices or vectors, use the 'bmatrix' or 'pmatrix' environments.
+              4. **Latex Delimiters**: 
+                 - Use $...$ for inline variables or short terms.
+                 - Use $$...$$ for significant formulas, multi-line derivations, or centered results.
+              
+              OUTPUT CONSTRAINTS:
+              - Return ONLY the LaTeX transcription. 
+              - Do NOT include any conversational text (e.g. "Here is the transcription...").
+              - Do NOT use markdown code blocks; just the raw text with LaTeX delimiters.
+              - Ensure the output is immediately readable by a MathJax/KaTeX renderer.`
             },
             {
               role: "user",
@@ -199,6 +219,93 @@ export const transcribeReasoning = action({
     } catch (err: any) {
       console.error("Transcription Error:", err);
       throw new Error("Failed to transcribe image. Please try again.");
+    }
+  },
+});
+
+export const gradeOptimized = action({
+  args: {
+    problemStatement: v.string(),
+    studentAnswer: v.string(),
+    reasoning: v.string(),
+    model: v.string(),
+    topicName: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+    if (!OPENAI_API_KEY) return { grade: 0, feedback: "Error: Missing API Key" };
+
+    // 1. Get few-shot examples (expert corrections) for this topic
+    const expertCorrections = await ctx.runQuery(api.corrections.getApprovedCorrectionsForTopic, {
+      topicName: args.topicName,
+      limit: 2
+    });
+
+    let fewShotContext = "";
+    if (expertCorrections && expertCorrections.length > 0) {
+      fewShotContext = `
+      ### Reference Standards (Expert Professor Corrections):
+      ${expertCorrections.map((c: any, i: number) => `
+      Example ${i + 1}:
+      - AI Feedback was corrected to: "${c.correctedFeedback}"
+      - Corrected Grade: ${c.correctedGrade}
+      `).join("\n")}
+      `;
+    }
+
+    const unifiedPrompt = `
+    You are an expert Math Professor. Grade the student's submission for the topic: "${args.topicName}".
+    
+    ${fewShotContext}
+
+    Problem: ${args.problemStatement}
+    Student's Final Answer: ${args.studentAnswer}
+    Student's Reasoning: ${args.reasoning}
+
+    STRICT RULES:
+    1. **Final Answer Detection**: If "Student's Final Answer" is empty, you MUST find the answer within the "Reasoning" steps.
+    2. **Reasoning Consistency**: If the reasoning is incorrect, inconsistent with the final answer, or appears to be a "lucky guess", the grade MUST be 0.
+    3. **Final Answer in Steps**: The student must include a clear final answer within their reasoning steps.
+    3. **Tone**: Be professional, encouraging, and direct (use "You" / second person).
+    4. **Formatting**: Use LaTeX $...$ for inline math and $$...$$ for block math. Double-escape backslashes (e.g., "\\\\frac").
+
+    Return ONLY a valid JSON object:
+    {
+      "grade": number (0 or 1),
+      "feedback": "Concise pedagogical explanation",
+      "errorType": "2-4 word category if grade 0, else empty"
+    }
+    `;
+
+    try {
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${OPENAI_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini", // High speed model
+          messages: [
+            { role: "system", content: "You are a speed-optimized but strict Math Professor. Return strictly valid JSON." },
+            { role: "user", content: unifiedPrompt }
+          ],
+          response_format: { type: "json_object" }
+        })
+      });
+
+      const data = await response.json();
+      const content = JSON.parse(data.choices[0].message.content);
+      
+      return {
+        grade: content.grade,
+        feedback: content.feedback,
+        errorType: content.errorType || "",
+        isOptimized: true
+      };
+    } catch (e: any) {
+      console.error("Optimized Grading Error:", e);
+      return { grade: 0, feedback: "Error during fast-pass grading. Please try again." };
     }
   },
 });

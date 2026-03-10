@@ -92,6 +92,8 @@ export const NotationHelp = ({ onInsert }: NotationHelpProps) => {
                                 math="\begin{pmatrix} a & b \\ c & d \end{pmatrix}" 
                             />
                             <NotationItem title="Vector" code="\vec{v}" math="\vec{v}" />
+                            <NotationItem title="Inner Product (Left)" code="\langle" math="\langle u, v \rangle" />
+                            <NotationItem title="Inner Product (Right)" code="\rangle" math="\langle u, v \rangle" />
                         </div>
                     </div>
 

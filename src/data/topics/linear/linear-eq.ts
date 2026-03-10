@@ -9,7 +9,7 @@ export const linearEquationLogic = {
       title: "Linear Equations",
       statement: `Solve for $x$: $$ ${a}x + ${b} = ${result} $$`,
       prompt: "x =",
-      solution: `${x}`,
+      solution: `$${x}$`,
       explanation: `We start with the equation:
 $$ ${a}x + ${b} = ${result} $$
 Subtract ${b} from both sides:
@@ -22,8 +22,8 @@ $$ x = ${x} $$`,
       guide: {
         title: "Solving Linear Equations",
         content: `
-- **Isolate x**: Perform inverse operations to get x by itself.
-- **Order**: Subtract/Add constants first, then Multiply/Divide coefficients.
+- Isolate x: Perform inverse operations to get x by itself.
+- Order: Subtract/Add constants first, then Multiply/Divide coefficients.
         `
       }
     };

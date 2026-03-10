@@ -11,10 +11,10 @@ export const quadraticLogic = {
     const bAbs = Math.abs(b);
     const cAbs = Math.abs(c);
 
-    const bSign = b >= 0 ? "+" : "-"; // Re-added definition
-    const cSign = c >= 0 ? "+" : "-"; // Re-added definition
+    const bSign = b >= 0 ? "+" : "-"; 
+    const cSign = c >= 0 ? "+" : "-"; 
 
-    // Format b term: handle 1x or 0x case if needed (though b=0 is rare with this generation logic but possible)
+    // Format b term: handle 1x or 0x case if needed
     let bTerm = "";
     if (bAbs === 0) bTerm = ""; // No x term
     else if (bAbs === 1) bTerm = `${bSign} x`;
@@ -26,10 +26,10 @@ export const quadraticLogic = {
       title: "Quadratic Equations",
       statement: `Solve for $x$: \n $$x^2 ${bTerm} ${cTerm} = 0$$`,
       prompt: "Find the values of x:",
-      solution: `x = ${r1}, x = ${r2}`,
+      solution: `$x = ${r1}, x = ${r2}$`,
       explanation: `We are given:
 $$ x^2 ${bTerm} ${cTerm} = 0 $$
-We look for two numbers that multiply to $c = ${c}$ and add to $b = ${b}$.
+We look for two numbers that multiply to $c = ${c}$ and add up to $b = ${b}$.
 The numbers are $${-r1}$ and $${-r2}$.
 $$ (x - (${r1}))(x - (${r2})) = 0 $$
 So the solutions are:
@@ -38,8 +38,8 @@ $$ x = ${r1} \\text{ or } x = ${r2} $$`,
       guide: {
         title: "Quadratic Guide",
         content: `
-- **Factoring**: Find two numbers that multiply to $c$ and add to $b$.
-- **Quadratic Formula**: $x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$
+- Factoring: Find two numbers that multiply to $c$ and add up to $b$.
+- Quadratic Formula: $x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$
         `
       }
     };

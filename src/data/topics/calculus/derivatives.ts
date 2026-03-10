@@ -8,7 +8,7 @@ export const derivativesLogic = {
         title: "Trigonometric Derivative",
         statement: `Find the derivative of the function $$ f(x) = ${a} \\cos(${b}x) $$`,
         prompt: "Find f'(x):",
-        solution: `-${a * b} \\sin(${b}x)`,
+        solution: `$ -${a * b} \\sin(${b}x) $`,
         explanation: `We apply the Chain Rule.
 Let $u = ${b}x$, so $f(x) = ${a} \\cos(u)$.
 The derivative of $\\cos(u)$ is $-\\sin(u) \\cdot u'$.
@@ -22,7 +22,7 @@ $$ f'(x) = -${a * b} \\sin(${b}x) $$`,
         title: "Logarithmic Derivative",
         statement: `Find the derivative of the function $$g(x) = \\ln(${a}x^2 + ${b}) $$`,
         prompt: "Find g'(x):",
-        solution: `\\frac{${2 * a}x}{${a}x^2 + ${b}}`,
+        solution: `$ \\frac{${2 * a}x}{${a}x^2 + ${b}} $`,
         explanation: `We use the chain rule for natural logarithms: $\\frac{d}{dx} \\ln(u) = \\frac{1}{u} \\cdot u'$.
 Let $u = ${a}x^2 + ${b}$.
 Then $u' = \\frac{d}{dx}(${a}x^2 + ${b}) = ${2 * a}x$.

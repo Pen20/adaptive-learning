@@ -5,9 +5,9 @@ export const domainRangeLogic = {
 
     return {
       statement: `Determine the domain and range of the function $$ f(x) = ${a} + |x^2 - ${b}| $$`,
-      domainSolution: `(-\\infty, \\infty)`,
-      rangeSolution: `[${a}, \\infty)`,
-      solution: `Domain: (-\\infty, \\infty), Range: [${a}, \\infty)`,
+      domainSolution: `$(-\\infty, \\infty)$`,
+      rangeSolution: `$[${a}, \\infty)$`,
+      solution: `Domain: $(-\\infty, \\infty)$, Range: $[${a}, \\infty)$`,
       explanation: `Domain:
 The function involves a polynomial inside an absolute value. Polynomials are defined for all real numbers, and the absolute value function is also defined for all real numbers.
 Thus, the domain is $(-\\infty, \\infty)$.

@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import Link from "next/link";
 import AdaptivePractice from "@/components/AdaptivePractice";
-import { Loader2, Lightbulb, CheckCircle, XCircle, Sparkles, BookOpenIcon, ArrowLeft, Camera, Upload } from "lucide-react";
+import { Loader2, Lightbulb, CheckCircle, XCircle, Sparkles, BookOpenIcon, ArrowLeft, Camera, Upload, AlertTriangle } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import { useParams } from "next/navigation";
 import { useRole } from "@/hooks/useRole";
@@ -55,7 +55,7 @@ export default function ProblemPage() {
 
 
   // Actions/Mutations
-  const gradeWithJudge = useAction(api.grading.gradeWithJudge);
+  const gradeWithJudge = useAction(api.grading.gradeOptimized);
   const saveSubmission = useMutation(api.submissions.saveSubmission);
   const generatePractice = useAction(api.recommendations.generatePractice);
   const updateMastery = useMutation(api.users.updateMastery);
@@ -263,13 +263,13 @@ export default function ProblemPage() {
                 
                 <NotationHelp onInsert={(code) => setReasoning(prev => prev ? `${prev} ${code}` : code)} />
 
-                {allowSolution && (
+                {(allowSolution && (isAdmin || result !== null)) && (
                     <Button variant="outline" onClick={() => setShowSolution(!showSolution)}>
                         {showSolution ? "Hide Solution" : "Show Solution"}
                     </Button>
                 )}
 
-                {allowDetailed && (
+                {(allowDetailed && (isAdmin || result !== null)) && (
                     <Button variant="outline" className="text-blue-600 border-blue-200 hover:bg-blue-50 dark:border-blue-800 dark:hover:bg-blue-900/20" onClick={() => setShowExplanation(!showExplanation)}>
                         {showExplanation ? "Hide Detailed Solution" : "Detailed Solution"}
                     </Button>
@@ -301,8 +301,8 @@ export default function ProblemPage() {
                     <CardHeader>
                         <CardTitle className="text-blue-700 dark:text-blue-300">Step-by-Step Explanation</CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-lg space-y-4">
+                    <CardContent className="overflow-hidden">
+                        <div className="text-lg space-y-4 max-w-full">
                             <MathRenderer content={problemData.explanation} />
                         </div>
                     </CardContent>

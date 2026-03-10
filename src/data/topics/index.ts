@@ -10,6 +10,13 @@ import { eigenvalueLogic } from "./linear/eigenvalues";
 import { determinantLogic } from "./linear/determinants";
 import { independenceLogic } from "./linear/independence";
 import { gramSchmidtLogic } from "./linear/gram_schmidt";
+import { innerProductLogic } from "./linear/inner_products";
+import { integralInnerProductLogic } from "./linear/integral_inner_products";
+import { integralAxiomsLogic } from "./linear/integral_axioms";
+import { polynomialInnerProductLogic } from "./linear/polynomial_inner_products";
+import { eigenvalues3x3Logic } from "./linear/eigenvalues_3x3";
+import { eigenspaces2x2Logic } from "./linear/eigenspaces_2x2";
+import { vectorSpaceAxiomsLogic } from "./linear/vector_space_axioms";
 
 // Map the dynamic topicId (from URL) to the specific math engine
 export const topicRegistry: Record<string, any> = {
@@ -28,6 +35,13 @@ export const topicRegistry: Record<string, any> = {
   "determinants": determinantLogic,
   "linear_independence": independenceLogic,
   "gram_schmidt": gramSchmidtLogic,
+  "inner_product_def": innerProductLogic,
+  "integral_inner_product": integralInnerProductLogic,
+  "integral_axioms": integralAxiomsLogic,
+  "polynomial_inner_product": polynomialInnerProductLogic,
+  "eigenvalues_3x3": eigenvalues3x3Logic,
+  "eigenspaces_2x2": eigenspaces2x2Logic,
+  "vector_space_axioms": vectorSpaceAxiomsLogic,
   
   // Aliases for Admin Panel compatibility
   "systems": systemsLogic,

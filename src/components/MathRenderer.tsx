@@ -25,14 +25,22 @@ export const MathRenderer: React.FC<MathRendererProps> = ({ content }) => {
   const parts = content.split(regex);
 
   return (
-    <span>
+    <span className="max-w-full overflow-x-auto inline-block align-middle">
       {parts.map((part, index) => {
         if (part.startsWith("$$") && part.endsWith("$$")) {
           // Display Math $$...$$
-          return <BlockMath key={index} math={part.slice(2, -2)} />;
+          return (
+            <div key={index} className="overflow-x-auto py-2 max-w-full">
+              <BlockMath math={part.slice(2, -2)} />
+            </div>
+          );
         } else if (part.startsWith("\\[") && part.endsWith("\\]")) {
           // Display Math \[...\]
-          return <BlockMath key={index} math={part.slice(2, -2)} />;
+          return (
+            <div key={index} className="overflow-x-auto py-2 max-w-full">
+              <BlockMath math={part.slice(2, -2)} />
+            </div>
+          );
         } else if (part.startsWith("\\(") && part.endsWith("\\)")) {
           // Inline Math \(...\)
           return <InlineMath key={index} math={part.slice(2, -2)} />;
@@ -42,9 +50,15 @@ export const MathRenderer: React.FC<MathRendererProps> = ({ content }) => {
            if (part.length <= 2) return <span key={index}>{part}</span>;
            return <InlineMath key={index} math={part.slice(1, -1)} />;
         } else {
-          // Plain Text
-          // Preserving newlines as line breaks could be nice
-          return <span key={index} className="whitespace-pre-wrap">{part}</span>;
+          // Plain Text - Process basic markdown bold and preserve newlines
+          const formatted = part.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+          return (
+            <span 
+              key={index} 
+              className="whitespace-pre-wrap" 
+              dangerouslySetInnerHTML={{ __html: formatted }} 
+            />
+          );
         }
       })}
     </span>

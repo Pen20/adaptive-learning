@@ -55,7 +55,7 @@ Find a third vector $\\mathbf{w}$ so that $\\{\\mathbf{u}, \\mathbf{v}, \\mathbf
   
 A reliable method is to calculate the cross product $\\mathbf{w} = \\mathbf{u} \\times \\mathbf{v}$, which produces a vector orthogonal (perpendicular) to both $\\mathbf{u}$ and $\\mathbf{v}$. Since it is orthogonal, it clearly does not lie in their plane.
   
-$\\textbf{Calculation:}$
+Calculation:
 $$
 \\mathbf{u} \\times \\mathbf{v} = \\begin{vmatrix} 
 \\mathbf{e}_1 & \\mathbf{e}_2 & \\mathbf{e}_3 \\\\
@@ -92,8 +92,8 @@ Thus, one possible solution is $\\mathbf{w} = ${n_latex}$. Any non-zero scalar m
         guide: {
           title: "Linear Independence Strategy",
           content: `
-- **Cross Product Method**: In $\\mathbb{R}^3$, the cross product $\\mathbf{u} \\times \\mathbf{v}$ yields a vector orthogonal to the span of $\\mathbf{u}$ and $\\mathbf{v}$, ensuring independence.
-- **Independence Check**: $\\det(\\mathbf{u}, \\mathbf{v}, \\mathbf{w}) \\neq 0$.
+- Cross Product Method: In $\\mathbb{R}^3$, the cross product $\\mathbf{u} \\times \\mathbf{v}$ yields a vector orthogonal to the span of $\\mathbf{u}$ and $\\mathbf{v}$, ensuring independence.
+- Independence Check: $\\det(\\mathbf{u}, \\mathbf{v}, \\mathbf{w}) \\neq 0$.
           `
         }
       };

@@ -21,7 +21,7 @@ export const limitsLogic = {
     const types = [
       {
         statement: `Compute the limit: $$ \\lim_{x \\to ${a}} \\frac{x^2 - ${a * a}}{${term}} $$`,
-        solution: `${2 * a}`,
+        solution: `$${2 * a}$`,
         explanation: `If we try direct substitution, we get $\\frac{${a}^2 - ${a * a}}{${a} - ${a}} = \\frac{0}{0}$, which is an indeterminate form.
 We can factor the numerator as a difference of squares:
 $$ x^2 - ${a * a} = (x - ${a})(x + ${a}) $$
@@ -35,7 +35,7 @@ $$ ${a} + ${a} = ${2 * a} $$`,
       },
       {
         statement: `$$ \\lim_{x \\to ${a}} \\frac{(${b}x + ${c})(${term})}{${term}} $$`,
-        solution: `${b * a + c}`,
+        solution: `$${b * a + c}$`,
         explanation: `Direct substitution gives $\\frac{0}{0}$.
 We can cancel the common factor $(${term})$ from the numerator and denominator:
 $$ \\lim_{x \\to ${a}} (${b}x + ${c}) $$

@@ -7,9 +7,10 @@ import { useParams, useRouter } from "next/navigation";
 import { topicRegistry } from "@/data/topics";
 import { MathRenderer } from "@/components/MathRenderer";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Loader2, CheckCircle, AlertTriangle, Camera, Clock } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, AlertTriangle, Camera, Clock, Sparkles } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 
 export default function ExamPage() {
@@ -26,6 +27,7 @@ export default function ExamPage() {
   });
   
   const transcribeReasoning = useAction(api.grading.transcribeReasoning);
+  const gradeWithJudge = useAction(api.grading.gradeOptimized);
 
   const createSubmission = useMutation(api.exams.createExamSubmission);
 
@@ -35,7 +37,6 @@ export default function ExamPage() {
   const [score, setScore] = useState<number | null>(null);
   const [scanningIds, setScanningIds] = useState<Record<number, boolean>>({});
 
-  const checkAnswer = useAction(api.grading.checkPracticeAnswer);
   const [isGrading, setIsGrading] = useState(false);
   const [gradingResults, setGradingResults] = useState<Record<number, boolean>>({});
 
@@ -172,40 +173,63 @@ export default function ExamPage() {
             </Card>
 
             <div className="space-y-8">
-                {questions.map((q, idx) => (
-                    <Card key={idx} className="border-2 border-transparent" data-correct={gradingResults[idx]}>
-                        <CardHeader>
-                            <CardTitle>Question {idx + 1}</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="text-lg bg-slate-50 p-4 rounded-md">
-                                <MathRenderer content={q.statement} />
-                            </div>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="p-4 rounded-md border bg-white">
-                                    <p className="text-xs font-bold text-muted-foreground uppercase mb-1">Your Answer</p>
-                                    <p className="font-mono">{answers[idx] || "(No Answer)"}</p>
+                {questions.map((q, idx) => {
+                    const res = gradingResults[idx] as any;
+                    const isCorrect = typeof res === 'object' ? res.grade === 1 : res === true;
+                    return (
+                        <Card key={idx} className={`border-2 ${isCorrect ? 'border-green-100' : 'border-red-100'}`}>
+                            <CardHeader className="flex flex-row justify-between items-center">
+                                <CardTitle>Question {idx + 1}</CardTitle>
+                                {isCorrect ? 
+                                    <CheckCircle className="text-green-500 h-5 w-5" /> : 
+                                    <div className="flex items-center gap-2">
+                                        {res?.errorType && <Badge variant="destructive" className="bg-red-100 text-red-700 hover:bg-red-100 border-red-200">{res.errorType}</Badge>}
+                                        <XCircle className="text-red-500 h-5 w-5" />
+                                    </div>
+                                }
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="text-lg bg-slate-50 p-4 rounded-md">
+                                    <MathRenderer content={q.statement} />
                                 </div>
-                                <div className="p-4 rounded-md border bg-green-50 border-green-200">
-                                    <p className="text-xs font-bold text-green-700 uppercase mb-1">Correct Solution</p>
-                                    <div className="text-sm">
-                                        <MathRenderer content={q.solution} />
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="p-4 rounded-md border bg-white">
+                                        <p className="text-xs font-bold text-muted-foreground uppercase mb-1">Your Reasoning</p>
+                                        <div className="text-sm">
+                                            <MathRenderer content={answers[idx] || "(No Reasoning Provided)"} />
+                                        </div>
+                                    </div>
+                                    <div className="p-4 rounded-md border bg-green-50 border-green-200">
+                                        <p className="text-xs font-bold text-green-700 uppercase mb-1">Correct Solution</p>
+                                        <div className="text-sm">
+                                            <MathRenderer content={q.solution} />
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <div className="mt-4 p-4 bg-blue-50 rounded-md text-sm text-blue-900">
-                                <p className="font-bold mb-1">Step-by-Step Explanation:</p>
-                                <MathRenderer content={q.explanation} />
-                            </div>
-                        </CardContent>
-                    </Card>
-                ))}
+                                {res?.feedback && (
+                                    <div className="mt-4 p-4 bg-blue-50 border border-blue-100 rounded-md text-sm text-blue-900">
+                                        <p className="font-bold mb-1 flex items-center gap-1">
+                                            <Sparkles className="h-4 w-4" /> AI Feedback:
+                                        </p>
+                                        <MathRenderer content={res.feedback} />
+                                    </div>
+                                )}
+
+                                <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded-md text-sm text-slate-700">
+                                    <p className="font-bold mb-1">Step-by-Step Explanation:</p>
+                                    <MathRenderer content={q.explanation} />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    );
+                })}
             </div>
         </div>
       );
   }
+
 
 
 
@@ -218,32 +242,38 @@ export default function ExamPage() {
 
           setIsGrading(true);
 
-          // Grade all questions in parallel
+          // Grade all questions in parallel using strict AI grading
           const gradingPromises = questions.map(async (q, idx) => {
-              const studentAns = answers[idx]?.trim();
-              if (!studentAns) return { idx, isCorrect: false };
+              const studentReasoning = answers[idx]?.trim();
+              if (!studentReasoning) return { idx, grade: 0, feedback: "No reasoning provided.", errorType: "Missing Answer" };
 
               try {
-                  const result = await checkAnswer({
-                      questionText: q.statement,
-                      userAnswer: studentAns,
-                      correctAnswer: q.solution
+                  const result = await gradeWithJudge({
+                      problemStatement: q.statement,
+                      studentAnswer: "", // Extracting from reasoning in backend
+                      reasoning: studentReasoning,
+                      model: "gpt-4o-mini",
+                      topicName: q.topicId
                   });
-                  return { idx, isCorrect: result.isCorrect };
+                  return { idx, ...result };
               } catch (e) {
                   console.error(`Grading failed for Q${idx + 1}`, e);
-                  return { idx, isCorrect: false };
+                  return { idx, grade: 0, feedback: "Grading system error.", errorType: "System Error" };
               }
           });
 
           const outcomes = await Promise.all(gradingPromises);
           
-          const newResults: Record<number, boolean> = {};
+          const newResults: Record<number, any> = {};
           let correctCount = 0;
           
           outcomes.forEach(o => {
-              newResults[o.idx] = o.isCorrect;
-              if (o.isCorrect) correctCount++;
+              newResults[o.idx] = {
+                  grade: o.grade,
+                  feedback: o.feedback,
+                  errorType: o.errorType
+              };
+              if (o.grade === 1) correctCount++;
           });
           
           let calculatedScore = Math.round((correctCount / questions.length) * 100);
@@ -313,18 +343,24 @@ export default function ExamPage() {
                     <div className="text-lg">
                         <MathRenderer content={q.statement} />
                     </div>
-                    <div>
-                        <Input 
-                            placeholder="Type or Scan your answer..." 
-                            value={answers[idx] || ""} 
-                            onChange={e => setAnswers({ ...answers, [idx]: e.target.value })}
-                        />
-                        {answers[idx] && (
-                            <div className="mt-2 p-3 bg-slate-50 border rounded-md text-sm transition-all animate-in fade-in-0 slide-in-from-top-1">
-                                <p className="text-xs font-semibold text-muted-foreground mb-1 uppercase">Preview</p>
-                                <MathRenderer content={answers[idx]} />
-                            </div>
-                        )}
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                            <label className="text-sm font-medium leading-none">Reasoning Steps (Mandatory: Results based on logical steps)</label>
+                        </div>
+                        <div className="space-y-2">
+                             <Textarea 
+                                className="min-h-[120px] font-mono text-sm"
+                                placeholder="Type your steps here... Use $...$ for equations."
+                                value={answers[idx] || ""}
+                                onChange={(e) => setAnswers({ ...answers, [idx]: e.target.value })}
+                            />
+                            {answers[idx] && (
+                                <div className="mt-2 p-3 bg-slate-50 border rounded-md text-sm transition-all animate-in fade-in-0 slide-in-from-top-1">
+                                    <p className="text-xs font-semibold text-muted-foreground mb-1 uppercase">Live Preview</p>
+                                    <MathRenderer content={answers[idx]} />
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </CardContent>
             </Card>

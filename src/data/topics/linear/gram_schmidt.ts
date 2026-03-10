@@ -56,9 +56,9 @@ export const gramSchmidtLogic = {
         guide: {
           title: "Spectral Theorem & Gram-Schmidt",
           content: `
-  - **Symmetric Matrices**: Always have real eigenvalues and orthogonal eigenvectors for distinct eigenvalues.
-  - **Gram-Schmidt**: Converts any basis $\\{v_1, \\dots, v_n\\}$ into an orthonormal basis $\\{u_1, \\dots, u_n\\}$.
-  - **Normalization**: $u_i = \\frac{v_i}{\\|v_i\\|}$.
+- Symmetric Matrices: Always have real eigenvalues and orthogonal eigenvectors for distinct eigenvalues.
+- Gram-Schmidt: Converts any basis $\\{v_1, \\dots, v_n\\}$ into an orthonormal basis $\\{u_1, \\dots, u_n\\}$.
+- Normalization: $u_i = \\frac{v_i}{\\|v_i\\|}$.
           `
         }
       };

@@ -23,7 +23,7 @@ export const determinantLogic = {
       title: "Determinants with Variables",
       statement: `$$ \\text{Find the values of k for which the determinant is non-zero: } \\begin{bmatrix} ${a1} & 4 & 3 \\\\ -3 & 0 & -5 \\\\ k & 4 & 3 \\end{bmatrix} $$`,
       prompt: "Find the values of k for which the determinant is non-zero:",
-      solution: `k \\neq ${a1}`,
+      solution: `$k \\neq ${a1}$`,
       explanation: `To find the values of $k$ where the determinant is non-zero, we must first calculate the determinant of the matrix:
 $$ \\det(A) = \\begin{vmatrix} ${a1} & 4 & 3 \\\\ -3 & 0 & -5 \\\\ k & 4 & 3 \\end{vmatrix} $$
 We can expand along the second row (since it has a zero):
@@ -39,9 +39,9 @@ $$ k \\neq ${a1} $$`,
       guide: {
         title: "Singular Matrices",
         content: `
-- **Singular Matrix**: A square matrix with determinant equal to zero.
-- **Non-singular**: Determinant is non-zero.
-- **Linear Independence**: If rows/columns are linearly dependent, determinant is zero.
+- Singular Matrix: A square matrix with determinant equal to zero.
+- Non-singular: Determinant is non-zero.
+- Linear Independence: If rows/columns are linearly dependent, determinant is zero.
         `
       }
     };

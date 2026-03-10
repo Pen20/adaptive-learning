@@ -13,6 +13,8 @@ export default defineSchema({
     role: v.optional(v.union(v.literal("student"), v.literal("admin"))),
     // New unified field for unique or multiple roles
     roles: v.optional(v.array(v.string())), 
+    lastActive: v.optional(v.number()), // timestamp for online status
+    themePreference: v.optional(v.string()), // e.g. "midnight", "slate", "ocean"
   }).index("by_userId", ["userId"]),
 
   topicPermissions: defineTable({
@@ -94,5 +96,22 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_topic_status", ["topicName", "status"])
     .index("by_status", ["status"]),
+
+  courses: defineTable({
+    courseId: v.string(), // slug like "linear_algebra"
+    title: v.string(),
+    imageUrl: v.string(),
+    description: v.string(),
+  }).index("by_courseId", ["courseId"]),
+
+  topics: defineTable({
+    courseId: v.string(), // references courses.courseId
+    topicId: v.string(),  // slug like "linear_equations"
+    title: v.string(),
+    description: v.string(),
+    chapter: v.string(),
+    order: v.optional(v.number()),
+  }).index("by_course", ["courseId"])
+    .index("by_topicId", ["topicId"]),
 
 });

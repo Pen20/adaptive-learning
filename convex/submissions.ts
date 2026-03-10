@@ -81,3 +81,14 @@ export const getStudentMastery = query({
       .first();
   },
 });
+ 
+export const getRecentSubmissions = query({
+  args: { userId: v.string(), limit: v.number() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("submissions")
+      .withIndex("by_user_topic", (q) => q.eq("userId", args.userId))
+      .order("desc")
+      .take(args.limit);
+  },
+});
