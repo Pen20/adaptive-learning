@@ -41,6 +41,9 @@ export default function ProblemPage() {
   const [showExplanation, setShowExplanation] = useState(false);
   const [lastSubmissionId, setLastSubmissionId] = useState<Id<"submissions"> | null>(null);
 
+  // Debounced State for Performance
+  const [debouncedReasoning, setDebouncedReasoning] = useState("");
+
   // Dynamic Problem State
   const [problemData, setProblemData] = useState<{ statement: string; hint: string; solution: string; explanation?: string; guide?: { title: string; content: string }; title?: string } | null>(null);
 
@@ -74,6 +77,12 @@ export default function ProblemPage() {
   const allowDetailed = permissions?.allowDetailedSolution ?? true;
   const allowPractice = permissions?.allowPractice ?? true;
   const allowRLHF = permissions?.allowRLHF ?? true;
+
+  // Debounce logic for reasoning preview
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedReasoning(reasoning), 500);
+    return () => clearTimeout(timer);
+  }, [reasoning]);
 
   useEffect(() => {
     if (topicRegistry[topicId]) {
@@ -242,12 +251,15 @@ export default function ProblemPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Left Col: Problem & Hints */}
         <div className="space-y-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Problem</CardTitle>
+            <Card className="overflow-hidden border-slate-200 shadow-sm transition-all">
+                <CardHeader className="bg-slate-50/80 border-b border-slate-100 pb-4 pt-4 px-6">
+                    <CardTitle className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                         <span className="w-1.5 h-6 bg-blue-500 rounded-full inline-block"></span>
+                         Problem Statement
+                    </CardTitle>
                 </CardHeader>
-                <CardContent>
-                    <div className="text-lg py-4 overflow-x-auto max-w-full">
+                <CardContent className="pt-6 px-6 pb-6">
+                    <div className="text-lg text-slate-900 leading-relaxed font-medium bg-[#dae8e8] p-6 rounded-xl shadow-inner border border-[#c4d4d4] overflow-x-auto">
                         <MathRenderer content={problemData.statement} />
                     </div>
                 </CardContent>
@@ -330,25 +342,32 @@ export default function ProblemPage() {
 
         {/* Right Col: Input & Live Preview */}
         <div className="space-y-6">
-            <Card className="border-2 border-slate-100">
-                <CardContent className="pt-6 space-y-4">
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium leading-none">Final Answer</label>
+            <Card className="border-slate-200 shadow-sm">
+                <CardContent className="pt-6 space-y-6">
+                    <div className="space-y-3 bg-slate-50 p-5 rounded-xl border border-slate-100">
+                        <label className="text-sm font-semibold tracking-wide text-slate-700">Final Answer</label>
                         <Input 
+                            className="bg-white border-slate-200 shadow-sm focus-visible:ring-blue-500 text-base py-6"
                             placeholder="Enter your final response here" 
                             value={finalAnswer}
                             onChange={(e) => setFinalAnswer(e.target.value)}
                         />
                     </div>
 
-                    <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                            <label className="text-sm font-medium leading-none">Reasoning Steps (Mandatory: Must include final answer for grading)</label>
+                    <div className="space-y-4 bg-slate-50 p-5 rounded-xl border border-slate-100">
+                        <div className="flex justify-between items-center mb-1">
+                            <div className="flex items-center gap-2 text-slate-700">
+                                <Sparkles className="h-4 w-4 text-amber-500" />
+                                <label className="text-sm font-semibold tracking-wide flex flex-col sm:flex-row sm:items-center gap-1">
+                                    <span>Reasoning Steps</span> 
+                                    <span className="text-muted-foreground font-normal text-xs">(Must include final answer for grading)</span>
+                                </label>
+                            </div>
                             <div>
                                 <input 
                                     type="file" 
                                     accept="image/*" 
-                                    capture="environment" // detailed for mobile
+                                    capture="environment" 
                                     id="reasoning-image-upload" 
                                     className="hidden" 
                                     onChange={handleImageUpload}
@@ -356,39 +375,45 @@ export default function ProblemPage() {
                                 <Button 
                                     variant="outline" 
                                     size="sm" 
-                                    className="h-8 gap-1" 
+                                    className="h-8 gap-2 bg-white hover:bg-blue-50 hover:text-blue-700 border-slate-200 text-slate-700 shadow-sm transition-all" 
                                     onClick={() => document.getElementById("reasoning-image-upload")?.click()}
                                     disabled={transcribing}
                                 >
-                                    {transcribing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
-                                    <span className="hidden sm:inline">Scan Solution</span>
+                                    {transcribing ? <Loader2 className="h-3 w-3 animate-spin text-blue-600" /> : <Camera className="h-3 w-3 text-blue-600" />}
+                                    <span className="hidden sm:inline">Scan</span>
                                 </Button>
                             </div>
                         </div>
                         <Textarea 
-                            className="min-h-[150px] font-mono text-sm"
-                            placeholder="Type your steps here... Use $...$ for equations."
+                            className="min-h-[160px] font-mono text-sm bg-white border-slate-200 shadow-sm focus-visible:ring-blue-500 resize-y leading-relaxed"
+                            placeholder={"Type your steps here...\nExample: \"By definition, V is...\"\nUse $...$ for inline equations and $$...$$ for block equations."}
                             value={reasoning}
                             onChange={(e) => setReasoning(e.target.value)}
                         />
-                        <div className="text-xs text-muted-foreground">
-                            Live Preview:
-                        </div>
-                        <div className="p-3 bg-slate-50 rounded-md border min-h-[40px] text-sm break-words">
-                           {reasoning ? <MathRenderer content={reasoning} /> : <span className="text-slate-400 italic">Preview appears here...</span>}
-                        </div>
+                        
+                        {debouncedReasoning && (
+                            <div className="mt-4 p-4 bg-blue-50/50 border border-blue-100 rounded-lg text-sm transition-all animate-in fade-in-0 slide-in-from-top-2">
+                                <div className="flex items-center gap-2 mb-2 pb-2 border-b border-blue-100">
+                                    <div className="h-1.5 w-1.5 rounded-full bg-blue-500"></div>
+                                    <p className="text-xs font-bold text-blue-800 uppercase tracking-wider">Live Math Preview</p>
+                                </div>
+                                <div className="text-slate-800 leading-relaxed break-words overflow-x-auto">
+                                    <MathRenderer content={debouncedReasoning} />
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <Button 
-                        className="w-full" 
+                        className="w-full shadow-md hover:shadow-lg transition-all bg-blue-600 hover:bg-blue-700 text-white text-base font-semibold py-6" 
                         size="lg" 
                         onClick={handleCheck} 
                         disabled={grading || !finalAnswer}
                     >
                         {grading ? (
                             <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Grading with AI...
+                                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                                Grading and Analyzing...
                             </>
                         ) : (
                             "Check Answer"
