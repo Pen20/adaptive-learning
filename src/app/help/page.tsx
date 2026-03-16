@@ -187,7 +187,7 @@ export default function HelpPage() {
                 <div className="bg-gradient-to-r from-indigo-900/40 to-purple-900/40 p-12 rounded-3xl border border-white/5 shadow-2xl text-center space-y-6">
                     <h2 className="text-3xl font-black text-white tracking-tight">Synchronize with Curriculum</h2>
                     <p className="text-slate-400 max-w-md mx-auto font-medium">
-                        Your learning journey is fully indexed and ready for deployment. Choose your path.
+                        Your learning journey is fully indexed and ready for you to continue. Choose your path.
                     </p>
                     <div className="flex flex-col sm:flex-row justify-center gap-4">
                         <Link href="/">
