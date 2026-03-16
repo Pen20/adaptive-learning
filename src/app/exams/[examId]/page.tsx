@@ -162,64 +162,99 @@ export default function ExamPage() {
   if (submitted && resultsAvailable) {
       // REVIEW MODE
       return (
-        <div className="container mx-auto py-10 max-w-3xl px-4">
-            <Card className="mb-8 border-green-200 bg-green-50">
-                <CardContent className="pt-6 text-center">
-                    <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-600" />
-                    <h1 className="text-3xl font-bold mb-2">Exam Results</h1>
-                    <p className="text-2xl font-semibold">Score: {score}%</p>
-                    <Button onClick={() => router.push("/exams")} variant="outline" className="mt-4">Back to List</Button>
+        <div className="container mx-auto py-10 max-w-4xl px-4">
+            <Card className="mb-10 border-green-200 bg-gradient-to-b from-green-50 to-white shadow-sm overflow-hidden relative">
+                <div className="absolute top-0 left-0 w-full h-1.5 bg-green-500"></div>
+                <CardContent className="pt-8 pb-8 text-center relative z-10">
+                    <div className="inline-flex justify-center items-center h-20 w-20 rounded-full bg-green-100 mb-6 shadow-inner">
+                        <CheckCircle className="h-10 w-10 text-green-600" />
+                    </div>
+                    <h1 className="text-4xl font-extrabold mb-3 text-slate-900 tracking-tight">Exam Results</h1>
+                    <div className="inline-flex items-center justify-center bg-white px-6 py-2 rounded-full border border-green-200 shadow-sm mt-2 mb-6 gap-3">
+                        <span className="text-lg font-medium text-slate-600 uppercase tracking-wide">Final Score</span>
+                        <span className="text-2xl font-extrabold text-green-600">{score}%</span>
+                    </div>
+                    <div>
+                        <Button onClick={() => router.push("/exams")} variant="outline" className="mt-2 font-medium bg-white hover:bg-slate-50 transition-colors shadow-sm">Return to Exams List</Button>
+                    </div>
                 </CardContent>
             </Card>
 
-            <div className="space-y-8">
+            <div className="space-y-10">
                 {questions.map((q, idx) => {
                     const res = gradingResults[idx] as any;
                     const isCorrect = typeof res === 'object' ? res.grade === 1 : res === true;
                     return (
-                        <Card key={idx} className={`border-2 ${isCorrect ? 'border-green-100' : 'border-red-100'}`}>
-                            <CardHeader className="flex flex-row justify-between items-center">
-                                <CardTitle>Question {idx + 1}</CardTitle>
-                                {isCorrect ? 
-                                    <CheckCircle className="text-green-500 h-5 w-5" /> : 
-                                    <div className="flex items-center gap-2">
-                                        {res?.errorType && <Badge variant="destructive" className="bg-red-100 text-red-700 hover:bg-red-100 border-red-200">{res.errorType}</Badge>}
-                                        <XCircle className="text-red-500 h-5 w-5" />
-                                    </div>
-                                }
+                        <Card key={idx} className={`overflow-hidden border shadow-sm transition-all hover:shadow-md ${isCorrect ? 'border-green-200' : 'border-red-200'}`}>
+                            <CardHeader className={`flex flex-row justify-between items-center py-4 px-6 border-b ${isCorrect ? 'bg-green-50/50 border-green-100' : 'bg-red-50/50 border-red-100'}`}>
+                                <div className="flex items-center gap-3">
+                                    <Badge variant="outline" className={`font-bold px-3 py-1 border-2 shadow-sm ${isCorrect ? 'border-green-300 text-green-800 bg-green-100' : 'border-red-300 text-red-800 bg-red-100'}`}>
+                                        Q{idx + 1}
+                                    </Badge>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    {isCorrect ? 
+                                        <div className="flex items-center gap-2 text-green-700 font-bold bg-green-100/80 px-3 py-1.5 rounded-full text-sm shadow-sm border border-green-200">
+                                            <CheckCircle className="h-4 w-4" /> Correct
+                                        </div> : 
+                                        <div className="flex items-center gap-2">
+                                            {res?.errorType && <Badge variant="destructive" className="bg-white text-red-700 hover:bg-white border-red-200 shadow-sm px-3 py-1 font-semibold">{res.errorType}</Badge>}
+                                            <div className="flex items-center gap-2 text-red-700 font-bold bg-red-100/80 px-3 py-1.5 rounded-full text-sm shadow-sm border border-red-200">
+                                                <XCircle className="h-4 w-4" /> Incorrect
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
                             </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="text-lg bg-slate-50 p-4 rounded-md">
+                            <CardContent className="space-y-6 pt-6 px-6 pb-6 text-slate-800">
+                                <div className="text-lg text-slate-900 font-medium bg-[#dae8e8] p-6 rounded-xl border border-[#c4d4d4] shadow-inner leading-relaxed overflow-x-auto">
                                     <MathRenderer content={q.statement} />
                                 </div>
                                 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="p-4 rounded-md border bg-white">
-                                        <p className="text-xs font-bold text-muted-foreground uppercase mb-1">Your Reasoning</p>
-                                        <div className="text-sm">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="p-5 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col hover:border-blue-200 transition-colors">
+                                        <div className="flex items-center gap-2 mb-3 pb-3 border-b border-slate-100">
+                                            <div className="h-2 w-2 rounded-full bg-slate-400"></div>
+                                            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Your Reasoning</p>
+                                        </div>
+                                        <div className="text-sm font-mono text-slate-700 flex-grow whitespace-pre-wrap">
                                             <MathRenderer content={answers[idx] || "(No Reasoning Provided)"} />
                                         </div>
                                     </div>
-                                    <div className="p-4 rounded-md border bg-green-50 border-green-200">
-                                        <p className="text-xs font-bold text-green-700 uppercase mb-1">Correct Solution</p>
-                                        <div className="text-sm">
+                                    <div className="p-5 rounded-xl border border-green-100 bg-green-50 flex flex-col shadow-sm">
+                                        <div className="flex items-center gap-2 mb-3 pb-3 border-b border-green-200/50">
+                                            <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                                            <p className="text-xs font-bold text-green-800 uppercase tracking-widest">Correct Solution</p>
+                                        </div>
+                                        <div className="text-sm text-slate-800 flex-grow pt-1 leading-relaxed">
                                             <MathRenderer content={q.solution} />
                                         </div>
                                     </div>
                                 </div>
 
                                 {res?.feedback && (
-                                    <div className="mt-4 p-4 bg-blue-50 border border-blue-100 rounded-md text-sm text-blue-900">
-                                        <p className="font-bold mb-1 flex items-center gap-1">
-                                            <Sparkles className="h-4 w-4" /> AI Feedback:
-                                        </p>
-                                        <MathRenderer content={res.feedback} />
+                                    <div className="mt-4 p-5 bg-blue-50/80 border border-blue-200 rounded-xl text-sm shadow-sm relative overflow-hidden group">
+                                        <div className="absolute top-0 left-0 w-1.5 h-full bg-blue-500"></div>
+                                        <div className="flex items-center gap-2 mb-3 border-b border-blue-100/50 pb-3">
+                                            <Sparkles className="h-5 w-5 text-blue-600" /> 
+                                            <p className="font-bold text-blue-900 text-base">AI Feedback</p>
+                                        </div>
+                                        <div className="text-blue-950/90 leading-relaxed font-medium">
+                                            <MathRenderer content={res.feedback} />
+                                        </div>
                                     </div>
                                 )}
 
-                                <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded-md text-sm text-slate-700">
-                                    <p className="font-bold mb-1">Step-by-Step Explanation:</p>
-                                    <MathRenderer content={q.explanation} />
+                                <div className="mt-4 p-5 bg-slate-50 border border-slate-200 rounded-xl text-sm shadow-sm">
+                                    <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-200">
+                                        <div className="flex h-8 w-8 rounded-full bg-indigo-100 items-center justify-center text-indigo-600 shadow-sm border border-indigo-200">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                                        </div>
+                                        <p className="font-bold text-slate-800 text-base">Step-by-Step Explanation</p>
+                                    </div>
+                                    <div className="leading-relaxed text-slate-700">
+                                        <MathRenderer content={q.explanation} />
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
@@ -300,22 +335,28 @@ export default function ExamPage() {
   };
 
   return (
-    <div className="container mx-auto py-10 max-w-3xl px-4">
-      <div className="flex justify-between items-center mb-6">
+    <div className="container mx-auto py-10 max-w-3xl px-4 flex flex-col min-h-screen">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 pb-6 border-b border-slate-200">
         <div>
-            <h1 className="text-2xl font-bold">{exam.title}</h1>
-            <p className="text-muted-foreground">{exam.courseName}</p>
+            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">{exam.title}</h1>
+            <p className="text-slate-500 font-medium mt-1">{exam.courseName}</p>
         </div>
-        <div className="text-right">
-             <p className="font-mono text-lg">Total Questions: {questions.length}</p>
+        <div className="flex items-center gap-2 bg-blue-50 text-blue-700 px-4 py-2 rounded-full font-semibold shadow-sm border border-blue-100">
+             <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></div>
+             <span>{questions.length} Questions</span>
         </div>
       </div>
 
-      <div className="space-y-8">
+      <div className="space-y-8 flex-grow">
         {questions.map((q, idx) => (
-            <Card key={idx}>
-                <CardHeader className="flex flex-row justify-between items-center space-y-0 pb-2">
-                    <CardTitle className="text-lg">Question {idx + 1}</CardTitle>
+            <Card key={idx} className="overflow-hidden border-slate-200 shadow-sm hover:shadow-md transition-shadow duration-300">
+                <CardHeader className="flex flex-row justify-between items-center bg-slate-50/80 border-b border-slate-100 pb-4 pt-4 px-6">
+                    <div className="flex items-center gap-3">
+                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-200 font-bold px-3 py-1 shadow-sm border border-blue-200">
+                            Q{idx + 1}
+                        </Badge>
+                        <CardTitle className="text-lg font-semibold text-slate-800 hidden sm:block">Question</CardTitle>
+                    </div>
                     <div className="relative">
                         <input 
                             type="file" 
@@ -330,34 +371,41 @@ export default function ExamPage() {
                         <Button 
                             variant="outline" 
                             size="sm"
-                            className="gap-2"
+                            className="gap-2 bg-white hover:bg-blue-50 hover:text-blue-700 border-slate-200 text-slate-700 shadow-sm transition-all"
                             disabled={scanningIds[idx]}
                             onClick={() => document.getElementById(`scan-${idx}`)?.click()}
                         >
-                            {scanningIds[idx] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                            {scanningIds[idx] ? <Loader2 className="h-4 w-4 animate-spin text-blue-600" /> : <Camera className="h-4 w-4 text-blue-600" />}
                             Scan Solution
                         </Button>
                     </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="text-lg">
+                <CardContent className="space-y-6 pt-6 px-6 pb-6">
+                    <div className="text-lg text-slate-900 leading-relaxed font-medium bg-[#dae8e8] p-6 rounded-xl shadow-inner border border-[#c4d4d4] overflow-x-auto">
                         <MathRenderer content={q.statement} />
                     </div>
-                    <div className="space-y-4">
-                        <div className="flex justify-between items-center">
-                            <label className="text-sm font-medium leading-none">Reasoning Steps (Mandatory: Results based on logical steps)</label>
+                    
+                    <div className="space-y-4 bg-slate-50 p-5 rounded-xl border border-slate-100">
+                        <div className="flex items-center gap-2 text-slate-700">
+                            <Sparkles className="h-4 w-4 text-amber-500" />
+                            <label className="text-sm font-semibold tracking-wide">Reasoning Steps <span className="text-muted-foreground font-normal">(Required)</span></label>
                         </div>
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                              <Textarea 
-                                className="min-h-[120px] font-mono text-sm"
-                                placeholder="Type your steps here... Use $...$ for equations."
+                                className="min-h-[140px] font-mono text-sm bg-white border-slate-200 shadow-sm focus-visible:ring-blue-500 resize-y leading-relaxed"
+                                placeholder={"Type your steps here...\nExample: \"By definition, V is...\"\nUse $...$ for inline equations and $$...$$ for block equations."}
                                 value={answers[idx] || ""}
                                 onChange={(e) => setAnswers({ ...answers, [idx]: e.target.value })}
                             />
                             {answers[idx] && (
-                                <div className="mt-2 p-3 bg-slate-50 border rounded-md text-sm transition-all animate-in fade-in-0 slide-in-from-top-1">
-                                    <p className="text-xs font-semibold text-muted-foreground mb-1 uppercase">Live Preview</p>
-                                    <MathRenderer content={answers[idx]} />
+                                <div className="mt-4 p-4 bg-blue-50/50 border border-blue-100 rounded-lg text-sm transition-all animate-in fade-in-0 slide-in-from-top-2">
+                                    <div className="flex items-center gap-2 mb-2 pb-2 border-b border-blue-100">
+                                        <div className="h-1.5 w-1.5 rounded-full bg-blue-500"></div>
+                                        <p className="text-xs font-bold text-blue-800 uppercase tracking-wider">Live Math Preview</p>
+                                    </div>
+                                    <div className="text-slate-800 leading-relaxed">
+                                        <MathRenderer content={answers[idx]} />
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -366,14 +414,14 @@ export default function ExamPage() {
             </Card>
         ))}
 
-        <div className="flex justify-end pt-4 pb-10">
-            <Button size="lg" onClick={handleSubmit} disabled={submitted || isGrading}>
+        <div className="flex justify-end pt-6 pb-12 mt-4 border-t border-slate-200">
+            <Button size="lg" className="px-8 shadow-md hover:shadow-lg transition-all bg-blue-600 hover:bg-blue-700 text-white text-base font-semibold" onClick={handleSubmit} disabled={submitted || isGrading}>
                 {isGrading ? (
                     <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Grading...
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        Grading and Analyzing...
                     </>
-                ) : submitted ? "Submitted" : "Submit Exam"}
+                ) : submitted ? "Submitted Successfully" : "Submit Exam for Grading"}
             </Button>
         </div>
       </div>
