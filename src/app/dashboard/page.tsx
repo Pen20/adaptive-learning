@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
+import { MathRenderer } from "@/components/MathRenderer";
 import {
   Select,
   SelectContent,
@@ -306,8 +307,14 @@ export default function DashboardPage() {
                                     <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />
                                 )}
                             </div>
-                            <p className="text-[10px] text-slate-500 line-clamp-2 italic mb-1">Q: "{sub.problemStatement}"</p>
-                            <p className="text-[10px] text-slate-300 font-medium line-clamp-2 mb-2">A: {sub.finalAnswer}</p>
+                            <div className="text-[10px] text-slate-500 italic mb-1 flex gap-1 overflow-hidden">
+                                <span className="font-bold flex-shrink-0">Q:</span>
+                                <div className="line-clamp-2 flex-grow min-w-0"><MathRenderer content={sub.problemStatement} /></div>
+                            </div>
+                            <div className="text-[10px] text-slate-300 font-medium mb-2 flex gap-1 overflow-hidden">
+                                <span className="font-bold text-white flex-shrink-0">A:</span>
+                                <div className="line-clamp-2 flex-grow min-w-0"><MathRenderer content={sub.finalAnswer} /></div>
+                            </div>
                             <div className="flex justify-between items-center text-[9px] font-medium text-slate-600 uppercase">
                                 <span>{new Date(sub._creationTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                 <span>{sub.usedHints ? "Used Hints" : "Clean Run"}</span>
