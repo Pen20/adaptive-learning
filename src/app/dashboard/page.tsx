@@ -306,7 +306,8 @@ export default function DashboardPage() {
                                     <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />
                                 )}
                             </div>
-                            <p className="text-[10px] text-slate-500 line-clamp-2 italic mb-2">"{sub.problemStatement}"</p>
+                            <p className="text-[10px] text-slate-500 line-clamp-2 italic mb-1">Q: "{sub.problemStatement}"</p>
+                            <p className="text-[10px] text-slate-300 font-medium line-clamp-2 mb-2">A: {sub.finalAnswer}</p>
                             <div className="flex justify-between items-center text-[9px] font-medium text-slate-600 uppercase">
                                 <span>{new Date(sub._creationTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                 <span>{sub.usedHints ? "Used Hints" : "Clean Run"}</span>
@@ -344,7 +345,7 @@ function CourseModuleCard({ id, title, score, style }: { id: string, title: stri
         <Card className={`${style.card} hover:border-${style.accent.split('-')[1]}-500/40 transition-all duration-300 group`}>
             <CardHeader className="pb-3">
                 <div className="flex justify-between items-start">
-                    <CardTitle className="capitalize text-slate-200 text-sm font-bold group-hover:text-white transition-colors">{title}</CardTitle>
+                    <CardTitle className="text-slate-200 text-sm font-bold group-hover:text-white transition-colors">{title}</CardTitle>
                     <span className={`text-xs font-black ${score >= 80 ? "text-emerald-400" : score >= 50 ? style.accent : "text-slate-500"}`}>{score}%</span>
                 </div>
             </CardHeader>

@@ -22,27 +22,27 @@ export const saveSubmission = mutation({
     // For now we just store the submission with the Clerk User ID as per schema
     const submissionId = await ctx.db.insert("submissions", args);
     
-    // Update mastery (simple logic: increment if correct)
-    if (args.grade === 1) {
-       const existingMastery = await ctx.db
-         .query("studentMastery")
-         .withIndex("by_user_mastery", (q) => q.eq("userId", args.userId)) 
-         .filter((q) => q.eq(q.field("topicName"), args.topicName))
-         .first();
-       
-       if (existingMastery) {
-         await ctx.db.patch(existingMastery._id, {
-           masteryScore: existingMastery.masteryScore + 10,
-           lastAttempt: Date.now(),
-         });
-       } else {
-         await ctx.db.insert("studentMastery", {
-           userId: args.userId,
-           topicName: args.topicName,
-           masteryScore: 10,
-           lastAttempt: Date.now(),
-         });
-       }
+    // Update mastery (always track the topic, increment score only if correct)
+    const existingMastery = await ctx.db
+      .query("studentMastery")
+      .withIndex("by_user_mastery", (q) => q.eq("userId", args.userId)) 
+      .filter((q) => q.eq(q.field("topicName"), args.topicName))
+      .first();
+    
+    const scoreIncrement = args.grade === 1 ? 10 : 0;
+
+    if (existingMastery) {
+      await ctx.db.patch(existingMastery._id, {
+        masteryScore: Math.min(existingMastery.masteryScore + scoreIncrement, 100),
+        lastAttempt: Date.now(),
+      });
+    } else {
+      await ctx.db.insert("studentMastery", {
+        userId: args.userId,
+        topicName: args.topicName,
+        masteryScore: scoreIncrement,
+        lastAttempt: Date.now(),
+      });
     }
 
     return submissionId;

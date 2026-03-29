@@ -2,7 +2,7 @@
 
 import { action } from "./_generated/server";
 import { v } from "convex/values";
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 
 export const sendResultEmail = action({
   args: {
@@ -12,19 +12,26 @@ export const sendResultEmail = action({
     examId: v.id("exams"),
   },
   handler: async (ctx, args) => {
-    const apiKey = process.env.RESEND_API_KEY;
+    const gmailEmail = process.env.GMAIL_EMAIL;
+    const gmailAppPassword = process.env.GMAIL_APP_PASSWORD;
     
-    // If no API key, log simply.
-    if (!apiKey) {
+    // If no credentials, log simply.
+    if (!gmailEmail || !gmailAppPassword) {
         console.log(`[MOCK EMAIL] To: ${args.email} | Score: ${args.score}% | Exam: ${args.examTitle}`);
         return;
     }
 
-    const resend = new Resend(apiKey);
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: gmailEmail,
+        pass: gmailAppPassword,
+      },
+    });
 
     try {
-        await resend.emails.send({
-            from: "Math Course <onboarding@resend.dev>", 
+        const info = await transporter.sendMail({
+            from: `"Math Course" <${gmailEmail}>`, 
             to: args.email,
             subject: `Exam Results: ${args.examTitle}`,
             html: `
@@ -37,11 +44,14 @@ export const sendResultEmail = action({
                 <a href="${process.env.SITE_URL ?? "https://ai-math-adaptive.vercel.app"}/exams/${args.examId}">View Results</a>
             `
         });
+        console.log("Result email sent successfully to " + args.email, info.messageId);
     } catch (error) {
         console.error("Failed to send email to " + args.email, error);
+        throw error;
     }
   },
 });
+
 export const sendFeedbackEmail = action({
   args: {
     name: v.optional(v.string()),
@@ -53,20 +63,27 @@ export const sendFeedbackEmail = action({
     profession: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const apiKey = process.env.RESEND_API_KEY;
+    const gmailEmail = process.env.GMAIL_EMAIL;
+    const gmailAppPassword = process.env.GMAIL_APP_PASSWORD;
     const adminEmail = "wastalasdassise@gmail.com";
     
-    // If no API key, log simply.
-    if (!apiKey) {
+    // If no credentials, log simply.
+    if (!gmailEmail || !gmailAppPassword) {
         console.log(`[MOCK EMAIL] To Admin: ${adminEmail} | From: ${args.email ?? "Anonymous"} | Type: ${args.type} | Message: ${args.message}`);
         return;
     }
 
-    const resend = new Resend(apiKey);
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: gmailEmail,
+        pass: gmailAppPassword,
+      },
+    });
 
     try {
-        await resend.emails.send({
-            from: "Math Course Feedback <onboarding@resend.dev>", 
+        const info = await transporter.sendMail({
+            from: `"Math Course Feedback" <${gmailEmail}>`, 
             to: adminEmail,
             subject: `New ${args.type} from ${args.name ?? "Anonymous"}`,
             html: `
@@ -82,8 +99,10 @@ export const sendFeedbackEmail = action({
                 <p>${args.message}</p>
             `
         });
+        console.log("Feedback email sent successfully to " + adminEmail, info.messageId);
     } catch (error) {
         console.error("Failed to send feedback email to admin", error);
+        throw error;
     }
   },
 });

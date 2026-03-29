@@ -9,7 +9,7 @@ export const gradeSubmission = action({
     problemStatement: v.string(),
     studentAnswer: v.string(),
     reasoning: v.string(),
-    model: v.string(), // "mistral", "llama3", "phi3", "gpt-4o"
+    model: v.string(),
     topicName: v.string(),
   },
   handler: async (ctx, args) => {
@@ -23,6 +23,8 @@ export const gradeSubmission = action({
     Student's Reasoning: ${args.reasoning}
 
     IMPORTANT: If "Student's Final Answer" is empty or missing, you MUST identify their intended final answer from their "Reasoning" steps. If no final answer can be found in the reasoning, the grade should be 0.
+    
+    IMPORTANT: NO BARE ANSWERS. If the "Student's Reasoning" is empty, trivial, or merely states the work was done on paper, you MUST give a grade of 0. Your feedback MUST explicitly state: "You need to provide your full written reasoning and core logic steps here. I cannot accept just the final solution because I need to assess your methodology and highlight any missing steps."
 
     IMPORTANT: STRICT MATH DELIMITER PROTOCOL
     - You MUST wrap EVERY mathematical symbol, variable, matrix, or expression in LaTeX delimiters.
@@ -271,9 +273,10 @@ export const gradeOptimized = action({
     Student's Reasoning: ${args.reasoning}
 
     STRICT RULES:
-    1. **Final Answer Detection**: If "Student's Final Answer" is empty, you MUST find the answer within the "Reasoning" steps.
-    2. **Reasoning Consistency**: If the reasoning is incorrect, inconsistent with the final answer, or appears to be a "lucky guess", the grade MUST be 0.
-    3. **Final Answer in Steps**: The student must include a clear final answer within their reasoning steps.
+    1. **REQUIRED REASONING (NO BARE ANSWERS)**: If the "Student's Reasoning" is empty, trivial, or merely states that the work was done on paper, you MUST assign a grade of 0. Your feedback MUST explicitly state: "You need to provide your full written reasoning and core logic steps here. I cannot accept just the final solution because I need to assess your methodology and highlight any missing steps."
+    2. **Final Answer Detection**: If "Student's Final Answer" is empty, you MUST find the answer within the "Reasoning" steps.
+    3. **Reasoning Consistency**: If the reasoning is incorrect, inconsistent with the final answer, or appears to be a "lucky guess", the grade MUST be 0.
+    4. **Final Answer in Steps**: The student must include a clear final answer somewhere within their work.
     4. **Tone**: Be professional, encouraging, and direct (use "You" / second person).
     5. **STRICT MATH DELIMITER PROTOCOL**: 
        - You MUST wrap EVERY mathematical symbol, variable, matrix, or expression in delimiters ($...$ for inline, $$...$$ for block).
