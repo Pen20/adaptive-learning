@@ -19,6 +19,7 @@ export const getPermissions = query({
       allowDetailedSolution: true,
       allowPractice: true,
       allowRLHF: (permissions as any)?.allowRLHF ?? true,
+      alwaysShowSolution: (permissions as any)?.alwaysShowSolution ?? false,
     };
   },
 });
@@ -84,6 +85,7 @@ export const updatePermission = mutation({
         allowDetailedSolution: true,
         allowPractice: true,
         allowRLHF: true,
+        alwaysShowSolution: false,
         [args.field]: args.value,
       });
     }

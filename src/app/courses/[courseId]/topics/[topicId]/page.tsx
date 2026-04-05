@@ -77,6 +77,7 @@ export default function ProblemPage() {
   const allowDetailed = permissions?.allowDetailedSolution ?? true;
   const allowPractice = permissions?.allowPractice ?? true;
   const allowRLHF = permissions?.allowRLHF ?? true;
+  const alwaysShowSolution = permissions?.alwaysShowSolution ?? false;
 
   // Debounce logic for reasoning preview
   useEffect(() => {
@@ -275,13 +276,13 @@ export default function ProblemPage() {
                 
                 <NotationHelp onInsert={(code) => setReasoning(prev => prev ? `${prev} ${code}` : code)} />
 
-                {(allowSolution && (isAdmin || result !== null)) && (
+                {(allowSolution && (isAdmin || result !== null || alwaysShowSolution)) && (
                     <Button variant="outline" onClick={() => setShowSolution(!showSolution)}>
                         {showSolution ? "Hide Solution" : "Show Solution"}
                     </Button>
                 )}
 
-                {(allowDetailed && (isAdmin || result !== null)) && (
+                {(allowDetailed && (isAdmin || result !== null || alwaysShowSolution)) && (
                     <Button variant="outline" className="text-blue-600 border-blue-200 hover:bg-blue-50 dark:border-blue-800 dark:hover:bg-blue-900/20" onClick={() => setShowExplanation(!showExplanation)}>
                         {showExplanation ? "Hide Detailed Solution" : "Detailed Solution"}
                     </Button>

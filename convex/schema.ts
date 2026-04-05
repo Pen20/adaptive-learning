@@ -25,6 +25,7 @@ export default defineSchema({
     allowDetailedSolution: v.boolean(),
     allowPractice: v.boolean(),
     allowRLHF: v.optional(v.boolean()),
+    alwaysShowSolution: v.optional(v.boolean()),
   }).index("by_course_topic", ["courseName", "topicName"]),
 
   exams: defineTable({
