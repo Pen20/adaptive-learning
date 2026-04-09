@@ -15,7 +15,8 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import Link from "next/link";
 import AdaptivePractice from "@/components/AdaptivePractice";
-import { Loader2, Lightbulb, CheckCircle, XCircle, Sparkles, BookOpenIcon, ArrowLeft, Camera, Upload, AlertTriangle } from "lucide-react";
+import { Loader2, Lightbulb, CheckCircle, XCircle, Sparkles, BookOpenIcon, ArrowLeft, Camera, AlertTriangle } from "lucide-react";
+import { toast } from "sonner";
 import { useUser } from "@clerk/nextjs";
 import { useParams } from "next/navigation";
 import { useRole } from "@/hooks/useRole";
@@ -54,11 +55,8 @@ export default function ProblemPage() {
   // Image Upload State
   const [transcribing, setTranscribing] = useState(false);
 
-            {/* Recommendations Section */}
-
-
   // Actions/Mutations
-  const gradeWithJudge = useAction(api.grading.gradeOptimized);
+  const gradeWithJudge = useAction(api.grading.gradeWithJudge);
   const saveSubmission = useMutation(api.submissions.saveSubmission);
   const generatePractice = useAction(api.recommendations.generatePractice);
   const updateMastery = useMutation(api.users.updateMastery);
@@ -72,6 +70,13 @@ export default function ProblemPage() {
   });
   
   // Defaults to true if loading or not found (handled in backend query too, but good to be safe)
+  // Watch the saved submission for background judge updates
+  const liveSubmission = useQuery(
+    api.submissions.getSubmission,
+    lastSubmissionId ? { submissionId: lastSubmissionId } : "skip"
+  );
+
+
   const allowHints = permissions?.allowHints ?? true;
   const allowSolution = permissions?.allowSolution ?? true;
   const allowDetailed = permissions?.allowDetailedSolution ?? true;
@@ -106,6 +111,7 @@ export default function ProblemPage() {
       setResult(null);
       setReasoning("");
       setFinalAnswer("");
+      setLastSubmissionId(null);
     } else {
         // Fallback for linear algebra topics not in registry yet
         setProblemData({
@@ -124,6 +130,7 @@ export default function ProblemPage() {
     setResult(null);
 
     try {
+      // Run grader + judge inline — result shown only after both complete
       const gradeResult = await gradeWithJudge({
         problemStatement: problemData.statement,
         studentAnswer: finalAnswer,
@@ -133,32 +140,29 @@ export default function ProblemPage() {
       });
 
       setResult({ grade: gradeResult.grade, feedback: gradeResult.feedback, errorType: gradeResult.errorType });
-      setLastSubmissionId(null); // Reset for new result
 
-      // Save with judge metadata
-      if (!gradeResult.feedback.includes("Error")) {
-          const subId = await saveSubmission({
-            userId: user.id,
-            courseName: courseId === "linear_algebra" ? "Linear Algebra" : "Differential Calculus",
-            topicName: topicId,
-            problemStatement: problemData.statement,
-            finalAnswer,
-            reasoningSteps: reasoning,
-            grade: gradeResult.grade,
-            aiFeedback: gradeResult.feedback,
-            errorType: gradeResult.errorType,
-            judgeFeedback: (gradeResult as any).judgeMetadata?.judgeFeedback,
-            isJudgeModified: (gradeResult as any).judgeMetadata?.isJudgeModified,
-            judgeConfidence: (gradeResult as any).judgeMetadata?.judgeConfidence,
-            usedHints: showHint,
-          });
-          setLastSubmissionId(subId);
-      }
+      // Save submission with judge results already included — skips background scheduling
+      const subId = await saveSubmission({
+        userId: user.id,
+        courseName: courseId === "linear_algebra" ? "Linear Algebra" : "Differential Calculus",
+        topicName: topicId,
+        problemStatement: problemData.statement,
+        finalAnswer,
+        reasoningSteps: reasoning,
+        grade: gradeResult.grade,
+        aiFeedback: gradeResult.feedback,
+        errorType: gradeResult.errorType,
+        judgeFeedback: gradeResult.judgeMetadata?.judgeFeedback,
+        isJudgeModified: gradeResult.judgeMetadata?.isJudgeModified,
+        judgeConfidence: gradeResult.judgeMetadata?.judgeConfidence,
+        usedHints: showHint,
+        judgeAlreadyRun: true,
+      });
+      setLastSubmissionId(subId);
 
     } catch (error) {
       console.error("Grading failed:", error);
-      // Since we handle errors in the action, this catch usually catches network/convex client errors
-      alert("Network error or server unreachable.");
+      toast.error("Grading failed. Please check your connection and try again.");
     } finally {
       setGrading(false);
     }
@@ -177,6 +181,7 @@ export default function ProblemPage() {
         setRecommendations(data);
     } catch (err) {
         console.error(err);
+        toast.error("Could not generate recommendations. Please try again.");
     } finally {
         setRecommending(false);
     }
@@ -187,10 +192,10 @@ export default function ProblemPage() {
       await updateMastery({
           userId: user.id,
           topicName: topicId,
-          scoreIncrement: 10 // +10 mastery for completing practice
+          scoreIncrement: 10,
       });
-      alert("Practice Complete! Mastery score updated.");
-      setRecommendations(null); // Clear practice
+      toast.success("Practice Complete! +10 mastery points earned.");
+      setRecommendations(null);
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -212,7 +217,7 @@ export default function ProblemPage() {
             setReasoning(prev => prev ? prev + "\n\n" + transcription : transcription);
         } catch (error) {
             console.error("Transcription failed:", error);
-            alert("Failed to transcribe image. Please try again.");
+            toast.error("Failed to transcribe image. Please try again.");
         } finally {
             setTranscribing(false);
         }
@@ -232,7 +237,7 @@ export default function ProblemPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
            <Badge variant="outline" className="mb-2 uppercase tracking-wide">{courseId.replace("_", " ")}</Badge>
-           <h1 className="text-3xl font-bold capitalize">{topicId.replace("_", " ")} Practice</h1>
+           <h1 className="text-3xl font-bold capitalize">{topicId.replace(/_/g, " ")} Practice</h1>
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
             <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">AI Grader:</span>
@@ -484,12 +489,21 @@ export default function ProblemPage() {
                             </div>
                         </CardContent>
                     </Card>
-                ) : (
-                    <AdaptivePractice 
-                        questions={recommendations.questions} 
-                        message={recommendations.message} 
-                        onComplete={handleCompletePractice} 
+                ) : recommendations.questions.length > 0 ? (
+                    <AdaptivePractice
+                        questions={recommendations.questions}
+                        message={recommendations.message}
+                        onComplete={handleCompletePractice}
                     />
+                ) : (
+                    <Card className="bg-blue-50/50 border-blue-100 mt-8">
+                        <CardContent className="pt-6 text-center py-8">
+                            <p className="text-blue-800 font-medium">{recommendations.message}</p>
+                            <Button variant="outline" className="mt-4" onClick={() => setRecommendations(null)}>
+                                Dismiss
+                            </Button>
+                        </CardContent>
+                    </Card>
                 )
             )}
         </div>

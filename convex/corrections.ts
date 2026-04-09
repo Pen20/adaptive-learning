@@ -41,6 +41,15 @@ export const approveCorrection = mutation({
     correctionId: v.id("humanCorrections"),
   },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .first();
+    if (!user || (!user.roles?.includes("admin") && user.role !== "admin")) {
+      throw new Error("Admin access required");
+    }
     await ctx.db.patch(args.correctionId, { status: "approved" });
   },
 });
@@ -50,6 +59,15 @@ export const rejectCorrection = mutation({
     correctionId: v.id("humanCorrections"),
   },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .first();
+    if (!user || (!user.roles?.includes("admin") && user.role !== "admin")) {
+      throw new Error("Admin access required");
+    }
     await ctx.db.patch(args.correctionId, { status: "rejected" });
   },
 });

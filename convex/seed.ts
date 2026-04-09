@@ -37,7 +37,7 @@ export const seedData = mutation({
       { courseId: "linear_algebra", topicId: "linear_equations", title: "Linear Equations", description: "Solve simple linear equations.", chapter: "Systems of Linear Equations" },
       { courseId: "linear_algebra", topicId: "quadratic_equations", title: "Quadratic Equations", description: "Factoring and quadratic formula.", chapter: "Systems of Linear Equations" },
       { courseId: "linear_algebra", topicId: "linear_systems", title: "Linear Systems (No Solution)", description: "Identify systems with no solutions.", chapter: "Systems of Linear Equations" },
-      { courseId: "linear_algebra", topicId: "determinants", title: "Determinants", description: "Calculate determinants of 2x2 matrices.", chapter: "Matrices & Determinants" },
+      { courseId: "linear_algebra", topicId: "determinants", title: "Determinants", description: "Calculate determinants of 2×2 and 3×3 matrices.", chapter: "Matrices & Determinants" },
       { courseId: "linear_algebra", topicId: "eigenvalues", title: "Eigenvalues & Vectors", description: "Finding eigenvalues of matrices.", chapter: "Eigenvalues & Eigenvectors" },
       { courseId: "linear_algebra", topicId: "eigenvalues_3x3", title: "Eigenvalues of a 3x3 Matrix", description: "Find all eigenvalues for 3x3 matrices.", chapter: "Eigenvalues & Eigenvectors" },
       { courseId: "linear_algebra", topicId: "eigenspaces_2x2", title: "Bases for Eigenspaces (2x2)", description: "Find basis vectors for eigenspaces of 2x2 matrices.", chapter: "Eigenvalues & Eigenvectors" },

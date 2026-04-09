@@ -28,10 +28,13 @@ export const updateMastery = mutation({
     scoreIncrement: v.number(),
   },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    if (identity.subject !== args.userId) throw new Error("Unauthorized");
+
     const existing = await ctx.db
       .query("studentMastery")
-      .withIndex("by_user_mastery", (q) => q.eq("userId", args.userId))
-      .filter((q) => q.eq(q.field("topicName"), args.topicName))
+      .withIndex("by_user_mastery", (q) => q.eq("userId", args.userId).eq("topicName", args.topicName))
       .first();
 
     const now = Date.now();

@@ -1,77 +1,117 @@
-import React from "react";
+import React, { memo } from "react";
 import { BlockMath, InlineMath } from "react-katex";
 
 interface MathRendererProps {
   content: string;
 }
 
-export const MathRenderer: React.FC<MathRendererProps> = ({ content }) => {
+// Error boundary for KaTeX rendering failures
+class MathErrorBoundary extends React.Component<
+  { children: React.ReactNode; fallback: string },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode; fallback: string }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  render() {
+    if (this.state.hasError) {
+      return <code className="text-red-500 text-xs">{this.props.fallback}</code>;
+    }
+    return this.props.children;
+  }
+}
+
+// Render bold markdown safely without dangerouslySetInnerHTML
+function renderBold(text: string, key: number): React.ReactNode {
+  const parts = text.split(/\*\*(.*?)\*\*/g);
+  if (parts.length === 1) {
+    return (
+      <span key={key} className="whitespace-pre-wrap">
+        {text}
+      </span>
+    );
+  }
+  return (
+    <span key={key} className="whitespace-pre-wrap">
+      {parts.map((p, i) => (i % 2 === 1 ? <strong key={i}>{p}</strong> : p))}
+    </span>
+  );
+}
+
+// Safety net for raw LaTeX in plain text parts.
+// Wraps any \command{...} sequences and bare \command words that are not already
+// inside \( \) or \[ \] delimiters.
+function wrapRawLatex(text: string): string {
+  // Block: \begin{...}...\end{...}
+  let processed = text.replace(
+    /\\begin\{[a-z\*]+\}[\s\S]+?\\end\{[a-z\*]+\}/g,
+    (match) => `\\[${match}\\]`
+  );
+  // Inline: \command{arg}{arg}... (one or more brace groups)
+  processed = processed.replace(
+    /(?<!\\[\(\[])\\([a-zA-Z]+)(\{[^}]*\})+/g,
+    (match) => `\\(${match}\\)`
+  );
+  // Inline: bare \command (no braces) — e.g. \alpha, \vec, \in, \leq
+  processed = processed.replace(
+    /(?<!\\[\(\[])\\([a-zA-Z]+)(?!\{)/g,
+    (match) => `\\(${match}\\)`
+  );
+  return processed;
+}
+
+// Normalize AI output: convert $...$ → \(...\) and $$...$$ → \[...\]
+// Also unescape \$ that AIs sometimes emit when confused about double-escaping
+function normalizeDelimiters(text: string): string {
+  // Unescape \$ → $ first (AI sometimes over-escapes dollar signs)
+  let s = text.replace(/\\\$/g, "$");
+  // Convert $$...$$ → \[...\] (block math)
+  s = s.replace(/\$\$([\s\S]+?)\$\$/g, (_, inner) => `\\[${inner}\\]`);
+  // Convert $...$ → \(...\) (inline math), avoiding already-converted \[ \]
+  s = s.replace(/(?<!\\)\$([^$\n]+?)(?<!\\)\$/g, (_, inner) => `\\(${inner}\\)`);
+  return s;
+}
+
+const MathRendererInner: React.FC<MathRendererProps> = ({ content }) => {
   if (!content) return null;
 
-  // Safety net for raw LaTeX in plain text parts
-  const wrapRawLatex = (text: string) => {
-    // 1. Wrap blocks like \begin{...} ... \end{...}
-    let processed = text.replace(/\\begin\{[a-z\*]+\}[\s\S]+?\\end\{[a-z\*]+\}/g, (match) => `$$${match}$$`);
-    
-    // 2. Wrap common inline commands (handling multiple {braced} blocks for commands like \frac)
-    const inlineKeywords = ["boldsymbol", "mathbb", "frac", "det", "lambda", "alpha", "beta", "gamma", "delta", "mathbf", "times"];
-    inlineKeywords.forEach(kw => {
-      // Matches \kw followed by one or more {braced} blocks
-      const regexKw = new RegExp(`(?<![\\w\\$])\\\\${kw}(\\{[^\\}]+\\})+`, "g");
-      processed = processed.replace(regexKw, (match) => `$${match}$`);
-      
-      // Also catch simple commands like \lambda without braces
-      const simpleRegex = new RegExp(`(?<![\\w\\$])\\\\${kw}(?![\\w\\{\\$])`, "g");
-      processed = processed.replace(simpleRegex, (match) => `$${match}$`);
-    });
-    
-    return processed;
-  };
+  const normalized = normalizeDelimiters(content);
 
-  const regex = /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|(?<!\\)\$[\s\S]+?(?<!\\)\$)/g;
-  const parts = content.split(regex);
+  const regex =
+    /(\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\))/g;
+  const parts = normalized.split(regex);
 
   return (
     <span className="max-w-full overflow-x-auto inline-block align-middle">
       {parts.map((part, index) => {
-        if (part.startsWith("$$") && part.endsWith("$$")) {
-          // Display Math $$...$$
+        if (part.startsWith("\\[") && part.endsWith("\\]")) {
           return (
-            <div key={index} className="overflow-x-auto py-2 max-w-full">
-              <BlockMath math={part.slice(2, -2)} />
-            </div>
-          );
-        } else if (part.startsWith("\\[") && part.endsWith("\\]")) {
-          // Display Math \[...\]
-          return (
-            <div key={index} className="overflow-x-auto py-2 max-w-full">
-              <BlockMath math={part.slice(2, -2)} />
-            </div>
+            <MathErrorBoundary key={index} fallback={part}>
+              <div className="overflow-x-auto py-2 max-w-full">
+                <BlockMath math={part.slice(2, -2)} />
+              </div>
+            </MathErrorBoundary>
           );
         } else if (part.startsWith("\\(") && part.endsWith("\\)")) {
-          // Inline Math \(...\)
-          return <InlineMath key={index} math={part.slice(2, -2)} />;
-        } else if (part.startsWith("$") && part.endsWith("$")) {
-           // Inline Math $...$
-           // Handle case where it might just be a single $ or invalid
-           if (part.length <= 2) return <span key={index}>{part}</span>;
-           return <InlineMath key={index} math={part.slice(1, -1)} />;
+          return (
+            <MathErrorBoundary key={index} fallback={part}>
+              <InlineMath math={part.slice(2, -2)} />
+            </MathErrorBoundary>
+          );
         } else {
-          // Plain Text - Apply safety net and process basic markdown bold
           const rawProcessed = wrapRawLatex(part);
           if (rawProcessed !== part) {
-             return <MathRenderer key={index} content={rawProcessed} />;
+            return <MathRendererInner key={index} content={rawProcessed} />;
           }
-          const formatted = part.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-          return (
-            <span 
-              key={index} 
-              className="whitespace-pre-wrap" 
-              dangerouslySetInnerHTML={{ __html: formatted }} 
-            />
-          );
+          return renderBold(part, index);
         }
       })}
     </span>
   );
 };
+
+export const MathRenderer = memo(MathRendererInner);

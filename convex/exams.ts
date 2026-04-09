@@ -149,6 +149,10 @@ export const createExamSubmission = mutation({
         totalQuestions: v.number(),
     },
     handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) throw new Error("Unauthorized");
+        if (identity.subject !== args.userId) throw new Error("Unauthorized");
+
         // Check if already exists to prevent overwrite
         const existing = await ctx.db.query("examSubmissions")
             .withIndex("by_exam_user", q => q.eq("examId", args.examId).eq("userId", args.userId))
@@ -167,6 +171,27 @@ export const createExamSubmission = mutation({
     }
 });
 
+export const saveExamAnswers = mutation({
+    args: {
+        examId: v.id("exams"),
+        userId: v.string(),
+        answers: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) throw new Error("Unauthorized");
+        if (identity.subject !== args.userId) throw new Error("Unauthorized");
+
+        const existing = await ctx.db.query("examSubmissions")
+            .withIndex("by_exam_user", q => q.eq("examId", args.examId).eq("userId", args.userId))
+            .first();
+
+        if (existing && existing.status !== "submitted") {
+            await ctx.db.patch(existing._id, { answers: args.answers });
+        }
+    }
+});
+
 export const submitExam = mutation({
     args: {
         examId: v.id("exams"),
@@ -177,6 +202,10 @@ export const submitExam = mutation({
         results: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) throw new Error("Unauthorized");
+        if (identity.subject !== args.userId) throw new Error("Unauthorized");
+
          const existing = await ctx.db.query("examSubmissions")
             .withIndex("by_exam_user", q => q.eq("examId", args.examId).eq("userId", args.userId))
             .first();
@@ -277,4 +306,27 @@ export const getUserSubmission = query({
             .withIndex("by_exam_user", q => q.eq("examId", args.examId).eq("userId", args.userId))
             .first();
     }
+});
+
+export const updateExamMarkingSchemes = mutation({
+    args: {
+        examId: v.id("exams"),
+        markingSchemes: v.string(), // JSON: Record<string, MarkingCriterion[]>
+    },
+    handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) throw new Error("Unauthorized");
+
+        const user = await ctx.db
+            .query("users")
+            .withIndex("by_userId", q => q.eq("userId", identity.subject))
+            .first();
+
+        if (!user || (!user.roles?.includes("admin") && user.role !== "admin")) throw new Error("Admin access required");
+
+        const exam = await ctx.db.get(args.examId);
+        if (!exam) throw new Error("Exam not found");
+
+        await ctx.db.patch(args.examId, { markingSchemes: args.markingSchemes });
+    },
 });

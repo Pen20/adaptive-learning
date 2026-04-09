@@ -1,5 +1,6 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 
 export const saveSubmission = mutation({
   args: {
@@ -16,17 +17,34 @@ export const saveSubmission = mutation({
     judgeConfidence: v.optional(v.number()),
     errorType: v.optional(v.string()),
     usedHints: v.boolean(),
+    judgeAlreadyRun: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    // Check for existing user logic could go here if needed to link strictly to internal ID
-    // For now we just store the submission with the Clerk User ID as per schema
-    const submissionId = await ctx.db.insert("submissions", args);
-    
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    if (identity.subject !== args.userId) throw new Error("Unauthorized: userId mismatch");
+
+    const judgeStatus = args.judgeAlreadyRun ? "complete" : "pending";
+    const { judgeAlreadyRun, ...insertArgs } = args;
+    const submissionId = await ctx.db.insert("submissions", { ...insertArgs, judgeStatus });
+
+    // Schedule background judge only when it hasn't been run inline already
+    if (!args.judgeAlreadyRun) {
+      await ctx.scheduler.runAfter(0, internal.grading.runJudgeForSubmission, {
+        submissionId,
+        problemStatement: args.problemStatement,
+        studentAnswer: args.finalAnswer,
+        reasoning: args.reasoningSteps,
+        grade: args.grade,
+        feedback: args.aiFeedback,
+        topicName: args.topicName,
+      });
+    }
+
     // Update mastery (always track the topic, increment score only if correct)
     const existingMastery = await ctx.db
       .query("studentMastery")
-      .withIndex("by_user_mastery", (q) => q.eq("userId", args.userId)) 
-      .filter((q) => q.eq(q.field("topicName"), args.topicName))
+      .withIndex("by_user_mastery", (q) => q.eq("userId", args.userId).eq("topicName", args.topicName))
       .first();
     
     const scoreIncrement = args.grade === 1 ? 10 : 0;
@@ -76,8 +94,7 @@ export const getStudentMastery = query({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("studentMastery")
-      .filter((q) => q.eq(q.field("userId"), args.userId))
-      .filter((q) => q.eq(q.field("topicName"), args.topicName))
+      .withIndex("by_user_mastery", (q) => q.eq("userId", args.userId).eq("topicName", args.topicName))
       .first();
   },
 });
@@ -89,6 +106,29 @@ export const getRecentSubmissions = query({
       .query("submissions")
       .withIndex("by_user_topic", (q) => q.eq("userId", args.userId))
       .order("desc")
-      .take(args.limit);
+      .take(Math.min(args.limit, 50));
+  },
+});
+
+export const getSubmission = query({
+  args: { submissionId: v.id("submissions") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.submissionId);
+  },
+});
+
+export const patchSubmissionWithJudge = internalMutation({
+  args: {
+    submissionId: v.id("submissions"),
+    grade: v.number(),
+    feedback: v.string(),
+    errorType: v.string(),
+    judgeFeedback: v.string(),
+    isJudgeModified: v.boolean(),
+    judgeConfidence: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const { submissionId, ...patch } = args;
+    await ctx.db.patch(submissionId, { ...patch, judgeStatus: "complete" });
   },
 });

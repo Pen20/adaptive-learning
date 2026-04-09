@@ -6,6 +6,7 @@ import { ConvexClientProvider } from "./ConvexClientProvider";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { UserPresence } from "@/components/auth/UserPresence";
+import { Toaster } from "sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,6 +34,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ConvexClientProvider>
+          <Toaster position="top-right" richColors />
           <UserPresence />
           <div className="flex flex-col min-h-screen">
             <Navbar />

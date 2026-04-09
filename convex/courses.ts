@@ -1,5 +1,6 @@
-import { query } from "./_generated/server";
+import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+
 
 export const getCourses = query({
   args: {},
@@ -44,6 +45,36 @@ export const getAllTopics = query({
   args: {},
   handler: async (ctx) => {
     return await ctx.db.query("topics").collect();
+  },
+});
+
+export const updateTopicDescription = mutation({
+  args: {
+    topicId: v.string(),
+    description: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .first();
+
+    if (!user || (!user.roles?.includes("admin") && user.role !== "admin")) {
+      throw new Error("Admin access required");
+    }
+
+    const topic = await ctx.db
+      .query("topics")
+      .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
+      .first();
+
+    if (!topic) throw new Error(`Topic "${args.topicId}" not found`);
+
+    await ctx.db.patch(topic._id, { description: args.description });
+    return { updated: args.topicId };
   },
 });
 

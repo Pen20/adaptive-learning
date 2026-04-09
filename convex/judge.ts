@@ -84,10 +84,9 @@ export const evaluateEvaluator = action({
           "Authorization": `Bearer ${OPENAI_API_KEY}`
         },
         body: JSON.stringify({
-          model: "o3-mini",
-          reasoning_effort: "medium",
+          model: "gpt-4o-mini",
           messages: [
-            { role: "developer", content: "You are a strict but fair Math Professor. You judge the quality of AI-generated math tutoring evaluations. You have been provided with historical expert corrections to help you align with human standards. Return strictly valid JSON." },
+            { role: "system", content: "You are a strict but fair Math Professor. You judge the quality of AI-generated math tutoring evaluations. You have been provided with historical expert corrections to help you align with human standards. Return strictly valid JSON." },
             { role: "user", content: judgePrompt }
           ],
           response_format: { type: "json_object" }

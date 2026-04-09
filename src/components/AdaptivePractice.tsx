@@ -5,6 +5,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Loader2, CheckCircle2, XCircle, Sparkles } from "lucide-react";
+import { toast } from "sonner";
 import { MathRenderer } from "./MathRenderer";
 import { NotationHelp } from "./math/NotationHelp";
 
@@ -44,6 +45,7 @@ export default function AdaptivePractice({ questions, message, onComplete }: Ada
         setFeedbacks(prev => ({ ...prev, [q.id]: result }));
     } catch (error) {
         console.error("Error checking answer:", error);
+        toast.error("Could not check answer. Please try again.");
     } finally {
         setLoadingIds(prev => ({ ...prev, [q.id]: false }));
     }
@@ -68,14 +70,14 @@ export default function AdaptivePractice({ questions, message, onComplete }: Ada
             setUserAnswers(prev => ({ ...prev, [q.id]: transcription }));
         } catch (error) {
             console.error("Transcription failed:", error);
-            alert("Failed to transcribe image.");
+            toast.error("Failed to transcribe image. Please try again.");
         } finally {
             setScanningIds(prev => ({ ...prev, [q.id]: false }));
         }
     };
   };
 
-  const allCorrect = questions.every(q => feedbacks[q.id]?.isCorrect);
+  const allCorrect = questions.length > 0 && questions.every(q => feedbacks[q.id]?.isCorrect);
 
   return (
     <Card className="bg-blue-50/50 border-blue-100 mt-8">

@@ -27,8 +27,13 @@ export const independenceLogic = {
           return true;
       }
   
+      let attempts = 0;
       while (isZero(u) || isZero(v) || areParallel(u, v)) {
-         v = Array.from({ length: 3 }, () => Math.floor(Math.random() * (v_max - v_min + 1)) + v_min);
+        v = Array.from({ length: 3 }, () => Math.floor(Math.random() * (v_max - v_min + 1)) + v_min);
+        if (++attempts > 50) {
+          v = [1, 0, 0]; // safe fallback that is never parallel to a random u
+          break;
+        }
       }
   
       // Calculate Cross Product: n = u x v

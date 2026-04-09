@@ -18,8 +18,8 @@ export const getPermissions = query({
       allowSolution: true,
       allowDetailedSolution: true,
       allowPractice: true,
-      allowRLHF: (permissions as any)?.allowRLHF ?? true,
-      alwaysShowSolution: (permissions as any)?.alwaysShowSolution ?? false,
+      allowRLHF: true,
+      alwaysShowSolution: false,
     };
   },
 });
@@ -66,9 +66,14 @@ export const updatePermission = mutation({
       throw new Error("Admin access required");
     }
 
+    const ALLOWED_FIELDS = ["allowHints", "allowSolution", "allowDetailedSolution", "allowPractice", "allowRLHF", "alwaysShowSolution"];
+    if (!ALLOWED_FIELDS.includes(args.field)) {
+      throw new Error(`Invalid field: ${args.field}`);
+    }
+
     const existing = await ctx.db
       .query("topicPermissions")
-      .withIndex("by_course_topic", (q) => 
+      .withIndex("by_course_topic", (q) =>
         q.eq("courseName", args.courseName).eq("topicName", args.topicName)
       )
       .first();

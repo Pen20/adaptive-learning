@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { topicRegistry } from "@/data/topics";
 import { CorrectionModerator } from "@/components/admin/CorrectionModerator";
+import { MarkingSchemeEditor } from "@/components/admin/MarkingSchemeEditor";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, XCircle, Users, Activity } from "lucide-react";
 import {
@@ -388,6 +389,11 @@ export default function AdminDashboard() {
                 icon={<Settings className="h-4 w-4" />}
               />
               <AdminTabTrigger
+                value="marking"
+                label="Marking"
+                icon={<FileText className="h-4 w-4" />}
+              />
+              <AdminTabTrigger
                 value="moderation"
                 label="Moderation"
                 icon={<ShieldAlert className="h-4 w-4" />}
@@ -454,6 +460,14 @@ export default function AdminDashboard() {
             description="Design, schedule, and manage automated exam sessions."
           >
             <ExamManager style={style} />
+          </AdminTabContent>
+
+          <AdminTabContent
+            value="marking"
+            title="Marking Schemes"
+            description="Define per-question rubrics for exams. Criteria marks must sum to 1.0 per question."
+          >
+            <MarkingSchemeEditor />
           </AdminTabContent>
 
           <AdminTabContent

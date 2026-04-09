@@ -38,6 +38,9 @@ export default defineSchema({
     isActive: v.boolean(),
     feedbackMode: v.union(v.literal("immediate"), v.literal("on_close")),
     resultsReleased: v.optional(v.boolean()),
+    // JSON: Record<string, MarkingCriterion[]>
+    // key = question slot index (e.g. "0", "1"); absent key = binary grading
+    markingSchemes: v.optional(v.string()),
   }).index("by_course_active", ["courseName", "isActive"]),
 
   examSubmissions: defineTable({
@@ -67,6 +70,7 @@ export default defineSchema({
     judgeConfidence: v.optional(v.number()),
     errorType: v.optional(v.string()),
     usedHints: v.boolean(),
+    judgeStatus: v.optional(v.union(v.literal("pending"), v.literal("complete"))),
   }).index("by_user_topic", ["userId", "topicName"]),
 
   studentMastery: defineTable({
@@ -74,7 +78,7 @@ export default defineSchema({
     topicName: v.string(),
     masteryScore: v.number(), 
     lastAttempt: v.number(),
-  }).index("by_user_mastery", ["userId", "masteryScore"]),
+  }).index("by_user_mastery", ["userId", "topicName"]),
 
   feedback: defineTable({
     name: v.optional(v.string()),

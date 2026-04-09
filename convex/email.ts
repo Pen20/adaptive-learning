@@ -65,7 +65,7 @@ export const sendFeedbackEmail = action({
   handler: async (ctx, args) => {
     const gmailEmail = process.env.GMAIL_EMAIL;
     const gmailAppPassword = process.env.GMAIL_APP_PASSWORD;
-    const adminEmail = "wastalasdassise@gmail.com";
+    const adminEmail = process.env.ADMIN_EMAIL ?? "wastalasdassise@gmail.com";
     
     // If no credentials, log simply.
     if (!gmailEmail || !gmailAppPassword) {
