@@ -76,7 +76,14 @@ export default function DashboardPage() {
   const userData = useQuery(api.users.getUser, user ? { userId: user.id } : "skip");
   const masteryData = useQuery(api.users.getUserMastery, user ? { userId: user.id } : "skip");
   const examData = useQuery(api.exams.getStudentExams, user ? {} : "skip");
-  const recentSubmissions = useQuery(api.submissions.getRecentSubmissions, user ? { userId: user.id, limit: 10 } : "skip");
+  const topicStats = useQuery(api.submissions.getTopicSubmissionStats, user ? { userId: user.id } : "skip");
+  const [historyTopic, setHistoryTopic] = useState("");
+  const [historyLimit, setHistoryLimit] = useState(10);
+  const [expandedSub, setExpandedSub] = useState<string | null>(null);
+  const topicSubmissions = useQuery(
+    api.submissions.getSubmissionsByTopic,
+    user ? { userId: user.id, topicName: historyTopic, limit: historyLimit } : "skip"
+  );
   const courses = useQuery(api.courses.getCourses);
   const allTopics = useQuery(api.courses.getAllTopics);
   const userStats = useQuery(api.users.getUserStats, user ? { userId: user.id } : "skip");
@@ -101,7 +108,6 @@ export default function DashboardPage() {
   if (
     masteryData === undefined ||
     examData === undefined ||
-    recentSubmissions === undefined ||
     courses === undefined ||
     allTopics === undefined ||
     userStats === undefined
@@ -318,45 +324,128 @@ export default function DashboardPage() {
           {/* Right Side */}
           <div className="lg:col-span-4 flex flex-col gap-8">
             <section>
-              <div className="flex items-center gap-3 mb-6">
+              <div className="flex items-center gap-3 mb-4">
                 <History className={`h-5 w-5 ${style.accent}`} />
                 <h2 className="text-xl font-black tracking-tight uppercase">Problem History</h2>
               </div>
+
+              {/* Per-topic stats strip */}
+              {topicStats && topicStats.length > 0 && (
+                <div className="flex gap-2 flex-wrap mb-4">
+                  <button
+                    onClick={() => { setHistoryTopic(""); setHistoryLimit(10); }}
+                    className={`text-[10px] font-bold uppercase px-3 py-1.5 rounded-full border transition-colors ${historyTopic === "" ? `${style.accentBg} ${style.accentBorder} ${style.accent}` : "border-slate-700 text-slate-500 hover:text-slate-300"}`}
+                  >
+                    All
+                  </button>
+                  {topicStats.map((t: any) => {
+                    const rate = t.total > 0 ? Math.round((t.correct / t.total) * 100) : 0;
+                    const isActive = historyTopic === t.topic;
+                    return (
+                      <button
+                        key={t.topic}
+                        onClick={() => { setHistoryTopic(t.topic); setHistoryLimit(10); setExpandedSub(null); }}
+                        className={`text-[10px] font-bold uppercase px-3 py-1.5 rounded-full border transition-colors flex items-center gap-1.5 ${isActive ? `${style.accentBg} ${style.accentBorder} ${style.accent}` : "border-slate-700 text-slate-500 hover:text-slate-300"}`}
+                      >
+                        {t.topic.replace(/_/g, " ")}
+                        <span className={`${rate >= 70 ? "text-emerald-400" : rate >= 40 ? "text-yellow-400" : "text-red-400"}`}>
+                          {rate}%
+                        </span>
+                        <span className="text-slate-600">({t.total})</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
               <Card className={`${style.card} divide-y divide-slate-800/50`}>
-                {recentSubmissions.map((sub: any) => (
-                  <div key={sub._id} className="p-4 hover:bg-white/5 transition-colors cursor-default">
-                    <div className="flex justify-between items-start gap-3 mb-2">
-                      <span className={`text-[11px] font-black uppercase tracking-tight truncate flex-1 ${style.text}`}>
-                        {sub.topicName.replace(/_/g, " ")}
-                      </span>
-                      {sub.grade === 1 ? (
-                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                      ) : (
-                        <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />
-                      )}
-                    </div>
-                    <div className="text-[10px] text-slate-500 italic mb-1 flex gap-1 overflow-hidden">
-                      <span className="font-bold flex-shrink-0">Q:</span>
-                      <div className="line-clamp-2 flex-grow min-w-0">
-                        <MathRenderer content={sub.problemStatement} />
-                      </div>
-                    </div>
-                    <div className="text-[10px] text-slate-300 font-medium mb-2 flex gap-1 overflow-hidden">
-                      <span className="font-bold text-white flex-shrink-0">A:</span>
-                      <div className="line-clamp-2 flex-grow min-w-0">
-                        <MathRenderer content={sub.finalAnswer} />
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center text-[9px] font-medium text-slate-600 uppercase">
-                      <span>{new Date(sub._creationTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                      <span>{sub.usedHints ? "Used Hints" : "Clean Run"}</span>
-                    </div>
-                  </div>
-                ))}
-                {recentSubmissions.length === 0 && (
+                {!topicSubmissions ? (
+                  <div className="p-6 flex justify-center"><Loader2 className="animate-spin h-4 w-4 text-slate-500" /></div>
+                ) : topicSubmissions.length === 0 ? (
                   <div className="p-10 text-center text-slate-600 text-[11px] font-medium italic">
-                    No recent activity found. Start a practice session!
+                    No submissions yet{historyTopic ? ` for ${historyTopic.replace(/_/g, " ")}` : ""}. Start a practice session!
                   </div>
+                ) : (
+                  <>
+                    {topicSubmissions.map((sub: any) => {
+                      const isExpanded = expandedSub === sub._id;
+                      return (
+                        <div key={sub._id} className="hover:bg-white/5 transition-colors">
+                          {/* Row header — always visible */}
+                          <button
+                            className="w-full text-left p-4"
+                            onClick={() => setExpandedSub(isExpanded ? null : sub._id)}
+                          >
+                            <div className="flex justify-between items-start gap-3 mb-1.5">
+                              <span className={`text-[11px] font-black uppercase tracking-tight truncate flex-1 ${style.text}`}>
+                                {sub.topicName.replace(/_/g, " ")}
+                              </span>
+                              <div className="flex items-center gap-2 shrink-0">
+                                {sub.errorType && (
+                                  <span className="text-[9px] font-semibold text-red-400 uppercase bg-red-500/10 px-1.5 py-0.5 rounded">
+                                    {sub.errorType}
+                                  </span>
+                                )}
+                                {sub.grade === 1
+                                  ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                                  : <XCircle className="h-3.5 w-3.5 text-red-500" />
+                                }
+                              </div>
+                            </div>
+                            <div className="text-[10px] text-slate-500 italic flex gap-1 overflow-hidden">
+                              <span className="font-bold flex-shrink-0">Q:</span>
+                              <div className="line-clamp-1 flex-grow min-w-0">
+                                <MathRenderer content={sub.problemStatement} />
+                              </div>
+                            </div>
+                            <div className="flex justify-between items-center text-[9px] font-medium text-slate-600 uppercase mt-1.5">
+                              <span>{new Date(sub._creationTime).toLocaleDateString([], { month: "short", day: "numeric" })} · {new Date(sub._creationTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                              <span className="flex items-center gap-2">
+                                {sub.usedHints && <span className="text-yellow-500">Used Hints</span>}
+                                <span className={`${style.accent}`}>{isExpanded ? "▲ collapse" : "▼ details"}</span>
+                              </span>
+                            </div>
+                          </button>
+
+                          {/* Expanded detail panel */}
+                          {isExpanded && (
+                            <div className="px-4 pb-4 space-y-3 border-t border-slate-800/60 pt-3">
+                              <div>
+                                <p className="text-[9px] font-bold uppercase text-slate-500 mb-1">Your Answer</p>
+                                <div className="text-[11px] text-slate-300">
+                                  <MathRenderer content={sub.finalAnswer || "(none)"} />
+                                </div>
+                              </div>
+                              {sub.reasoningSteps && (
+                                <div>
+                                  <p className="text-[9px] font-bold uppercase text-slate-500 mb-1">Reasoning</p>
+                                  <div className="text-[11px] text-slate-400 whitespace-pre-wrap font-mono">
+                                    <MathRenderer content={sub.reasoningSteps} />
+                                  </div>
+                                </div>
+                              )}
+                              {sub.aiFeedback && (
+                                <div className={`p-3 rounded-lg ${style.accentBg} border ${style.accentBorder}`}>
+                                  <p className="text-[9px] font-bold uppercase mb-1.5 ${style.accent}">AI Feedback</p>
+                                  <div className={`text-[11px] leading-relaxed ${style.text}`}>
+                                    <MathRenderer content={sub.aiFeedback} />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {topicSubmissions.length >= historyLimit && (
+                      <button
+                        className={`w-full p-3 text-[10px] font-bold uppercase text-center ${style.accent} hover:bg-white/5 transition-colors`}
+                        onClick={() => setHistoryLimit(h => h + 10)}
+                      >
+                        Load More
+                      </button>
+                    )}
+                  </>
                 )}
               </Card>
             </section>

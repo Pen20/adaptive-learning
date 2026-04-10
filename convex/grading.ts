@@ -22,9 +22,9 @@ export const gradeSubmission = action({
     Student's Final Answer: ${args.studentAnswer}
     Student's Reasoning: ${args.reasoning}
 
-    IMPORTANT: If "Student's Final Answer" is empty or missing, you MUST identify their intended final answer from their "Reasoning" steps. If no final answer can be found in the reasoning, the grade should be 0.
-    
-    IMPORTANT: NO BARE ANSWERS. If the "Student's Reasoning" is empty, trivial, or merely states the work was done on paper, you MUST give a grade of 0. Your feedback MUST explicitly state: "You need to provide your full written reasoning and core logic steps here. I cannot accept just the final solution because I need to assess your methodology and highlight any missing steps."
+    IMPORTANT: If "Student's Final Answer" is empty or missing, you MUST identify their intended final answer from their "Reasoning" steps. If no final answer can be found anywhere, the grade should be 0.
+
+    IMPORTANT: Grade 1 is ONLY awarded when the final answer is correct AND the reasoning is mathematically sound and non-trivial. A correct answer with thin, vague, or missing reasoning MUST receive grade 0. Feedback MUST then state: "Your answer is correct, but you need to show your full reasoning steps so I can assess your understanding and methodology."
 
     IMPORTANT: STRICT MATH DELIMITER PROTOCOL
     - You MUST wrap EVERY mathematical symbol, variable, matrix, or expression in LaTeX delimiters.
@@ -268,10 +268,12 @@ export const gradeOptimized = action({
     Student's Reasoning: ${args.reasoning}
 
     STRICT RULES:
-    1. **REQUIRED REASONING (NO BARE ANSWERS)**: If the "Student's Reasoning" is empty, trivial, or merely states that the work was done on paper, you MUST assign a grade of 0. Your feedback MUST explicitly state: "You need to provide your full written reasoning and core logic steps here. I cannot accept just the final solution because I need to assess your methodology and highlight any missing steps."
-    2. **Final Answer Detection**: If "Student's Final Answer" is empty, you MUST find the answer within the "Reasoning" steps.
-    3. **Reasoning Consistency**: If the reasoning is incorrect, inconsistent with the final answer, or appears to be a "lucky guess", the grade MUST be 0.
-    4. **Final Answer in Steps**: The student must include a clear final answer somewhere within their work.
+    1. **Grade 1 requires BOTH**: A grade of 1 is only awarded when the final answer is correct AND the reasoning is mathematically sound and non-trivial. A correct answer with no reasoning, vague reasoning, or reasoning that merely restates the answer without showing the method MUST receive grade 0.
+    2. **Thin/Missing Reasoning → Grade 0**: If the reasoning is empty, trivial (e.g. "I did it on paper"), or does not show the key logical steps, assign grade 0. Feedback MUST state: "Your answer is correct, but you need to show your full reasoning steps so I can assess your understanding and methodology."
+    3. **Final Answer Detection**: If "Student's Final Answer" is empty, find the answer within the "Reasoning" steps. If no answer can be found anywhere, assign grade 0.
+    4. **Verify the Final Answer Numerically**: Independently compute or verify the correct answer to the problem yourself. Then compare it digit-by-digit / sign-by-sign against what the student wrote. A missing negative sign, wrong coefficient, or off-by-one value means the answer is WRONG. Do NOT assume the answer is correct just because the method looks right.
+    5. **Reasoning Consistency**: Only give grade 0 for incorrect reasoning if it is **mathematically wrong** or **directly contradicts** the final answer. A different but valid method, condensed steps, or unconventional notation must still receive full credit. Do NOT penalise a student for using a different valid approach.
+    6. **Incorrect Answer**: If the final answer is wrong, assign grade 0 and explain precisely what the correct answer is and where the student went wrong.
     5. **Tone**: Be professional, encouraging, and direct (use "You" / second person).
     6. **STRICT MATH DELIMITER PROTOCOL**:
        - You MUST wrap EVERY mathematical symbol, variable, matrix, or expression in delimiters.

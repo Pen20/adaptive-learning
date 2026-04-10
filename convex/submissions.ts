@@ -110,6 +110,51 @@ export const getRecentSubmissions = query({
   },
 });
 
+// Per-topic summary stats for the history panel
+export const getTopicSubmissionStats = query({
+  args: { userId: v.string() },
+  handler: async (ctx, args) => {
+    const all = await ctx.db
+      .query("submissions")
+      .withIndex("by_user_topic", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    const map: Record<string, { topic: string; total: number; correct: number; lastAttempt: number }> = {};
+    for (const s of all) {
+      if (!map[s.topicName]) {
+        map[s.topicName] = { topic: s.topicName, total: 0, correct: 0, lastAttempt: 0 };
+      }
+      map[s.topicName].total++;
+      if (s.grade === 1) map[s.topicName].correct++;
+      if (s._creationTime > map[s.topicName].lastAttempt) {
+        map[s.topicName].lastAttempt = s._creationTime;
+      }
+    }
+    return Object.values(map).sort((a, b) => b.lastAttempt - a.lastAttempt);
+  },
+});
+
+// Submissions for a specific topic (or all topics when topicName is empty)
+export const getSubmissionsByTopic = query({
+  args: { userId: v.string(), topicName: v.string(), limit: v.number() },
+  handler: async (ctx, args) => {
+    if (args.topicName) {
+      return await ctx.db
+        .query("submissions")
+        .withIndex("by_user_topic", (q) =>
+          q.eq("userId", args.userId).eq("topicName", args.topicName)
+        )
+        .order("desc")
+        .take(Math.min(args.limit, 100));
+    }
+    return await ctx.db
+      .query("submissions")
+      .withIndex("by_user_topic", (q) => q.eq("userId", args.userId))
+      .order("desc")
+      .take(Math.min(args.limit, 100));
+  },
+});
+
 export const getSubmission = query({
   args: { submissionId: v.id("submissions") },
   handler: async (ctx, args) => {

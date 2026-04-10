@@ -414,7 +414,7 @@ export default function ProblemPage() {
                         className="w-full shadow-md hover:shadow-lg transition-all bg-blue-600 hover:bg-blue-700 text-white text-base font-semibold py-6" 
                         size="lg" 
                         onClick={handleCheck} 
-                        disabled={grading || !finalAnswer}
+                        disabled={grading || !finalAnswer.trim() || !reasoning.trim()}
                     >
                         {grading ? (
                             <>

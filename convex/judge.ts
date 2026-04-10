@@ -2,6 +2,18 @@ import { action } from "./_generated/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
 
+/**
+ * LLM-as-Judge: single responsibility — verify that the AI feedback is
+ * aligned with the specific problem and the student's actual submission.
+ *
+ * Three alignment checks (each binary pass/fail):
+ *   1. PROBLEM RELEVANCE  — feedback addresses this specific problem, not a generic response
+ *   2. MATHEMATICAL ACCURACY — mathematical claims in the feedback are correct for this problem
+ *   3. GRADE CONSISTENCY — the awarded grade matches what the student actually submitted
+ *
+ * Only returns isModified=true when at least one check fails, and only then
+ * produces a corrected grade/feedback. This keeps the judge fast and surgical.
+ */
 export const evaluateEvaluator = action({
   args: {
     problemStatement: v.string(),
@@ -15,102 +27,104 @@ export const evaluateEvaluator = action({
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
     if (!OPENAI_API_KEY) throw new Error("Missing OPENAI_API_KEY");
 
-    // Fetch approved expert corrections for this topic to use as few-shot examples
+    // Fetch up to 2 approved expert corrections as few-shot alignment examples
     const expertCorrections = await ctx.runQuery(api.corrections.getApprovedCorrectionsForTopic, {
       topicName: args.topicName,
-      limit: 3
+      limit: 2,
     });
 
-    let fewShotContext = "";
-    if (expertCorrections && expertCorrections.length > 0) {
-      fewShotContext = `
-      ### Expert Peer Review Examples (Historical Corrections):
-      The following are examples of how expert human professors have corrected past AI evaluations in this topic. You MUST prioritize following these examples for your judgment:
-      ${expertCorrections.map((c: any, i: number) => `
-      Example ${i + 1}:
-      - AI Feedback was corrected to: "${c.correctedFeedback}"
-      - Corrected Grade: ${c.correctedGrade}
-      `).join("\n")}
-      `;
-    }
+    const fewShotContext = expertCorrections?.length
+      ? `### Expert Alignment Examples for topic "${args.topicName}":
+${expertCorrections.map((c: any, i: number) =>
+  `Example ${i + 1}: corrected feedback → "${c.correctedFeedback}" | corrected grade → ${c.correctedGrade}`
+).join("\n")}`
+      : "";
 
     const judgePrompt = `
-      You are an expert Math Professor acting as an "LLM-as-a-Judge". 
-      Your task is to review the evaluation provided by an AI Assistant for a student's math submission on the topic: "${args.topicName}".
+You are an LLM-as-Judge for a math tutoring system. Your ONLY job is to verify that the AI feedback is ALIGNED with the specific problem and the student's submission.
 
-      ${fewShotContext}
+${fewShotContext}
 
-      Problem Statement:
-      ${args.problemStatement}
+--- CONTEXT ---
+Topic: ${args.topicName}
+Problem: ${args.problemStatement}
+Student's Final Answer: ${args.studentAnswer || "(none)"}
+Student's Reasoning: ${args.studentReasoning || "(none)"}
+AI Grade: ${args.assistantGrade} (1 = correct, 0 = incorrect)
+AI Feedback: ${args.assistantFeedback}
 
-      Student's Final Answer:
-      ${args.studentAnswer}
+--- YOUR THREE ALIGNMENT CHECKS ---
+1. PROBLEM RELEVANCE: Does the feedback specifically address THIS problem? Fail if the feedback is generic and could apply to any question.
+2. MATHEMATICAL ACCURACY: Are the mathematical statements in the feedback correct for THIS problem? Fail if the feedback contains wrong formulas, wrong values, or contradicts the correct solution.
+3. GRADE CONSISTENCY: Independently solve the problem yourself and verify the correct answer. Then compare it sign-by-sign and value-by-value against what the student wrote. A missing negative sign, wrong coefficient, or any numeric error means the answer is WRONG → grade must be 0. Fail this check if a wrong answer received grade 1, or a correct answer received grade 0.
 
-      Student's Reasoning Steps:
-      ${args.studentReasoning}
+--- RULES ---
+- If all three checks pass → set isModified: false and copy the original feedback as refinedFeedback. Do NOT rewrite working feedback.
+- If any check fails → set isModified: true and write a corrected refinedFeedback that fixes ONLY the failing checks.
+- Do NOT change the grade unless check 3 clearly fails.
+- Do NOT penalise valid alternative methods or condensed steps.
+- Grade 1 requires both a correct answer AND sound reasoning. Grade 0 with thin reasoning is valid.
+- MATH DELIMITERS: use \\( \\) for inline math and \\[ \\] for block math. Double-escape backslashes in JSON (e.g. "\\\\frac", "\\\\mathbf"). Never use $ or $$.
 
-      AI Assistant's Evaluation:
-      - Grade (1=Correct, 0=Incorrect): ${args.assistantGrade}
-      - Feedback: ${args.assistantFeedback}
-
-      Your Goal:
-      1. Determine if the Assistant's grade is accurate based on the Problem and the Student's work.
-      2. Assess if the Assistant's feedback is helpful, encouraging, and pedagogically sound.
-      3. **Reasoning Check**: If the student provides reasoning steps, they must be logically sound. If the reasoning is incorrect or inconsistent with the final answer (e.g., "lucky guess" or "copied answer"), the grade MUST be 0 (Incorrect), even if the final result matches the solution.
-      4. **STRICT DELIMITER CHECK**: You MUST ensure ALL math in the feedback is wrapped in delimiters ($...$ or $$...$$). If the assistant provided raw LaTeX (e.g., \boldsymbol{u} or \frac{a}{b} without $), you MUST refine the feedback to wrap it correctly.
-      5. If the Assistant made a mistake (like marking a lucky guess as correct) or the feedback could be significantly improved, provide a "Refined Feedback" and a corrected grade.
-      6. Categorize the error type specifically for the topic "${args.topicName}". Use categories like "Inconsistent Reasoning", "Calculation Error", etc.
-      7. Provide a confidence score (0.0 to 1.0) for your judgment.
-
-      Return ONLY a valid JSON object with the following structure:
-      {
-        "isAssistantCorrect": boolean,
-        "suggestedGrade": number (0 or 1),
-        "refinedFeedback": string (STRICTLY wrap ALL math in $...$ or $$...$$. Double-escape all backslashes in the LaTeX strings, e.g., "\\\\text", "\\\\frac"),
-        "errorType": string (descriptive topic-specific category if grade is 0, otherwise empty string),
-        "isModified": boolean,
-        "judgeConfidence": number (0.0 - 1.0),
-        "reasoning": "Briefly explains your decision as a judge"
-      }
-
-      IMPORTANT: Double-escape all backslashes in the LaTeX strings.
-    `;
+Return ONLY valid JSON:
+{
+  "checks": {
+    "problemRelevance": true | false,
+    "mathematicalAccuracy": true | false,
+    "gradeConsistency": true | false
+  },
+  "isModified": boolean,
+  "suggestedGrade": 0 | 1,
+  "refinedFeedback": "string — original if isModified=false, corrected if true",
+  "errorType": "2-4 word category if grade 0, else empty string",
+  "judgeConfidence": 0.0-1.0,
+  "reasoning": "One sentence explaining the decision"
+}
+    `.trim();
 
     try {
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${OPENAI_API_KEY}`
+          "Authorization": `Bearer ${OPENAI_API_KEY}`,
         },
         body: JSON.stringify({
           model: "gpt-4o-mini",
           messages: [
-            { role: "system", content: "You are a strict but fair Math Professor. You judge the quality of AI-generated math tutoring evaluations. You have been provided with historical expert corrections to help you align with human standards. Return strictly valid JSON." },
-            { role: "user", content: judgePrompt }
+            {
+              role: "system",
+              content: "You are a precise math feedback alignment judge. Return only valid JSON. Double-escape all LaTeX backslashes. Use \\\\( and \\\\) for inline math and \\\\[ and \\\\] for block math. Never use $ or $$.",
+            },
+            { role: "user", content: judgePrompt },
           ],
-          response_format: { type: "json_object" }
-        })
+          response_format: { type: "json_object" },
+        }),
       });
 
       const data = await response.json();
       if (data.error) throw new Error(`OpenAI Error: ${data.error.message}`);
-      
+
       const content = JSON.parse(data.choices[0].message.content);
-      
-      // Basic validation and normalization
+      const checks = content.checks ?? {};
+
       return {
-        isAssistantCorrect: !!content.isAssistantCorrect,
+        isAssistantCorrect: content.isModified === false,
         suggestedGrade: content.suggestedGrade === 1 ? 1 : 0,
         refinedFeedback: content.refinedFeedback || args.assistantFeedback,
         errorType: content.errorType || "",
         isModified: !!content.isModified,
-        judgeConfidence: typeof content.judgeConfidence === 'number' ? content.judgeConfidence : 0.5,
-        reasoning: content.reasoning || ""
+        judgeConfidence: typeof content.judgeConfidence === "number" ? content.judgeConfidence : 0.5,
+        reasoning: content.reasoning || "",
+        checks: {
+          problemRelevance: checks.problemRelevance !== false,
+          mathematicalAccuracy: checks.mathematicalAccuracy !== false,
+          gradeConsistency: checks.gradeConsistency !== false,
+        },
       };
     } catch (err: any) {
       console.error("Judge Error:", err);
-      throw new Error(`Failed to execute Judge agent: ${err.message}`);
+      throw new Error(`Judge failed: ${err.message}`);
     }
   },
 });
