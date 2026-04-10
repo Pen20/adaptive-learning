@@ -17,7 +17,7 @@ export const gradeSubmission = action({
     const prompt = `
     You are a strict but helpful math tutor. Grade the following student submission for correctness and logic.
     Address the student directly in the second person (e.g., "Your answer is...").
-    
+
     Problem: ${args.problemStatement}
     Student's Final Answer: ${args.studentAnswer}
     Student's Reasoning: ${args.reasoning}
@@ -32,11 +32,22 @@ export const gradeSubmission = action({
     - Use \\[ ... \\] for block math (e.g., matrices, long equations).
     - NEVER use $ or $$ as delimiters. NEVER output raw LaTeX without delimiters.
     - Example of CORRECT formatting: "Your vector \\(\\mathbf{u}\\) is independent."
-    - Example of INCORRECT formatting: "Your vector $\mathbf{u}$ is independent."
+    - Example of INCORRECT formatting: "Your vector $\\mathbf{u}$ is independent."
+
+    MANDATORY FEEDBACK STRUCTURE — you MUST produce exactly three labelled sections. Never collapse them into one paragraph.
+
+    Section 1 — write the literal header "**Answer:**" then on the same line:
+    Assess only the final answer. Is it correct or not? If incorrect, state the correct answer AND one actionable sentence on what the student needs to fix specifically in their final answer. If correct, confirm it.
+
+    Section 2 — write the literal header "**Reasoning:**" then on the same line:
+    Assess only the reasoning steps independently from the answer. Go through the steps the student provided. If the steps are correct, confirm them. If a step is wrong or missing, name that step and add one actionable sentence on what the student needs to show or correct in their working. This section must never be skipped or merged with Section 1.
+
+    Section 3 — write the literal header "**Verdict:**" then on the same line:
+    Justify the grade in 2-3 sentences. List every mistake found across the answer and the reasoning. If grade is 1, confirm both are correct.
 
     Return ONLY a valid JSON object with no markdown formatting. The JSON must have:
     - "grade": 1 for correct, 0 for incorrect.
-    - "feedback": A concise, encouraging explanation. ALWAYS follow the DELIMITER PROTOCOL above.
+    - "feedback": structured as "**Answer:** ... \\n\\n**Reasoning:** ... \\n\\n**Verdict:** ...". ALWAYS follow the DELIMITER PROTOCOL.
     - "errorType": If grade is 0, a 2-4 word category of the error. If grade is 1, return an empty string.
     IMPORTANT: Double-escape all backslashes in the JSON string (e.g., "\\\\text", "\\\\frac").
         `;
@@ -240,7 +251,23 @@ export const gradeOptimized = action({
     topicName: v.string(),
   },
   handler: async (ctx, args) => {
-    // 1. Get few-shot examples (expert corrections) for this topic
+    // 1. CAS: compute the verified correct answer before involving the AI
+    const casResult = await ctx.runAction(internal.cas.computeGroundTruth, {
+      problemStatement: args.problemStatement,
+      topicName: args.topicName,
+    }) as { isComputable: boolean; groundTruth: string | null; expression: string | null; description?: string };
+
+    // 2. CAS: check student answer equivalence (short-circuit when possible)
+    let casEquivalence: { isEquivalent: boolean | null; casChecked: boolean } = { isEquivalent: null, casChecked: false };
+    if (casResult.isComputable && casResult.expression) {
+      casEquivalence = await ctx.runAction(internal.cas.checkAnswerEquivalence, {
+        studentAnswer: args.studentAnswer || args.reasoning,
+        groundTruth: casResult.groundTruth!,
+        expression: casResult.expression,
+      }) as { isEquivalent: boolean | null; casChecked: boolean };
+    }
+
+    // 3. Get few-shot examples (expert corrections) for this topic
     const expertCorrections = await ctx.runQuery(api.corrections.getApprovedCorrectionsForTopic, {
       topicName: args.topicName,
       limit: 2
@@ -258,37 +285,65 @@ export const gradeOptimized = action({
       `;
     }
 
+    // 4. Build CAS context block injected into the prompt
+    const casContext = casResult.isComputable
+      ? `
+    ⚠️  CAS VERIFIED ANSWER (computed deterministically by mathjs — do NOT recompute):
+        Expression evaluated: ${casResult.expression}
+        Correct answer: ${casResult.groundTruth}
+        ${casResult.description ? `What was computed: ${casResult.description}` : ""}
+        ${casEquivalence.casChecked
+          ? casEquivalence.isEquivalent === true
+            ? "CAS EQUIVALENCE CHECK: Student's answer matches the verified answer ✓ — the final answer is CORRECT."
+            : "CAS EQUIVALENCE CHECK: Student's answer does NOT match the verified answer ✗ — the final answer is WRONG."
+          : "CAS equivalence check could not parse student answer — use the verified answer above to judge correctness."}
+    Use the verified answer above as ground truth. Do NOT perform your own numerical computation.
+      `
+      : "";
+
     const unifiedPrompt = `
-    You are an expert Math Professor. Grade the student's submission for the topic: "${args.topicName}".
+    You are a supportive Math Professor. Grade the student's submission for the topic: "${args.topicName}".
 
     ${fewShotContext}
+    ${casContext}
 
     Problem: ${args.problemStatement}
     Student's Final Answer: ${args.studentAnswer}
     Student's Reasoning: ${args.reasoning}
 
-    STRICT RULES:
-    1. **Grade 1 requires BOTH**: A grade of 1 is only awarded when the final answer is correct AND the reasoning is mathematically sound and non-trivial. A correct answer with no reasoning, vague reasoning, or reasoning that merely restates the answer without showing the method MUST receive grade 0.
-    2. **Thin/Missing Reasoning → Grade 0**: If the reasoning is empty, trivial (e.g. "I did it on paper"), or does not show the key logical steps, assign grade 0. Feedback MUST state: "Your answer is correct, but you need to show your full reasoning steps so I can assess your understanding and methodology."
+    RULES:
+    1. **Grade 1 requires BOTH**: A grade of 1 is only awarded when the final answer is correct AND the reasoning shows the key logical steps. Condensed or shorthand steps are acceptable as long as the mathematical logic is visible.
+    2. **Thin/Missing Reasoning → Grade 0**: If the reasoning is empty or says nothing mathematical (e.g. "I did it on paper"), assign grade 0. Feedback MUST state: "Your answer is correct, but you need to show your reasoning steps so I can assess your understanding."
     3. **Final Answer Detection**: If "Student's Final Answer" is empty, find the answer within the "Reasoning" steps. If no answer can be found anywhere, assign grade 0.
-    4. **Verify the Final Answer Numerically**: Independently compute or verify the correct answer to the problem yourself. Then compare it digit-by-digit / sign-by-sign against what the student wrote. A missing negative sign, wrong coefficient, or off-by-one value means the answer is WRONG. Do NOT assume the answer is correct just because the method looks right.
-    5. **Reasoning Consistency**: Only give grade 0 for incorrect reasoning if it is **mathematically wrong** or **directly contradicts** the final answer. A different but valid method, condensed steps, or unconventional notation must still receive full credit. Do NOT penalise a student for using a different valid approach.
-    6. **Incorrect Answer**: If the final answer is wrong, assign grade 0 and explain precisely what the correct answer is and where the student went wrong.
-    5. **Tone**: Be professional, encouraging, and direct (use "You" / second person).
-    6. **STRICT MATH DELIMITER PROTOCOL**:
+    4. **Trust the CAS**: If a CAS verified answer is provided above, use it as the ground truth for correctness. Do NOT recompute the answer yourself — AI arithmetic is unreliable. The CAS is always right.
+    5. **Reasoning Consistency**: Only assign grade 0 for incorrect reasoning if it is mathematically wrong or directly contradicts the final answer. A different but valid method, condensed steps, or unconventional notation must receive full credit.
+    6. **Semantic Equivalence**: Mathematically equivalent statements MUST receive the same grade regardless of phrasing, notation, or word choice. For example, writing "\\(\\det(A) \\neq 0\\)" is identical to writing "the determinant is non-zero". Rephrasing a correct conclusion in equivalent words is NOT a reasoning error.
+    7. **Wrong Answer or Wrong Reasoning → Show the Correct Result**: If the final answer or reasoning is wrong, briefly state what the correct answer/result is after explaining the mistake. One or two sentences is enough.
+    8. **STRICT MATH DELIMITER PROTOCOL**:
        - You MUST wrap EVERY mathematical symbol, variable, matrix, or expression in delimiters.
        - Use \\( ... \\) for inline math and \\[ ... \\] for block math. Double-escape backslashes in JSON (e.g., "\\\\frac", "\\\\mathbf").
        - NEVER use $ or $$ as delimiters. NEVER output raw LaTeX (e.g., \\boldsymbol, \\begin) without delimiters.
 
+    MANDATORY FEEDBACK STRUCTURE — you MUST produce exactly three labelled sections. Never collapse them into one paragraph.
+
+    Section 1 — write the literal header "**Answer:**" then on the same line:
+    Assess only the final answer. Is it correct or not? If incorrect, state the correct answer AND one actionable sentence on what the student needs to fix specifically in their final answer. If correct, confirm it.
+
+    Section 2 — write the literal header "**Reasoning:**" then on the same line:
+    Assess only the reasoning steps independently from the answer. Go through the steps the student provided. If the steps are correct, confirm them. If a step is wrong or missing, name that step and add one actionable sentence on what the student needs to show or correct in their working. This section must never be skipped or merged with Section 1.
+
+    Section 3 — write the literal header "**Verdict:**" then on the same line:
+    Justify the grade in 2-3 sentences. List every mistake found across the answer and the reasoning. If grade is 1, confirm both are correct.
+
     Return ONLY a valid JSON object:
     {
       "grade": number (0 or 1),
-      "feedback": "Concise pedagogical explanation following STRICT MATH DELIMITER PROTOCOL",
+      "feedback": "**Answer:** ... \\n\\n**Reasoning:** ... \\n\\n**Verdict:** ...",
       "errorType": "2-4 word category if grade 0, else empty"
     }
     `;
 
-    const systemMessage = "You are a strict Math Professor. Return strictly valid JSON. IMPORTANT: Double-escape all LaTeX backslashes (e.g., '\\\\frac', '\\\\mathbf'). Use \\\\( and \\\\) for inline math and \\\\[ and \\\\] for block math. NEVER use $ or $$ as delimiters.";
+    const systemMessage = "You are a supportive Math Professor. Return strictly valid JSON. IMPORTANT: Double-escape all LaTeX backslashes (e.g., '\\\\frac', '\\\\mathbf'). Use \\\\( and \\\\) for inline math and \\\\[ and \\\\] for block math. NEVER use $ or $$ as delimiters.";
 
     try {
       if (args.model === "gemini-2.5-flash") {

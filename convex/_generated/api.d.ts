@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as cas from "../cas.js";
 import type * as corrections from "../corrections.js";
 import type * as courses from "../courses.js";
 import type * as debug from "../debug.js";
@@ -31,6 +32,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  cas: typeof cas;
   corrections: typeof corrections;
   courses: typeof courses;
   debug: typeof debug;

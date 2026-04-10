@@ -43,6 +43,7 @@ next-env.d.ts
 # convex
 .convex/
 
+
 # bun
 .bun/
 

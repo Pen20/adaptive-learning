@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Button } from "./ui/button";
@@ -29,6 +29,8 @@ export default function AdaptivePractice({ questions, message, onComplete }: Ada
   const [feedbacks, setFeedbacks] = useState<Record<string, { isCorrect: boolean; feedback: string }>>({});
   const [loadingIds, setLoadingIds] = useState<Record<string, boolean>>({});
   const [scanningIds, setScanningIds] = useState<Record<string, boolean>>({});
+  const inputRefs = useRef<Record<string, HTMLInputElement>>({});
+  const savedCursors = useRef<Record<string, { start: number; end: number }>>({});
 
   const handleSubmit = async (q: Question) => {
     const answer = userAnswers[q.id];
@@ -97,12 +99,21 @@ export default function AdaptivePractice({ questions, message, onComplete }: Ada
                     </div>
                     
                     <div className="flex gap-2 items-start">
-                        <Input 
-                            value={userAnswers[q.id] || ""} 
+                        <Input
+                            ref={(el) => { if (el) inputRefs.current[q.id] = el; }}
+                            value={userAnswers[q.id] || ""}
                             onChange={(e) => setUserAnswers(prev => ({...prev, [q.id]: e.target.value}))}
                             placeholder="Enter your answer..."
                             className="max-w-xs"
                             disabled={feedbacks[q.id]?.isCorrect}
+                            onBlur={() => {
+                                const el = inputRefs.current[q.id];
+                                if (el) savedCursors.current[q.id] = { start: el.selectionStart ?? 0, end: el.selectionEnd ?? 0 };
+                            }}
+                            onSelect={() => {
+                                const el = inputRefs.current[q.id];
+                                if (el) savedCursors.current[q.id] = { start: el.selectionStart ?? 0, end: el.selectionEnd ?? 0 };
+                            }}
                         />
 
                         <div className="relative">
@@ -134,11 +145,16 @@ export default function AdaptivePractice({ questions, message, onComplete }: Ada
                         </Button>
 
                         {!feedbacks[q.id]?.isCorrect && (
-                            <NotationHelp 
-                                onInsert={(code) => setUserAnswers(prev => ({
-                                    ...prev, 
-                                    [q.id]: prev[q.id] ? `${prev[q.id]} ${code}` : code
-                                }))} 
+                            <NotationHelp
+                                onInsert={(code) => {
+                                    const cursor = savedCursors.current[q.id] ?? { start: 0, end: 0 };
+                                    setUserAnswers(prev => {
+                                        const text = prev[q.id] || '';
+                                        const newText = text.slice(0, cursor.start) + code + text.slice(cursor.end);
+                                        savedCursors.current[q.id] = { start: cursor.start + code.length, end: cursor.start + code.length };
+                                        return { ...prev, [q.id]: newText };
+                                    });
+                                }}
                             />
                         )}
                     </div>

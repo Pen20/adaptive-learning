@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../../../../../convex/_generated/api"; 
 import { topicRegistry } from "@/data/topics";
@@ -41,6 +41,10 @@ export default function ProblemPage() {
   const [showSolution, setShowSolution] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
   const [lastSubmissionId, setLastSubmissionId] = useState<Id<"submissions"> | null>(null);
+
+  // Refs for cursor-aware notation insertion
+  const reasoningRef = useRef<HTMLTextAreaElement>(null);
+  const savedCursorRef = useRef({ start: 0, end: 0 });
 
   // Debounced State for Performance
   const [debouncedReasoning, setDebouncedReasoning] = useState("");
@@ -279,7 +283,14 @@ export default function ProblemPage() {
                     </Button>
                 )}
                 
-                <NotationHelp onInsert={(code) => setReasoning(prev => prev ? `${prev} ${code}` : code)} />
+                <NotationHelp onInsert={(code) => {
+                    const { start, end } = savedCursorRef.current;
+                    setReasoning(prev => {
+                        const text = prev || '';
+                        return text.slice(0, start) + code + text.slice(end);
+                    });
+                    savedCursorRef.current = { start: start + code.length, end: start + code.length };
+                }} />
 
                 {(allowSolution && (isAdmin || result !== null || alwaysShowSolution)) && (
                     <Button variant="outline" onClick={() => setShowSolution(!showSolution)}>
@@ -390,11 +401,22 @@ export default function ProblemPage() {
                                 </Button>
                             </div>
                         </div>
-                        <Textarea 
+                        <Textarea
+                            ref={reasoningRef}
                             className="min-h-[160px] font-mono text-sm bg-white border-slate-200 shadow-sm focus-visible:ring-blue-500 resize-y leading-relaxed"
                             placeholder={"Type your steps here...\nExample: \"By definition, V is...\"\nUse $...$ for inline equations and $$...$$ for block equations."}
                             value={reasoning}
                             onChange={(e) => setReasoning(e.target.value)}
+                            onBlur={() => {
+                                if (reasoningRef.current) {
+                                    savedCursorRef.current = { start: reasoningRef.current.selectionStart, end: reasoningRef.current.selectionEnd };
+                                }
+                            }}
+                            onSelect={() => {
+                                if (reasoningRef.current) {
+                                    savedCursorRef.current = { start: reasoningRef.current.selectionStart, end: reasoningRef.current.selectionEnd };
+                                }
+                            }}
                         />
                         
                         {debouncedReasoning && (

@@ -69,6 +69,10 @@ export const NotationHelp = ({ onInsert }: NotationHelpProps) => {
                             <NotationItem title="Power / Exponent" code="x^2" math="x^2" />
                             <NotationItem title="Square Root" code="\sqrt{x}" math="\sqrt{x}" />
                             <NotationItem title="Multiplication" code="\cdot" math="a \cdot b" />
+                            <NotationItem title="Not Equal" code="\neq" math="a \neq b" />
+                            <NotationItem title="Equivalent" code="\equiv" math="a \equiv b" />
+                            <NotationItem title="Implies (→)" code="\implies" math="A \implies B" />
+                            <NotationItem title="If and Only If (↔)" code="\iff" math="A \iff B" />
                         </div>
                     </div>
 

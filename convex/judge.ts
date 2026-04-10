@@ -1,6 +1,6 @@
 import { action } from "./_generated/server";
 import { v } from "convex/values";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 
 /**
  * LLM-as-Judge: single responsibility — verify that the AI feedback is
@@ -27,6 +27,19 @@ export const evaluateEvaluator = action({
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
     if (!OPENAI_API_KEY) throw new Error("Missing OPENAI_API_KEY");
 
+    // CAS: get independent verified answer for this problem
+    const casResult = await ctx.runAction(internal.cas.computeGroundTruth, {
+      problemStatement: args.problemStatement,
+      topicName: args.topicName,
+    }) as { isComputable: boolean; groundTruth: string | null; expression: string | null };
+
+    const casContext = casResult.isComputable
+      ? `\n⚠️  CAS VERIFIED ANSWER (mathjs — do NOT override unless the expression is clearly wrong):
+   Expression: ${casResult.expression}
+   Correct answer: ${casResult.groundTruth}
+   If the AI feedback states a different numeric answer, that is a MATHEMATICAL ACCURACY failure.\n`
+      : "";
+
     // Fetch up to 2 approved expert corrections as few-shot alignment examples
     const expertCorrections = await ctx.runQuery(api.corrections.getApprovedCorrectionsForTopic, {
       topicName: args.topicName,
@@ -44,7 +57,7 @@ ${expertCorrections.map((c: any, i: number) =>
 You are an LLM-as-Judge for a math tutoring system. Your ONLY job is to verify that the AI feedback is ALIGNED with the specific problem and the student's submission.
 
 ${fewShotContext}
-
+${casContext}
 --- CONTEXT ---
 Topic: ${args.topicName}
 Problem: ${args.problemStatement}
@@ -62,8 +75,14 @@ AI Feedback: ${args.assistantFeedback}
 - If all three checks pass → set isModified: false and copy the original feedback as refinedFeedback. Do NOT rewrite working feedback.
 - If any check fails → set isModified: true and write a corrected refinedFeedback that fixes ONLY the failing checks.
 - Do NOT change the grade unless check 3 clearly fails.
-- Do NOT penalise valid alternative methods or condensed steps.
-- Grade 1 requires both a correct answer AND sound reasoning. Grade 0 with thin reasoning is valid.
+- Do NOT penalise valid alternative methods or condensed steps. Condensed reasoning is acceptable.
+- **Semantic Equivalence**: Mathematically equivalent statements MUST receive the same grade regardless of phrasing or notation. "\\(\\det(A) \\neq 0\\)" and "the determinant is non-zero" are identical. Adding or omitting connective words like "since", "thus", or "therefore" does NOT change the mathematical content. Never flag a correct answer as wrong solely due to rephrasing.
+- Grade 1 requires both a correct answer AND reasoning that shows the key steps. Thin reasoning (no steps at all) is grade 0, but concise or shorthand steps are acceptable.
+- **Wrong feedback must show the correct result**: If you rewrite feedback for a wrong answer or wrong reasoning, ALWAYS include a brief statement of what the correct answer/result is — even one sentence is enough.
+- MANDATORY FEEDBACK STRUCTURE: refinedFeedback MUST contain exactly three labelled sections — never collapse into one paragraph.
+  Section 1 — header "**Answer:**": assess only the final answer. If incorrect, state the correct answer and one actionable sentence on what the student needs to fix in their final answer.
+  Section 2 — header "**Reasoning:**": assess only the reasoning steps, independently. If a step is wrong or missing, name it and add one actionable sentence on what the student needs to show or correct. Never skip or merge with Section 1.
+  Section 3 — header "**Verdict:**": 2-3 sentences. Justify the grade and list all mistakes. If grade is 1, confirm both are correct.
 - MATH DELIMITERS: use \\( \\) for inline math and \\[ \\] for block math. Double-escape backslashes in JSON (e.g. "\\\\frac", "\\\\mathbf"). Never use $ or $$.
 
 Return ONLY valid JSON:
