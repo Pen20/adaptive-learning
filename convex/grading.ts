@@ -1,6 +1,6 @@
 import { action, internalAction } from "./_generated/server";
 import { v } from "convex/values";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { api, internal } from "./_generated/api";
 
 export const gradeSubmission = action({
@@ -353,10 +353,22 @@ export const gradeOptimized = action({
         const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
         const geminiModel = genAI.getGenerativeModel({
           model: "gemini-2.5-flash",
-          generationConfig: { responseMimeType: "application/json" } as any,
+          systemInstruction: systemMessage + "\n\nYou MUST format the feedback with **Answer:**, **Reasoning:**, and **Verdict:** sections.",
+          generationConfig: { 
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: SchemaType.OBJECT,
+              properties: {
+                grade: { type: SchemaType.NUMBER },
+                feedback: { type: SchemaType.STRING },
+                errorType: { type: SchemaType.STRING }
+              },
+              required: ["grade", "feedback", "errorType"]
+            }
+          } as any,
         });
 
-        const result = await geminiModel.generateContent(`${systemMessage}\n\n${unifiedPrompt}`);
+        const result = await geminiModel.generateContent(unifiedPrompt);
         const text = result.response.text();
 
         // Extract the first {...} block in case Gemini adds surrounding text
@@ -389,7 +401,23 @@ export const gradeOptimized = action({
               { role: "system", content: systemMessage },
               { role: "user", content: unifiedPrompt }
             ],
-            response_format: { type: "json_object" }
+            response_format: {
+              type: "json_schema",
+              json_schema: {
+                name: "grading_result",
+                strict: true,
+                schema: {
+                  type: "object",
+                  properties: {
+                    grade: { type: "number" },
+                    feedback: { type: "string" },
+                    errorType: { type: "string" }
+                  },
+                  required: ["grade", "feedback", "errorType"],
+                  additionalProperties: false
+                }
+              }
+            }
           })
         });
 
@@ -405,7 +433,12 @@ export const gradeOptimized = action({
       }
     } catch (e: any) {
       console.error("Optimized Grading Error:", e);
-      return { grade: 0, feedback: "Error during grading. Please try again.", errorType: "Feedback Error", isOptimized: true };
+      return { 
+        grade: 0, 
+        feedback: "**Answer:** Unverifiable\n\n**Reasoning:** An unexpected syntax error occurred while generating your feedback. Please try checking your answer again.\n\n**Verdict:** System Error", 
+        errorType: "Feedback Error", 
+        isOptimized: true 
+      };
     }
   },
 });

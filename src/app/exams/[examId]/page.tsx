@@ -36,7 +36,7 @@ export default function ExamPage() {
   });
 
   const transcribeReasoning = useAction(api.grading.transcribeReasoning);
-  const gradeWithJudge = useAction(api.grading.gradeWithJudge);
+  const gradeOptimized = useAction(api.grading.gradeOptimized);
   const gradeWithMarkingScheme = useAction(api.grading.gradeWithMarkingScheme);
   const createSubmission = useMutation(api.exams.createExamSubmission);
 
@@ -209,7 +209,7 @@ export default function ExamPage() {
             return { idx, ...result };
           } else {
             // Fall back to binary grading
-            const result = await gradeWithJudge({
+            const result = await gradeOptimized({
               problemStatement: q.statement,
               studentAnswer: "",
               reasoning: studentReasoning,
@@ -260,7 +260,7 @@ export default function ExamPage() {
     } finally {
       setIsGrading(false);
     }
-  }, [questions, answers, gradeWithJudge, submitExam, exam, user]);
+  }, [questions, answers, gradeOptimized, submitExam, exam, user]);
 
   if (!exam || !user) {
     return (

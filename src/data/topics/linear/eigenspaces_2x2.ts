@@ -25,7 +25,7 @@ export const eigenspaces2x2Logic = {
         c = 0;
       } else {
         const absBC = Math.abs(targetBC);
-        let factors = [];
+        const factors = [];
         for (let i = 1; i <= Math.sqrt(absBC); i++) {
           if (absBC % i === 0) {
             factors.push(i);

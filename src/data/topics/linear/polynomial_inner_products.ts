@@ -12,7 +12,7 @@ export const polynomialInnerProductLogic = {
     const b2 = Math.floor(Math.random() * 10) - 4;
 
     const formatPoly = (c0: number, c1: number, c2: number) => {
-      let parts = [];
+      const parts = [];
       if (c0 !== 0) parts.push(`${c0}`);
       if (c1 !== 0) {
         const sign = c1 > 0 && parts.length > 0 ? "+" : "";

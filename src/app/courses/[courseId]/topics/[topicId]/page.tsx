@@ -60,7 +60,7 @@ export default function ProblemPage() {
   const [transcribing, setTranscribing] = useState(false);
 
   // Actions/Mutations
-  const gradeWithJudge = useAction(api.grading.gradeWithJudge);
+  const gradeOptimized = useAction(api.grading.gradeOptimized);
   const saveSubmission = useMutation(api.submissions.saveSubmission);
   const generatePractice = useAction(api.recommendations.generatePractice);
   const updateMastery = useMutation(api.users.updateMastery);
@@ -134,18 +134,18 @@ export default function ProblemPage() {
     setResult(null);
 
     try {
-      // Run grader + judge inline — result shown only after both complete
-      const gradeResult = await gradeWithJudge({
+      // Run grader inline rapidly
+      const gradeResult = (await gradeOptimized({
         problemStatement: problemData.statement,
         studentAnswer: finalAnswer,
         reasoning,
         model,
         topicName: topicId,
-      });
+      })) as { grade: number; feedback: string; errorType?: string };
 
       setResult({ grade: gradeResult.grade, feedback: gradeResult.feedback, errorType: gradeResult.errorType });
 
-      // Save submission with judge results already included — skips background scheduling
+      // Save submission without judge results — skips background scheduling
       const subId = await saveSubmission({
         userId: user.id,
         courseName: courseId === "linear_algebra" ? "Linear Algebra" : "Differential Calculus",
@@ -156,11 +156,8 @@ export default function ProblemPage() {
         grade: gradeResult.grade,
         aiFeedback: gradeResult.feedback,
         errorType: gradeResult.errorType,
-        judgeFeedback: gradeResult.judgeMetadata?.judgeFeedback,
-        isJudgeModified: gradeResult.judgeMetadata?.isJudgeModified,
-        judgeConfidence: gradeResult.judgeMetadata?.judgeConfidence,
         usedHints: showHint,
-        judgeAlreadyRun: true,
+        judgeAlreadyRun: false,
       });
       setLastSubmissionId(subId);
 

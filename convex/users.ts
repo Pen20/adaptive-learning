@@ -307,7 +307,7 @@ export const getUserStats = query({
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
-      let checkDate = new Date(uniqueDates[0]);
+      const checkDate = new Date(uniqueDates[0]);
       checkDate.setHours(0, 0, 0, 0);
 
       // Can be today or yesterday to continue/start a streak

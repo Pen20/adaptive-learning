@@ -14,7 +14,7 @@ export const systemsLogic = {
     const k_ans = b1 * ratio;
     
     // Make sure constants are NOT in the same ratio for "No Solution"
-    let c2 = c1 * ratio + (Math.floor(Math.random() * 5) + 1);
+    const c2 = c1 * ratio + (Math.floor(Math.random() * 5) + 1);
 
     return {
       title: "Linear Systems (No Solution)",
