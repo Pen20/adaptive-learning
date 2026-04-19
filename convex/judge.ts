@@ -2,6 +2,28 @@ import { action } from "./_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 
+function normalizeSecondPersonFeedback(feedback: string) {
+  return feedback
+    .replace(/\bThe student has\b/g, "You have")
+    .replace(/\bthe student has\b/g, "you have")
+    .replace(/\bThe student is\b/g, "You are")
+    .replace(/\bthe student is\b/g, "you are")
+    .replace(/\bThe student needs\b/g, "You need")
+    .replace(/\bthe student needs\b/g, "you need")
+    .replace(/\bThe student should\b/g, "You should")
+    .replace(/\bthe student should\b/g, "you should")
+    .replace(/\bThe student wrote\b/g, "You wrote")
+    .replace(/\bthe student wrote\b/g, "you wrote")
+    .replace(/\bThe student gave\b/g, "You gave")
+    .replace(/\bthe student gave\b/g, "you gave")
+    .replace(/\bThe student received\b/g, "You received")
+    .replace(/\bthe student received\b/g, "you received")
+    .replace(/\bThe student's\b/g, "Your")
+    .replace(/\bthe student's\b/g, "your")
+    .replace(/\bThe student\b/g, "You")
+    .replace(/\bthe student\b/g, "you");
+}
+
 /**
  * LLM-as-Judge: single responsibility — verify that the AI feedback is
  * aligned with the specific problem and the student's actual submission.
@@ -79,10 +101,11 @@ AI Feedback: ${args.assistantFeedback}
 - **Semantic Equivalence**: Mathematically equivalent statements MUST receive the same grade regardless of phrasing or notation. "\\(\\det(A) \\neq 0\\)" and "the determinant is non-zero" are identical. Adding or omitting connective words like "since", "thus", or "therefore" does NOT change the mathematical content. Never flag a correct answer as wrong solely due to rephrasing.
 - Grade 1 requires both a correct answer AND reasoning that shows the key steps. Thin reasoning (no steps at all) is grade 0, but concise or shorthand steps are acceptable.
 - **Wrong feedback must show the correct result**: If you rewrite feedback for a wrong answer or wrong reasoning, ALWAYS include a brief statement of what the correct answer/result is — even one sentence is enough.
+- **Direct Address Only**: Address the learner as "you" and "your" in every feedback section. Never write "the student", "the learner", or third-person phrases such as "The student has shown".
 - MANDATORY FEEDBACK STRUCTURE: refinedFeedback MUST contain exactly three labelled sections — never collapse into one paragraph.
   Section 1 — header "**Answer:**": assess only the final answer. If incorrect, state the correct answer and one actionable sentence on what the student needs to fix in their final answer.
   Section 2 — header "**Reasoning:**": assess only the reasoning steps, independently. If a step is wrong or missing, name it and add one actionable sentence on what the student needs to show or correct. Never skip or merge with Section 1.
-  Section 3 — header "**Verdict:**": 2-3 sentences. Justify the grade and list all mistakes. If grade is 1, confirm both are correct.
+  Section 3 — header "**Verdict:**": 2-3 sentences. Justify the grade and list all mistakes. If grade is 1, confirm both are correct. Use "you" and "your"; never write "the student".
 - MATH DELIMITERS: use \\( \\) for inline math and \\[ \\] for block math. Double-escape backslashes in JSON (e.g. "\\\\frac", "\\\\mathbf"). Never use $ or $$.
 
 Return ONLY valid JSON:
@@ -113,7 +136,7 @@ Return ONLY valid JSON:
           messages: [
             {
               role: "system",
-              content: "You are a precise math feedback alignment judge. Return only valid JSON. Double-escape all LaTeX backslashes. Use \\\\( and \\\\) for inline math and \\\\[ and \\\\] for block math. Never use $ or $$.",
+              content: "You are a precise math feedback alignment judge. Address the learner directly as you/your; never write 'the student'. Return only valid JSON. Double-escape all LaTeX backslashes. Use \\\\( and \\\\) for inline math and \\\\[ and \\\\] for block math. Never use $ or $$.",
             },
             { role: "user", content: judgePrompt },
           ],
@@ -130,7 +153,7 @@ Return ONLY valid JSON:
       return {
         isAssistantCorrect: content.isModified === false,
         suggestedGrade: content.suggestedGrade === 1 ? 1 : 0,
-        refinedFeedback: content.refinedFeedback || args.assistantFeedback,
+        refinedFeedback: normalizeSecondPersonFeedback(content.refinedFeedback || args.assistantFeedback),
         errorType: content.errorType || "",
         isModified: !!content.isModified,
         judgeConfidence: typeof content.judgeConfidence === "number" ? content.judgeConfidence : 0.5,

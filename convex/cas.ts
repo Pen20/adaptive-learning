@@ -41,6 +41,110 @@ function formatResult(result: any): string {
   return String(result);
 }
 
+function gcd(a: number, b: number): number {
+  let x = Math.abs(a);
+  let y = Math.abs(b);
+  while (y) {
+    const t = y;
+    y = x % y;
+    x = t;
+  }
+  return x || 1;
+}
+
+function formatRational(numerator: number, denominator: number): string {
+  if (denominator === 0) return "";
+  const sign = denominator < 0 ? -1 : 1;
+  const n = numerator * sign;
+  const d = Math.abs(denominator);
+  const divisor = gcd(n, d);
+  const reducedN = n / divisor;
+  const reducedD = d / divisor;
+  return reducedD === 1 ? String(reducedN) : `${reducedN}/${reducedD}`;
+}
+
+function parseLatexMatrix(problemStatement: string): string[][] | null {
+  const matrixMatch = problemStatement.match(/\\begin\{(?:bmatrix|vmatrix|pmatrix|matrix)\}([\s\S]*?)\\end\{(?:bmatrix|vmatrix|pmatrix|matrix)\}/);
+  if (!matrixMatch) return null;
+
+  return matrixMatch[1]
+    .split(/\\\\/)
+    .map((row) => row.trim())
+    .filter(Boolean)
+    .map((row) =>
+      row
+        .split("&")
+        .map((cell) => cell.replace(/\$/g, "").trim())
+        .filter(Boolean)
+    );
+}
+
+function parseNumericMatrix(problemStatement: string): number[][] | null {
+  const matrix = parseLatexMatrix(problemStatement);
+  if (!matrix) return null;
+
+  const numeric = matrix.map((row) => row.map((cell) => Number(cell)));
+  if (numeric.some((row) => row.some((value) => Number.isNaN(value)))) {
+    return null;
+  }
+
+  return numeric;
+}
+
+function det3(matrix: number[][]): number {
+  const a = matrix.flat();
+  return (
+    a[0] * (a[4] * a[8] - a[5] * a[7]) -
+    a[1] * (a[3] * a[8] - a[5] * a[6]) +
+    a[2] * (a[3] * a[7] - a[4] * a[6])
+  );
+}
+
+function computeDirectGroundTruth(problemStatement: string, topicName: string) {
+  if (topicName !== "determinants") return null;
+
+  const numericMatrix = parseNumericMatrix(problemStatement);
+  if (
+    /compute the determinant/i.test(problemStatement) &&
+    numericMatrix &&
+    numericMatrix.length === 3 &&
+    numericMatrix.every((row) => row.length === 3)
+  ) {
+    const determinant = det3(numericMatrix);
+    return {
+      isComputable: true,
+      groundTruth: String(determinant),
+      expression: String(determinant),
+      description: "3x3 determinant computed directly from the displayed matrix",
+    };
+  }
+
+  const symbolicMatrix = parseLatexMatrix(problemStatement);
+  if (
+    /matrix is singular/i.test(problemStatement) &&
+    symbolicMatrix &&
+    symbolicMatrix.length === 2 &&
+    symbolicMatrix.every((row) => row.length === 2)
+  ) {
+    const [[a, b], [c, d]] = symbolicMatrix;
+    if (d === "k") {
+      const denominator = Number(a);
+      const numerator = Number(b) * Number(c);
+      if (!Number.isNaN(denominator) && !Number.isNaN(numerator)) {
+        const answer = formatRational(numerator, denominator);
+        return {
+          isComputable: true,
+          groundTruth: answer,
+          expression: answer,
+          description: "Value of k that makes the 2x2 determinant equal to zero",
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
 /**
  * Symbolically compare two expressions using nerdamer.
  */
@@ -71,6 +175,12 @@ export const computeGroundTruth = internalAction({
     topicName: v.string(),
   },
   handler: async (ctx, args) => {
+    const direct = computeDirectGroundTruth(args.problemStatement, args.topicName);
+    if (direct) {
+      console.log(`[CAS] Direct ground truth | Topic: ${args.topicName} | Result: ${direct.groundTruth}`);
+      return direct;
+    }
+
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
     if (!OPENAI_API_KEY) return { isComputable: false, groundTruth: null, expression: null };
 
