@@ -2,6 +2,45 @@ import { mutation, query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 
+function getRecord(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function getString(value: unknown, fallback: string): string {
+  return typeof value === "string" && value.trim() ? value.trim() : fallback;
+}
+
+function getNumber(value: unknown, fallback: number): number {
+  const numeric = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+function getStringArray(value: unknown, fallback: string[]): string[] {
+  if (!Array.isArray(value)) return fallback;
+  const cleaned = value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return cleaned.length ? Array.from(new Set(cleaned)) : fallback;
+}
+
+function parseDiagnostics(raw: string): Record<string, unknown> {
+  return getRecord(JSON.parse(raw));
+}
+
+function getGradeCredit(grade: number): number {
+  if (!Number.isFinite(grade)) return 0;
+  return Math.max(0, Math.min(1, grade));
+}
+
+function getMasteryIncrementForGrade(grade: number): number {
+  if (grade >= 1) return 10;
+  if (grade >= 0.5) return 3;
+  return 0;
+}
+
 export const saveSubmission = mutation({
   args: {
     userId: v.string(),
@@ -18,6 +57,7 @@ export const saveSubmission = mutation({
     errorType: v.optional(v.string()),
     usedHints: v.boolean(),
     judgeAlreadyRun: v.optional(v.boolean()),
+    pipelineDiagnostics: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -25,8 +65,13 @@ export const saveSubmission = mutation({
     if (identity.subject !== args.userId) throw new Error("Unauthorized: userId mismatch");
 
     const judgeStatus = args.judgeAlreadyRun ? "complete" : "pending";
-    const { judgeAlreadyRun, ...insertArgs } = args;
+    const { judgeAlreadyRun, pipelineDiagnostics, ...insertArgs } = args;
+    void judgeAlreadyRun;
+    void pipelineDiagnostics;
     const submissionId = await ctx.db.insert("submissions", { ...insertArgs, judgeStatus });
+    const now = Date.now();
+    const gradeCredit = getGradeCredit(args.grade);
+    const scoreIncrement = getMasteryIncrementForGrade(args.grade);
 
     // Schedule background judge only when it hasn't been run inline already
     if (!args.judgeAlreadyRun) {
@@ -41,26 +86,137 @@ export const saveSubmission = mutation({
       });
     }
 
+    const existingStats = await ctx.db
+      .query("studentTopicStats")
+      .withIndex("by_user_topic", (q) =>
+        q.eq("userId", args.userId).eq("topicName", args.topicName)
+      )
+      .first();
+
+    if (existingStats) {
+      await ctx.db.patch(existingStats._id, {
+        total: existingStats.total + 1,
+        correct: existingStats.correct + gradeCredit,
+        lastAttempt: now,
+      });
+    } else {
+      await ctx.db.insert("studentTopicStats", {
+        userId: args.userId,
+        topicName: args.topicName,
+        total: 1,
+        correct: gradeCredit,
+        lastAttempt: now,
+      });
+    }
+
     // Update mastery (always track the topic, increment score only if correct)
     const existingMastery = await ctx.db
       .query("studentMastery")
       .withIndex("by_user_mastery", (q) => q.eq("userId", args.userId).eq("topicName", args.topicName))
       .first();
     
-    const scoreIncrement = args.grade === 1 ? 10 : 0;
-
     if (existingMastery) {
       await ctx.db.patch(existingMastery._id, {
         masteryScore: Math.min(existingMastery.masteryScore + scoreIncrement, 100),
-        lastAttempt: Date.now(),
+        lastAttempt: now,
       });
     } else {
       await ctx.db.insert("studentMastery", {
         userId: args.userId,
         topicName: args.topicName,
         masteryScore: scoreIncrement,
-        lastAttempt: Date.now(),
+        lastAttempt: now,
       });
+    }
+
+    if (args.pipelineDiagnostics) {
+      try {
+        const diagnostics = parseDiagnostics(args.pipelineDiagnostics);
+        const aiLayer = getRecord(diagnostics.aiLayer);
+        const didacticLayer = getRecord(diagnostics.didacticLayer);
+        const profileUpdate = getRecord(didacticLayer.profileUpdate);
+        const conceptTags = getStringArray(
+          didacticLayer.conceptTags,
+          getStringArray(aiLayer.conceptTags, [args.topicName]),
+        );
+        const techniqueUsed = getString(
+          aiLayer.techniqueUsed,
+          getString(profileUpdate.techniquePracticed, ""),
+        );
+        const misconception = getString(
+          aiLayer.misconception,
+          getStringArray(profileUpdate.misconceptionTags, [])[0] ?? "",
+        );
+
+        await ctx.db.insert("submissionDiagnostics", {
+          submissionId,
+          userId: args.userId,
+          topicName: args.topicName,
+          casLayer: JSON.stringify(getRecord(diagnostics.casLayer)),
+          aiLayer: JSON.stringify(aiLayer),
+          didacticLayer: JSON.stringify(didacticLayer),
+          techniqueUsed: techniqueUsed || undefined,
+          misconception: misconception || undefined,
+          conceptTags,
+          createdAt: now,
+        });
+
+        const masteryDelta = getNumber(profileUpdate.masteryDelta, scoreIncrement);
+        const recommendedNextTask = getString(
+          profileUpdate.recommendedNextTask,
+          "",
+        );
+        const misconceptionTags = getStringArray(
+          profileUpdate.misconceptionTags,
+          misconception ? [misconception] : [],
+        );
+
+        for (const conceptTag of conceptTags) {
+          const existingConcept = await ctx.db
+            .query("studentLearningProfile")
+            .withIndex("by_user_topic_concept", (q) =>
+              q
+                .eq("userId", args.userId)
+                .eq("topicName", args.topicName)
+                .eq("conceptTag", conceptTag),
+            )
+            .first();
+
+          if (existingConcept) {
+            await ctx.db.patch(existingConcept._id, {
+              masteryScore: Math.max(
+                0,
+                Math.min(100, existingConcept.masteryScore + masteryDelta),
+              ),
+              misconceptionCount:
+                existingConcept.misconceptionCount +
+                (misconceptionTags.length > 0 ? 1 : 0),
+              techniqueCount: existingConcept.techniqueCount + 1,
+              lastTechnique: techniqueUsed || existingConcept.lastTechnique,
+              lastMisconception:
+                misconceptionTags[0] || existingConcept.lastMisconception,
+              recommendedNextTask:
+                recommendedNextTask || existingConcept.recommendedNextTask,
+              lastSeen: now,
+            });
+          } else {
+            await ctx.db.insert("studentLearningProfile", {
+              userId: args.userId,
+              topicName: args.topicName,
+              conceptTag,
+              masteryScore: Math.max(0, Math.min(100, masteryDelta)),
+              misconceptionCount: misconceptionTags.length > 0 ? 1 : 0,
+              techniqueCount: 1,
+              lastTechnique: techniqueUsed || undefined,
+              lastMisconception: misconceptionTags[0] || undefined,
+              recommendedNextTask: recommendedNextTask || undefined,
+              lastSeen: now,
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Could not persist pipeline diagnostics", error);
+      }
     }
 
     return submissionId;
@@ -69,18 +225,21 @@ export const saveSubmission = mutation({
 
 export const getIncorrectSubmissions = query({
   args: {
-    userId: v.string(),
     topicName: v.string(),
     limit: v.number(),
   },
   handler: async (ctx, args) => {
-    // Note: efficiently querying this requires an index on userId + topic + grade
-    // The schema has index "by_user_topic": ["userId", "topicName"]
-    // We can use that and filter in memory since user data volume is manageable per topic
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
     const submissions = await ctx.db
       .query("submissions")
-      .withIndex("by_user_topic", (q) => q.eq("userId", args.userId).eq("topicName", args.topicName))
-      .filter((q) => q.lt(q.field("grade"), 1)) // Grade < 1 means 0 (incorrect)
+      .withIndex("by_user_topic_grade", (q) =>
+        q
+          .eq("userId", identity.subject)
+          .eq("topicName", args.topicName)
+          .lt("grade", 1)
+      )
       .take(args.limit);
       
     return submissions;
@@ -88,23 +247,30 @@ export const getIncorrectSubmissions = query({
 });
 export const getStudentMastery = query({
   args: {
-    userId: v.string(),
     topicName: v.string(),
   },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
     return await ctx.db
       .query("studentMastery")
-      .withIndex("by_user_mastery", (q) => q.eq("userId", args.userId).eq("topicName", args.topicName))
+      .withIndex("by_user_mastery", (q) =>
+        q.eq("userId", identity.subject).eq("topicName", args.topicName)
+      )
       .first();
   },
 });
  
 export const getRecentSubmissions = query({
-  args: { userId: v.string(), limit: v.number() },
+  args: { limit: v.number() },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
     return await ctx.db
       .query("submissions")
-      .withIndex("by_user_topic", (q) => q.eq("userId", args.userId))
+      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
       .order("desc")
       .take(Math.min(args.limit, 50));
   },
@@ -112,12 +278,31 @@ export const getRecentSubmissions = query({
 
 // Per-topic summary stats for the history panel
 export const getTopicSubmissionStats = query({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const precomputed = await ctx.db
+      .query("studentTopicStats")
+      .withIndex("by_user_lastAttempt", (q) => q.eq("userId", identity.subject))
+      .order("desc")
+      .take(100);
+
+    if (precomputed.length > 0) {
+      return precomputed.map((stat) => ({
+        topic: stat.topicName,
+        total: stat.total,
+        correct: stat.correct,
+        lastAttempt: stat.lastAttempt,
+      }));
+    }
+
     const all = await ctx.db
       .query("submissions")
-      .withIndex("by_user_topic", (q) => q.eq("userId", args.userId))
-      .collect();
+      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+      .order("desc")
+      .take(500);
 
     const map: Record<string, { topic: string; total: number; correct: number; lastAttempt: number }> = {};
     for (const s of all) {
@@ -125,7 +310,7 @@ export const getTopicSubmissionStats = query({
         map[s.topicName] = { topic: s.topicName, total: 0, correct: 0, lastAttempt: 0 };
       }
       map[s.topicName].total++;
-      if (s.grade === 1) map[s.topicName].correct++;
+      map[s.topicName].correct += getGradeCredit(s.grade);
       if (s._creationTime > map[s.topicName].lastAttempt) {
         map[s.topicName].lastAttempt = s._creationTime;
       }
@@ -136,20 +321,23 @@ export const getTopicSubmissionStats = query({
 
 // Submissions for a specific topic (or all topics when topicName is empty)
 export const getSubmissionsByTopic = query({
-  args: { userId: v.string(), topicName: v.string(), limit: v.number() },
+  args: { topicName: v.string(), limit: v.number() },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
     if (args.topicName) {
       return await ctx.db
         .query("submissions")
         .withIndex("by_user_topic", (q) =>
-          q.eq("userId", args.userId).eq("topicName", args.topicName)
+          q.eq("userId", identity.subject).eq("topicName", args.topicName)
         )
         .order("desc")
         .take(Math.min(args.limit, 100));
     }
     return await ctx.db
       .query("submissions")
-      .withIndex("by_user_topic", (q) => q.eq("userId", args.userId))
+      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
       .order("desc")
       .take(Math.min(args.limit, 100));
   },
@@ -158,7 +346,13 @@ export const getSubmissionsByTopic = query({
 export const getSubmission = query({
   args: { submissionId: v.id("submissions") },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.submissionId);
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const submission = await ctx.db.get(args.submissionId);
+    if (!submission || submission.userId !== identity.subject) return null;
+
+    return submission;
   },
 });
 

@@ -11,6 +11,12 @@ export const determinantLogic = {
 $$ \\begin{bmatrix} ${a1} & 4 & 3 \\\\ -3 & 0 & -5 \\\\ k & 4 & 3 \\end{bmatrix} $$`,
         prompt: "Find the values of $k$ for which the determinant is non-zero:",
         solution: `$k \\neq ${a1}$`,
+        answerFormat: {
+          placeholder: "Example: k != 3",
+          instruction: "Give the excluded value as a parameter condition. You may use !=, not equal, or LaTeX \\neq.",
+          alternatives: ["k != 3", "k not equal 3", "k \\neq 3"],
+          fields: [{ key: "k", label: "k", operator: "!=", placeholder: String(a1) }],
+        },
         explanation: `Expanding along the second row (which contains a zero):
 $$ = -(-3) \\begin{vmatrix} 4 & 3 \\\\ 4 & 3 \\end{vmatrix} + 0 - (-5) \\begin{vmatrix} ${a1} & 4 \\\\ k & 4 \\end{vmatrix} $$
 The first minor has identical rows, so its determinant is $0$:
@@ -42,6 +48,12 @@ For the determinant to be non-zero: $${20 * a1} - 20k \\neq 0$, i.e. $k \\neq ${
 $$ \\begin{vmatrix} ${a[0]} & ${a[1]} & ${a[2]} \\\\ ${a[3]} & ${a[4]} & ${a[5]} \\\\ ${a[6]} & ${a[7]} & ${a[8]} \\end{vmatrix} $$`,
         prompt: "Find $\\det(A)$:",
         solution: `$\\det(A) = ${det}$`,
+        answerFormat: {
+          placeholder: "Example: det(A) = 12",
+          instruction: "Give the determinant value. You may write det(A) = 12 or just the number if your reasoning makes it clear.",
+          alternatives: ["det(A) = 12", "12"],
+          fields: [{ key: "determinant", label: "det(A)", placeholder: "12" }],
+        },
         explanation: `Expanding along the first row:
 $$ \\det(A) = ${a[0]} \\begin{vmatrix} ${a[4]} & ${a[5]} \\\\ ${a[7]} & ${a[8]} \\end{vmatrix} - ${a[1]} \\begin{vmatrix} ${a[3]} & ${a[5]} \\\\ ${a[6]} & ${a[8]} \\end{vmatrix} + ${a[2]} \\begin{vmatrix} ${a[3]} & ${a[4]} \\\\ ${a[6]} & ${a[7]} \\end{vmatrix} $$
 $$ = ${a[0]}(${a[4] * a[8]} - ${a[5] * a[7]}) - ${a[1]}(${a[3] * a[8]} - ${a[5] * a[6]}) + ${a[2]}(${a[3] * a[7]} - ${a[4] * a[6]}) $$
@@ -70,6 +82,12 @@ $$ A = \\begin{bmatrix} ${p} & ${q} \\\\ ${r} & k \\end{bmatrix} $$`,
       solution: singular !== null
         ? `$k = ${singular}$`
         : `$k = \\dfrac{${prod}}{${p}}$`,
+      answerFormat: {
+        placeholder: "Example: k = 3/2",
+        instruction: "Give the value of k that makes the determinant zero. Fractions, decimals, and simplified LaTeX fractions are accepted.",
+        alternatives: ["k = 3/2", "3/2", "k = \\frac{3}{2}"],
+        fields: [{ key: "k", label: "k", placeholder: "3/2" }],
+      },
       explanation: `A matrix is singular when its determinant equals zero.
 $$ \\det(A) = ${p}k - ${q} \\cdot ${r} = ${p}k - ${prod} = 0 $$
 $$ k = \\frac{${prod}}{${p}}${singular !== null ? ` = ${singular}` : ""} $$`,

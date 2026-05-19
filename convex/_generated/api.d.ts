@@ -8,15 +8,20 @@
  * @module
  */
 
+import type * as aiDiagnosis from "../aiDiagnosis.js";
 import type * as cas from "../cas.js";
 import type * as corrections from "../corrections.js";
 import type * as courses from "../courses.js";
 import type * as debug from "../debug.js";
+import type * as didactics from "../didactics.js";
 import type * as email from "../email.js";
 import type * as exams from "../exams.js";
 import type * as feedback from "../feedback.js";
 import type * as grading from "../grading.js";
+import type * as gradingPipeline from "../gradingPipeline.js";
 import type * as judge from "../judge.js";
+import type * as layerTypes from "../layerTypes.js";
+import type * as mathAnswerUtils from "../mathAnswerUtils.js";
 import type * as migrations from "../migrations.js";
 import type * as permissions from "../permissions.js";
 import type * as recommendations from "../recommendations.js";
@@ -32,15 +37,20 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  aiDiagnosis: typeof aiDiagnosis;
   cas: typeof cas;
   corrections: typeof corrections;
   courses: typeof courses;
   debug: typeof debug;
+  didactics: typeof didactics;
   email: typeof email;
   exams: typeof exams;
   feedback: typeof feedback;
   grading: typeof grading;
+  gradingPipeline: typeof gradingPipeline;
   judge: typeof judge;
+  layerTypes: typeof layerTypes;
+  mathAnswerUtils: typeof mathAnswerUtils;
   migrations: typeof migrations;
   permissions: typeof permissions;
   recommendations: typeof recommendations;

@@ -6,7 +6,10 @@
     "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "bunx tsc --noEmit --pretty false",
+    "test": "bun test",
+    "check": "bun run typecheck && bun run lint && bun test"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.36.5",

@@ -86,8 +86,8 @@ export function CorrectionModerator({ style }: { style?: any }) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-3">
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Corrected Grade</p>
-                    <Badge className={`${correction.correctedGrade === 1 ? "bg-green-500/10 text-green-400 border-green-500/20" : "bg-red-500/10 text-red-400 border-red-500/20"} py-1.5 px-4 font-bold rounded-lg border`}>
-                      {correction.correctedGrade === 1 ? "SET AS CORRECT" : "SET AS INCORRECT"}
+                    <Badge className={`${correction.correctedGrade >= 1 ? "bg-green-500/10 text-green-400 border-green-500/20" : correction.correctedGrade > 0 ? "bg-amber-500/10 text-amber-300 border-amber-500/20" : "bg-red-500/10 text-red-400 border-red-500/20"} py-1.5 px-4 font-bold rounded-lg border`}>
+                      {correction.correctedGrade >= 1 ? "SET AS CORRECT" : correction.correctedGrade > 0 ? "SET AS PARTIAL" : "SET AS INCORRECT"} ({correction.correctedGrade}/1)
                     </Badge>
                   </div>
                   <div className="space-y-3">
@@ -128,8 +128,8 @@ export function CorrectionModerator({ style }: { style?: any }) {
                     <div className="flex gap-6">
                          <div>
                             <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">Status</p>
-                            <div className={`text-[10px] font-bold ${correction.correctedGrade === 1 ? "text-green-500/80" : "text-red-500/80"}`}>
-                                {correction.correctedGrade === 1 ? "CORRECT" : "INCORRECT"}
+                            <div className={`text-[10px] font-bold ${correction.correctedGrade >= 1 ? "text-green-500/80" : correction.correctedGrade > 0 ? "text-amber-400/80" : "text-red-500/80"}`}>
+                                {correction.correctedGrade >= 1 ? "CORRECT" : correction.correctedGrade > 0 ? "PARTIAL" : "INCORRECT"} ({correction.correctedGrade}/1)
                             </div>
                          </div>
                          <div className="flex-1">

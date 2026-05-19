@@ -2,15 +2,25 @@ import { action } from "./_generated/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
 
+type RecommendationSource = {
+  problemStatement: string;
+  errorType?: string;
+  finalAnswer: string;
+  reasoningSteps: string;
+  aiFeedback: string;
+};
+
 export const generatePractice = action({
   args: {
-    userId: v.string(),
     courseName: v.string(),
     topicName: v.string(),
     currentProblemType: v.optional(v.string()),
     transcribedWork: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
     // Use OPENAI_API_KEY for problem generation
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
     if (!OPENAI_API_KEY) {
@@ -26,13 +36,11 @@ export const generatePractice = action({
     
     // Let's assume we fetch them via a query helper we'll create: `submissions.getIncorrectSubmissions`
     const incorrectSubmissions = await ctx.runQuery(api.submissions.getIncorrectSubmissions, { 
-      userId: args.userId, 
       topicName: args.topicName,
       limit: 2 
     });
 
     const studentMastery = await ctx.runQuery(api.submissions.getStudentMastery, {
-      userId: args.userId,
       topicName: args.topicName
     });
 
@@ -46,7 +54,7 @@ export const generatePractice = action({
       };
     }
 
-    const mistakes = (incorrectSubmissions || []).map((s: any) => 
+    const mistakes = (incorrectSubmissions || []).map((s: RecommendationSource) => 
       `Problem: ${s.problemStatement}\nError Type: ${s.errorType || "Unknown"}\nWrong Answer: ${s.finalAnswer}\nReasoning: ${s.reasoningSteps}\nFeedback: ${s.aiFeedback}`
     ).join("\n\n");
 
@@ -144,8 +152,8 @@ Example:
             questions: parsed.questions || []
         };
 
-    } catch (e: any) {
-        console.error("OpenAI Recommendation Error:", e);
+    } catch (error: unknown) {
+        console.error("OpenAI Recommendation Error:", error);
         return {
             message: "Unable to generate specific recommendations at this time.",
             questions: []

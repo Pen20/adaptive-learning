@@ -14,6 +14,7 @@ import {
   BookOpen,
   Calendar,
   CheckCircle2,
+  CircleAlert,
   XCircle,
   Clock,
   ChevronRight,
@@ -73,20 +74,20 @@ const THEME_STYLES = {
 
 export default function DashboardPage() {
   const { user, isLoaded, isSignedIn } = useUser();
-  const userData = useQuery(api.users.getUser, user ? { userId: user.id } : "skip");
-  const masteryData = useQuery(api.users.getUserMastery, user ? { userId: user.id } : "skip");
+  const userData = useQuery(api.users.getCurrentUser, user ? {} : "skip");
+  const masteryData = useQuery(api.users.getUserMastery, user ? {} : "skip");
   const examData = useQuery(api.exams.getStudentExams, user ? {} : "skip");
-  const topicStats = useQuery(api.submissions.getTopicSubmissionStats, user ? { userId: user.id } : "skip");
+  const topicStats = useQuery(api.submissions.getTopicSubmissionStats, user ? {} : "skip");
   const [historyTopic, setHistoryTopic] = useState("");
   const [historyLimit, setHistoryLimit] = useState(10);
   const [expandedSub, setExpandedSub] = useState<string | null>(null);
   const topicSubmissions = useQuery(
     api.submissions.getSubmissionsByTopic,
-    user ? { userId: user.id, topicName: historyTopic, limit: historyLimit } : "skip"
+    user ? { topicName: historyTopic, limit: historyLimit } : "skip"
   );
   const courses = useQuery(api.courses.getCourses);
   const allTopics = useQuery(api.courses.getAllTopics);
-  const userStats = useQuery(api.users.getUserStats, user ? { userId: user.id } : "skip");
+  const userStats = useQuery(api.users.getUserStats, user ? {} : "skip");
   const updateTheme = useMutation(api.users.updateThemePreference);
 
   const [theme, setTheme] = useState<Theme>("midnight");
@@ -309,7 +310,6 @@ export default function DashboardPage() {
                                 progressClass={style.progressClass}
                                 cardClass={style.card}
                                 accent={style.accent}
-                                bg={style.bg}
                               />
                             ))}
                         </div>
@@ -369,6 +369,8 @@ export default function DashboardPage() {
                   <>
                     {topicSubmissions.map((sub: any) => {
                       const isExpanded = expandedSub === sub._id;
+                      const isCorrect = sub.grade >= 1;
+                      const isPartial = sub.grade > 0 && sub.grade < 1;
                       return (
                         <div key={sub._id} className="hover:bg-white/5 transition-colors">
                           {/* Row header — always visible */}
@@ -382,12 +384,31 @@ export default function DashboardPage() {
                               </span>
                               <div className="flex items-center gap-2 shrink-0">
                                 {sub.errorType && (
-                                  <span className="text-[9px] font-semibold text-red-400 uppercase bg-red-500/10 px-1.5 py-0.5 rounded">
+                                  <span
+                                    className={`text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded ${
+                                      isPartial
+                                        ? "text-amber-300 bg-amber-500/10"
+                                        : "text-red-400 bg-red-500/10"
+                                    }`}
+                                  >
                                     {sub.errorType}
                                   </span>
                                 )}
-                                {sub.grade === 1
+                                <span
+                                  className={`text-[9px] font-black ${
+                                    isCorrect
+                                      ? "text-emerald-400"
+                                      : isPartial
+                                        ? "text-amber-300"
+                                        : "text-red-400"
+                                  }`}
+                                >
+                                  {sub.grade}/1
+                                </span>
+                                {isCorrect
                                   ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                                  : isPartial
+                                    ? <CircleAlert className="h-3.5 w-3.5 text-amber-400" />
                                   : <XCircle className="h-3.5 w-3.5 text-red-500" />
                                 }
                               </div>
@@ -489,7 +510,6 @@ interface CourseModuleCardProps {
   progressClass: string;
   cardClass: string;
   accent: string;
-  bg: string;
 }
 
 function CourseModuleCard({ id, courseId, title, score, progressClass, cardClass, accent }: CourseModuleCardProps) {

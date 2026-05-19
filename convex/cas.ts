@@ -4,6 +4,11 @@ import nerdamer from "nerdamer";
 import "nerdamer/Algebra.js";
 import "nerdamer/Calculus.js";
 import "nerdamer/Solve.js";
+import {
+  computeQuadraticRoots,
+  formatRational,
+  isNumericListEquivalent,
+} from "./mathAnswerUtils";
 
 /**
  * Strips common LaTeX wrappers and converts LaTeX notation to mathjs-compatible syntax.
@@ -39,28 +44,6 @@ function formatResult(result: any): string {
   if (typeof result.text === "function") return result.text();
   if (typeof result.toString === "function") return result.toString();
   return String(result);
-}
-
-function gcd(a: number, b: number): number {
-  let x = Math.abs(a);
-  let y = Math.abs(b);
-  while (y) {
-    const t = y;
-    y = x % y;
-    x = t;
-  }
-  return x || 1;
-}
-
-function formatRational(numerator: number, denominator: number): string {
-  if (denominator === 0) return "";
-  const sign = denominator < 0 ? -1 : 1;
-  const n = numerator * sign;
-  const d = Math.abs(denominator);
-  const divisor = gcd(n, d);
-  const reducedN = n / divisor;
-  const reducedD = d / divisor;
-  return reducedD === 1 ? String(reducedN) : `${reducedN}/${reducedD}`;
 }
 
 function parseLatexMatrix(problemStatement: string): string[][] | null {
@@ -100,7 +83,72 @@ function det3(matrix: number[][]): number {
   );
 }
 
+function computeEigenvalues3x3Direct(problemStatement: string) {
+  const numericMatrix = parseNumericMatrix(problemStatement);
+  if (
+    !numericMatrix ||
+    numericMatrix.length !== 3 ||
+    !numericMatrix.every((row) => row.length === 3)
+  )
+    return null;
+
+  const [[m00, m01, m02], [m10, m11, m12], [a, b, c]] = numericMatrix;
+  // Only handle companion matrix form [[0,1,0],[0,0,1],[a,b,c]]
+  if (m00 !== 0 || m01 !== 1 || m02 !== 0 || m10 !== 0 || m11 !== 0 || m12 !== 1)
+    return null;
+
+  // Characteristic polynomial: λ³ − c·λ² − b·λ − a = 0
+  const poly = (x: number) => x ** 3 - c * x ** 2 - b * x - a;
+
+  // Rational root theorem: integer roots divide |a|
+  const bound = Math.max(Math.abs(a) + 1, 20);
+  let r1: number | null = null;
+  for (let x = -bound; x <= bound; x++) {
+    if (Math.abs(poly(x)) < 1e-9) {
+      r1 = x;
+      break;
+    }
+  }
+  if (r1 === null) return null;
+
+  // Synthetic division → quadratic λ² + B·λ + C
+  const B = r1 - c;
+  const C = r1 * B - b;
+  const disc = B * B - 4 * C;
+  if (disc < 0) return null; // complex eigenvalues — defer to AI
+
+  const e2 = (-B + Math.sqrt(disc)) / 2;
+  const e3 = (-B - Math.sqrt(disc)) / 2;
+
+  const eigenvalues = [r1, e2, e3].sort((x, y) => x - y);
+  const groundTruth = `[${eigenvalues.map((e) => e.toPrecision(14)).join(", ")}]`;
+
+  return {
+    isComputable: true,
+    groundTruth,
+    expression: groundTruth,
+    description: `Eigenvalues of the 3×3 companion matrix`,
+  };
+}
+
 function computeDirectGroundTruth(problemStatement: string, topicName: string) {
+  if (topicName === "eigenvalues_3x3") {
+    const result = computeEigenvalues3x3Direct(problemStatement);
+    if (result) return result;
+  }
+
+  if (topicName === "quadratic_equations" || topicName === "quadratic") {
+    const roots = computeQuadraticRoots(problemStatement);
+    if (roots) {
+      return {
+        isComputable: true,
+        groundTruth: `[${roots.join(", ")}]`,
+        expression: `[${roots.join(", ")}]`,
+        description: "Roots of the displayed quadratic equation",
+      };
+    }
+  }
+
   if (topicName !== "determinants") return null;
 
   const numericMatrix = parseNumericMatrix(problemStatement);
@@ -279,6 +327,12 @@ export const checkAnswerEquivalence = internalAction({
   },
   handler: async (ctx, args) => {
     try {
+      const listEquivalence = isNumericListEquivalent(args.studentAnswer, args.groundTruth);
+      if (listEquivalence !== null) {
+        console.log(`[CAS] List equivalence check: "${args.studentAnswer}" vs truth "${args.groundTruth}" -> ${listEquivalence}`);
+        return { isEquivalent: listEquivalence, casChecked: true };
+      }
+
       const cleaned = toNerdamerExpr(args.studentAnswer);
       if (!cleaned) return { isEquivalent: null, casChecked: false };
 

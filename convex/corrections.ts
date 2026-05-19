@@ -11,6 +11,10 @@ export const submitCorrection = mutation({
     bypassModeration: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    if (![0, 0.5, 1].includes(args.correctedGrade)) {
+      throw new Error("Corrected grade must be 0, 0.5, or 1");
+    }
+
     // Check if user is admin in DB
     const user = await ctx.db
       .query("users")

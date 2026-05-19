@@ -8,6 +8,10 @@ import { Loader2, CheckCircle2, XCircle, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { MathRenderer } from "./MathRenderer";
 import { NotationHelp } from "./math/NotationHelp";
+import {
+  SCAN_IMAGE_ACCEPT,
+  validateScanImageFile,
+} from "@/lib/scanUpload";
 
 interface Question {
   id: string;
@@ -57,8 +61,10 @@ export default function AdaptivePractice({ questions, message, onComplete }: Ada
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-        alert("File size too large. Please upload an image smaller than 5MB.");
+    const validationError = validateScanImageFile(file);
+    if (validationError) {
+        toast.error(validationError);
+        e.target.value = "";
         return;
     }
 
@@ -70,6 +76,7 @@ export default function AdaptivePractice({ questions, message, onComplete }: Ada
         try {
             const transcription = await transcribeReasoning({ image: base64 });
             setUserAnswers(prev => ({ ...prev, [q.id]: transcription }));
+            e.target.value = "";
         } catch (error) {
             console.error("Transcription failed:", error);
             toast.error("Failed to transcribe image. Please try again.");
@@ -119,7 +126,7 @@ export default function AdaptivePractice({ questions, message, onComplete }: Ada
                         <div className="relative">
                             <input 
                                 type="file" 
-                                accept="image/*" 
+                                accept={SCAN_IMAGE_ACCEPT}
                                 capture="environment"
                                 id={`scan-${q.id}`}
                                 className="hidden" 

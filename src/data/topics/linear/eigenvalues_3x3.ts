@@ -35,9 +35,11 @@ $$ ${matrixStr} $$`;
       const r2 = p + Math.sqrt(q);
       const r3 = p - Math.sqrt(q);
       const roots = Array.from(new Set([r1, r2, r3])).sort((a, b) => a - b);
-      solution = `$${roots.join(", ")}$`;
+      solution = `$${roots
+        .map((root, index) => `\\lambda_${index + 1} = ${root}`)
+        .join(", ")}$`;
     } else {
-      solution = `$${r1}, ${p} \\pm \\sqrt{${q}}$`;
+      solution = `$\\lambda_1 = ${r1}, \\lambda_2 = ${p} + \\sqrt{${q}}, \\lambda_3 = ${p} - \\sqrt{${q}}$`;
     }
 
     const explanation = `To find the eigenvalues, we solve the characteristic equation $\\det(\\lambda I - A) = 0$:
@@ -69,6 +71,20 @@ $$ ${matrixStr} $$`;
       statement,
       prompt: "Final Answer: List the eigenvalues separated by commas (e.g., 4, 2 + sqrt(3), 2 - sqrt(3)).",
       solution,
+      answerFormat: {
+        placeholder: "$\\lambda \\in \\{5, 2 + \\sqrt{3}, 2 - \\sqrt{3}\\}$",
+        instruction: "Give all eigenvalues as a set. Set notation and +/- notation are accepted; order does not matter.",
+        alternatives: [
+          "{5, 2 + sqrt(3), 2 - sqrt(3)}",
+          "lambda in {5, 2 +/- sqrt(3)}",
+          "5, 2 + sqrt(3), 2 - sqrt(3)",
+        ],
+        fields: [
+          { key: "lambda1", label: "lambda_1", placeholder: "5" },
+          { key: "lambda2", label: "lambda_2", placeholder: "2 + sqrt(3)" },
+          { key: "lambda3", label: "lambda_3", placeholder: "2 - sqrt(3)" },
+        ],
+      },
       explanation,
       hint: "For a companion matrix, the characteristic polynomial coefficients are simply the negated entries of the last row. Try to find one integer root first.",
       guide: eigenvalues3x3Guide

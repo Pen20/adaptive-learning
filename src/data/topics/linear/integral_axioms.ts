@@ -80,7 +80,7 @@ Thus, the Positivity Axiom holds.`;
       title,
       statement,
       prompt: "Reasoning: Provide a brief logical explanation of the proof.",
-      solution: "Proof confirmed. See detailed solution for steps.",
+      solution,
       explanation,
       hint,
       guide: integralAxiomsGuide

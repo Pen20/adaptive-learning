@@ -1,6 +1,11 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
+function getGradeCredit(grade: number): number {
+  if (!Number.isFinite(grade)) return 0;
+  return Math.max(0, Math.min(1, grade));
+}
+
 export const getUser = query({
   args: { userId: v.string() },
   handler: async (ctx, args) => {
@@ -11,30 +16,74 @@ export const getUser = query({
   },
 });
 
+export const getCurrentUser = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+
+    return await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .first();
+  },
+});
+
 export const getUserMastery = query({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
     return await ctx.db
       .query("studentMastery")
-      .withIndex("by_user_mastery", (q) => q.eq("userId", args.userId))
+      .withIndex("by_user_mastery", (q) => q.eq("userId", identity.subject))
       .collect();
+  },
+});
+
+export const getLearningProfile = query({
+  args: {
+    topicName: v.optional(v.string()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const topicName = args.topicName;
+
+    if (topicName) {
+      return await ctx.db
+        .query("studentLearningProfile")
+        .withIndex("by_user_topic", (q) =>
+          q.eq("userId", identity.subject).eq("topicName", topicName),
+        )
+        .take(Math.min(args.limit ?? 50, 100));
+    }
+
+    return await ctx.db
+      .query("studentLearningProfile")
+      .withIndex("by_user_lastSeen", (q) => q.eq("userId", identity.subject))
+      .order("desc")
+      .take(Math.min(args.limit ?? 50, 100));
   },
 });
 
 export const updateMastery = mutation({
   args: {
-    userId: v.string(),
     topicName: v.string(),
     scoreIncrement: v.number(),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
-    if (identity.subject !== args.userId) throw new Error("Unauthorized");
 
     const existing = await ctx.db
       .query("studentMastery")
-      .withIndex("by_user_mastery", (q) => q.eq("userId", args.userId).eq("topicName", args.topicName))
+      .withIndex("by_user_mastery", (q) =>
+        q.eq("userId", identity.subject).eq("topicName", args.topicName)
+      )
       .first();
 
     const now = Date.now();
@@ -48,7 +97,7 @@ export const updateMastery = mutation({
       });
     } else {
       await ctx.db.insert("studentMastery", {
-        userId: args.userId,
+        userId: identity.subject,
         topicName: args.topicName,
         masteryScore: Math.min(args.scoreIncrement, 100), // Initial score
         lastAttempt: now,
@@ -217,16 +266,19 @@ export const getStudentAnalytics = query({
         // Submissions for success rate
         const submissions = await ctx.db
           .query("submissions")
-          .withIndex("by_user_topic", (q) => q.eq("userId", student.userId))
-          .collect();
+          .withIndex("by_user", (q) => q.eq("userId", student.userId))
+          .take(1000);
 
         // Exam status
         const examSubmissions = await ctx.db
           .query("examSubmissions")
-          .filter((q) => q.eq(q.field("userId"), student.userId))
-          .collect();
+          .withIndex("by_user", (q) => q.eq("userId", student.userId))
+          .take(1000);
 
-        const correctSubmissions = submissions.filter(s => s.grade === 1).length;
+        const correctSubmissions = submissions.reduce(
+          (sum, submission) => sum + getGradeCredit(submission.grade),
+          0,
+        );
         const totalSubmissions = submissions.length;
         const successRate = totalSubmissions > 0 
           ? Math.round((correctSubmissions / totalSubmissions) * 100) 
@@ -258,6 +310,10 @@ export const getStudentAnalytics = query({
 export const updateThemePreference = mutation({
   args: { userId: v.string(), theme: v.string() },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    if (identity.subject !== args.userId) throw new Error("Unauthorized");
+
     const user = await ctx.db
       .query("users")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
@@ -269,15 +325,34 @@ export const updateThemePreference = mutation({
 });
 
 export const getUserStats = query({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
-    const submissions = await ctx.db
-      .query("submissions")
-      .withIndex("by_user_topic", (q) => q.eq("userId", args.userId))
-      .collect();
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
 
-    const correctSubmissions = submissions.filter((s) => s.grade === 1).length;
-    const totalSubmissions = submissions.length;
+    const topicStats = await ctx.db
+      .query("studentTopicStats")
+      .withIndex("by_user_lastAttempt", (q) => q.eq("userId", identity.subject))
+      .order("desc")
+      .take(200);
+
+    let totalSubmissions = topicStats.reduce((sum, stat) => sum + stat.total, 0);
+    let correctSubmissions = topicStats.reduce((sum, stat) => sum + stat.correct, 0);
+
+    const recentSubmissions = await ctx.db
+      .query("submissions")
+      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+      .order("desc")
+      .take(365);
+
+    if (totalSubmissions === 0 && recentSubmissions.length > 0) {
+      totalSubmissions = recentSubmissions.length;
+      correctSubmissions = recentSubmissions.reduce(
+        (sum, submission) => sum + getGradeCredit(submission.grade),
+        0,
+      );
+    }
+
     const successRate = totalSubmissions > 0 
       ? Math.round((correctSubmissions / totalSubmissions) * 100) 
       : 0;
@@ -288,16 +363,16 @@ export const getUserStats = query({
     // Modules Mastered
     const mastery = await ctx.db
       .query("studentMastery")
-      .withIndex("by_user_mastery", (q) => q.eq("userId", args.userId))
+      .withIndex("by_user_mastery", (q) => q.eq("userId", identity.subject))
       .collect();
     const modulesMastered = mastery.filter(m => m.masteryScore >= 80).length;
 
     // Total Topics count
-    const totalTopics = (await ctx.db.query("topics").collect()).length;
+    const totalTopics = (await ctx.db.query("topics").take(500)).length;
 
     // Calculate Streak
     // Get unique days from submission timestamps (UTC)
-    const dates = submissions
+    const dates = recentSubmissions
       .map(s => new Date(s._creationTime).toDateString());
     const uniqueDates = Array.from(new Set(dates)).map(d => new Date(d));
     uniqueDates.sort((a, b) => b.getTime() - a.getTime()); // reverse chronological

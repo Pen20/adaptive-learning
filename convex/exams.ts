@@ -1,4 +1,4 @@
-import { mutation, query, action } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
 
@@ -33,11 +33,12 @@ export const createExam = mutation({
 export const getActiveExams = query({
   args: {},
   handler: async (ctx) => {
-    // Return all active exams that are currently within the date window
     const now = Date.now();
-    const exams = await ctx.db.query("exams").filter(q => q.eq(q.field("isActive"), true)).collect();
+    const exams = await ctx.db
+      .query("exams")
+      .withIndex("by_active_end", (q) => q.eq("isActive", true).gte("endDate", now))
+      .collect();
     
-    // Filter by date implementation in JS since Convex filter limitations might make range queries complex depending on indexes
     return exams.filter(e => e.startDate <= now && e.endDate >= now);
   },
 });
@@ -50,45 +51,42 @@ export const getStudentExams = query({
 
     const now = Date.now();
     
-    // 1. Get all exams (we need even inactive ones if the user submitted them to show results)
-    const allExams = await ctx.db.query("exams").collect();
-    
-    // 2. Get user submissions
-    // We need to look up by user ID. The identity.subject is the Clerk ID.
-    // In schema, users table has `userId: identity.subject`.
-    // And examSubmissions has `userId` matching that.
-    
-    const submissions = await ctx.db.query("examSubmissions")
-        .filter(q => q.eq(q.field("userId"), identity.subject))
+    const activeExams = await ctx.db
+        .query("exams")
+        .withIndex("by_active_end", (q) => q.eq("isActive", true).gte("endDate", now))
         .collect();
 
-    const submissionMap = new Map();
-    submissions.forEach(s => submissionMap.set(s.examId, s));
+    const submissions = await ctx.db
+        .query("examSubmissions")
+        .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+        .collect();
 
-    const available = [];
-    const submitted = [];
+    const submittedExamIds = new Set(submissions.map((submission) => submission.examId));
+    const available = activeExams.filter(
+        (exam) =>
+            exam.startDate <= now &&
+            exam.endDate >= now &&
+            !submittedExamIds.has(exam._id),
+    );
 
-    for (const exam of allExams) {
-        const sub = submissionMap.get(exam._id);
-        
-        if (sub) {
-            // Already submitted
-            submitted.push({
+    const submittedWithExams = await Promise.all(
+        submissions.map(async (submission) => {
+            const exam = await ctx.db.get(submission.examId);
+            if (!exam) return null;
+
+            return {
                 ...exam,
-                score: sub.score,
-                submissionStatus: sub.status,
-                resultsReleased: exam.resultsReleased // ensure this is passed
-            });
-        } else {
-            // Not submitted. Is it valid?
-            if (exam.isActive && exam.startDate <= now && exam.endDate >= now) {
-                available.push(exam);
-            }
-        }
-    }
+                score: submission.score,
+                submissionStatus: submission.status,
+                resultsReleased: exam.resultsReleased,
+            };
+        }),
+    );
 
-    // Sort by date
     available.sort((a, b) => a.endDate - b.endDate);
+    const submitted = submittedWithExams.filter(
+        (exam): exam is NonNullable<typeof exam> => exam !== null,
+    );
     submitted.sort((a, b) => b.endDate - a.endDate);
 
     return { available, submitted };
@@ -300,10 +298,13 @@ export const releaseExamResults = mutation({
 });
 
 export const getUserSubmission = query({
-    args: { examId: v.id("exams"), userId: v.string() },
+    args: { examId: v.id("exams") },
     handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) return null;
+
         return await ctx.db.query("examSubmissions")
-            .withIndex("by_exam_user", q => q.eq("examId", args.examId).eq("userId", args.userId))
+            .withIndex("by_exam_user", q => q.eq("examId", args.examId).eq("userId", identity.subject))
             .first();
     }
 });

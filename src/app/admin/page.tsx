@@ -31,11 +31,10 @@ import {
   Palette,
   Sparkles,
 } from "lucide-react";
-import { topicRegistry } from "@/data/topics";
 import { CorrectionModerator } from "@/components/admin/CorrectionModerator";
 import { MarkingSchemeEditor } from "@/components/admin/MarkingSchemeEditor";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, XCircle, Users, Activity } from "lucide-react";
+import { Activity } from "lucide-react";
 import {
   Select,
   SelectContent,

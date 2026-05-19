@@ -41,7 +41,8 @@ export default defineSchema({
     // JSON: Record<string, MarkingCriterion[]>
     // key = question slot index (e.g. "0", "1"); absent key = binary grading
     markingSchemes: v.optional(v.string()),
-  }).index("by_course_active", ["courseName", "isActive"]),
+  }).index("by_course_active", ["courseName", "isActive"])
+    .index("by_active_end", ["isActive", "endDate"]),
 
   examSubmissions: defineTable({
     examId: v.id("exams"),
@@ -54,7 +55,8 @@ export default defineSchema({
     totalQuestions: v.number(),
     submittedAt: v.optional(v.number()),
     startedAt: v.optional(v.number()),
-  }).index("by_exam_user", ["examId", "userId"]),
+  }).index("by_exam_user", ["examId", "userId"])
+    .index("by_user", ["userId"]),
 
   submissions: defineTable({
     userId: v.string(),
@@ -71,7 +73,18 @@ export default defineSchema({
     errorType: v.optional(v.string()),
     usedHints: v.boolean(),
     judgeStatus: v.optional(v.union(v.literal("pending"), v.literal("complete"))),
-  }).index("by_user_topic", ["userId", "topicName"]),
+  }).index("by_user_topic", ["userId", "topicName"])
+    .index("by_user", ["userId"])
+    .index("by_user_topic_grade", ["userId", "topicName", "grade"]),
+
+  studentTopicStats: defineTable({
+    userId: v.string(),
+    topicName: v.string(),
+    total: v.number(),
+    correct: v.number(),
+    lastAttempt: v.number(),
+  }).index("by_user_topic", ["userId", "topicName"])
+    .index("by_user_lastAttempt", ["userId", "lastAttempt"]),
 
   studentMastery: defineTable({
     userId: v.string(),
@@ -79,6 +92,35 @@ export default defineSchema({
     masteryScore: v.number(), 
     lastAttempt: v.number(),
   }).index("by_user_mastery", ["userId", "topicName"]),
+
+  studentLearningProfile: defineTable({
+    userId: v.string(),
+    topicName: v.string(),
+    conceptTag: v.string(),
+    masteryScore: v.number(),
+    misconceptionCount: v.number(),
+    techniqueCount: v.number(),
+    lastTechnique: v.optional(v.string()),
+    lastMisconception: v.optional(v.string()),
+    recommendedNextTask: v.optional(v.string()),
+    lastSeen: v.number(),
+  }).index("by_user_topic_concept", ["userId", "topicName", "conceptTag"])
+    .index("by_user_topic", ["userId", "topicName"])
+    .index("by_user_lastSeen", ["userId", "lastSeen"]),
+
+  submissionDiagnostics: defineTable({
+    submissionId: v.id("submissions"),
+    userId: v.string(),
+    topicName: v.string(),
+    casLayer: v.string(), // JSON string
+    aiLayer: v.string(), // JSON string
+    didacticLayer: v.string(), // JSON string
+    techniqueUsed: v.optional(v.string()),
+    misconception: v.optional(v.string()),
+    conceptTags: v.array(v.string()),
+    createdAt: v.number(),
+  }).index("by_submission", ["submissionId"])
+    .index("by_user_topic", ["userId", "topicName"]),
 
   feedback: defineTable({
     name: v.optional(v.string()),
@@ -93,7 +135,7 @@ export default defineSchema({
 
   humanCorrections: defineTable({
     submissionId: v.id("submissions"),
-    correctedGrade: v.number(), // 0 or 1
+    correctedGrade: v.number(), // 0, 0.5, or 1
     correctedFeedback: v.string(),
     topicName: v.string(),
     status: v.union(v.literal("pending"), v.literal("approved"), v.literal("rejected")),

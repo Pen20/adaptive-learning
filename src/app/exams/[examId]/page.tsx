@@ -13,6 +13,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, CheckCircle, XCircle, Clock, Sparkles, Camera } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
+import {
+  SCAN_IMAGE_ACCEPT,
+  SCAN_IMAGE_TYPE_LABEL,
+  validateScanImageFile,
+} from "@/lib/scanUpload";
 
 function formatTime(seconds: number): string {
   if (seconds <= 0) return "00:00";
@@ -32,7 +37,6 @@ export default function ExamPage() {
   const saveAnswers = useMutation(api.exams.saveExamAnswers);
   const existingSubmission = useQuery(api.exams.getUserSubmission, {
     examId: examId as any,
-    userId: user?.id || "",
   });
 
   const transcribeReasoning = useAction(api.grading.transcribeReasoning);
@@ -146,8 +150,9 @@ export default function ExamPage() {
   }, [exam, user, submitted, answers, questions.length]);
 
   const handleScan = async (file: File, questionIndex: number) => {
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("File too large. Maximum size is 5MB.");
+    const validationError = validateScanImageFile(file);
+    if (validationError) {
+      toast.error(validationError);
       return;
     }
     setScanningIds((prev) => ({ ...prev, [questionIndex]: true }));
@@ -461,12 +466,13 @@ export default function ExamPage() {
               <div className="relative">
                 <input
                   type="file"
-                  accept="image/*"
+                  accept={SCAN_IMAGE_ACCEPT}
                   id={`scan-${idx}`}
                   className="hidden"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) handleScan(file, idx);
+                    e.target.value = "";
                   }}
                 />
                 <Button
@@ -476,6 +482,7 @@ export default function ExamPage() {
                   disabled={scanningIds[idx]}
                   onClick={() => document.getElementById(`scan-${idx}`)?.click()}
                   aria-label="Scan handwritten solution"
+                  title={`Scan ${SCAN_IMAGE_TYPE_LABEL} image`}
                 >
                   {scanningIds[idx] ? (
                     <Loader2 className="h-4 w-4 animate-spin text-blue-600" />

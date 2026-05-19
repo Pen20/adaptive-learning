@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, X, Send, AlertTriangle } from "lucide-react";
+import { Check, CircleAlert, X, Send, AlertTriangle } from "lucide-react";
 
 interface CorrectionWidgetProps {
   submissionId: Id<"submissions">;
@@ -88,6 +88,14 @@ export function CorrectionWidget({
               }`}
             >
               <Check className="h-3 w-3" /> Correct
+            </button>
+            <button
+              onClick={() => setCorrectedGrade(0.5)}
+              className={`px-3 py-1 flex items-center gap-1 text-xs transition-colors ${
+                correctedGrade === 0.5 ? "bg-amber-500 text-white" : "hover:bg-amber-50 text-slate-600"
+              }`}
+            >
+              <CircleAlert className="h-3 w-3" /> Partial
             </button>
             <button
               onClick={() => setCorrectedGrade(0)}

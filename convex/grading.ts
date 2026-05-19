@@ -2,16 +2,217 @@ import { action, internalAction } from "./_generated/server";
 import { v } from "convex/values";
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { api, internal } from "./_generated/api";
+import { normalizeAiDiagnosis } from "./aiDiagnosis";
+import { buildDidacticInterpretation } from "./didactics";
+import type {
+  AiDiagnosisResult,
+  CasLayerResult,
+  DidacticLayerResult,
+  PipelineDiagnostics,
+} from "./layerTypes";
 
 function formatCasAnswer(value: string | null): string {
-  return value ? `\\(${value}\\)` : "the verified answer";
+  if (!value) return "the verified answer";
+  // Convert list notation [a, b, ...] → set notation \{a, b, ...\} for display
+  const display =
+    value.startsWith("[") && value.endsWith("]")
+      ? `\\{${value.slice(1, -1)}\\}`
+      : value;
+  return `\\(${display}\\)`;
+}
+
+type CasResult = {
+  isComputable: boolean;
+  groundTruth: string | null;
+  expression?: string | null;
+  description?: string;
+};
+
+type CasEquivalence = {
+  isEquivalent: boolean | null;
+  casChecked: boolean;
+};
+
+type NormalizedGradingResult = {
+  grade: number;
+  finalAnswerScore: number;
+  reasoningScore: number;
+  feedback: string;
+  errorType: string;
+  isOptimized: true;
+};
+
+type PipelineCompatibleResult = {
+  grade: number;
+  finalAnswerScore?: number;
+  reasoningScore?: number;
+  feedback: string;
+  errorType?: string;
+  isOptimized: true;
+};
+
+function normalizeHalfPointScore(value: unknown) {
+  const numeric = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(numeric) && numeric >= 0.5 ? 0.5 : 0;
+}
+
+function normalizeTotalGrade(value: unknown) {
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numeric)) return 0;
+  if (numeric >= 0.75) return 1;
+  if (numeric >= 0.25) return 0.5;
+  return 0;
+}
+
+function addScores(finalAnswerScore: number, reasoningScore: number) {
+  return Number((finalAnswerScore + reasoningScore).toFixed(2));
+}
+
+function finalAnswerScoreFromCas(
+  casResult: CasResult,
+  casEquivalence: CasEquivalence,
+) {
+  if (!casResult.isComputable || !casEquivalence.casChecked) return null;
+  if (casEquivalence.isEquivalent === true) return 0.5;
+  if (casEquivalence.isEquivalent === false) return 0;
+  return null;
+}
+
+function errorTypeFromScores(
+  finalAnswerScore: number,
+  reasoningScore: number,
+  fallback = "",
+) {
+  if (finalAnswerScore === 0.5 && reasoningScore === 0.5) return "";
+  if (finalAnswerScore === 0 && reasoningScore === 0) {
+    return "Answer and Reasoning";
+  }
+  if (finalAnswerScore === 0) return "Incorrect Final Answer";
+  if (reasoningScore === 0) return "Reasoning Issue";
+  return fallback;
+}
+
+function buildFinalAnswerSection(
+  casResult: CasResult,
+  casEquivalence: CasEquivalence,
+) {
+  const correctAnswer = formatCasAnswer(casResult.groundTruth);
+
+  if (casEquivalence.isEquivalent === true) {
+    return `**Final Answer:** \\(0.5/0.5\\) Your final answer is correct; it matches the CAS-verified answer ${correctAnswer}.`;
+  }
+
+  if (casEquivalence.isEquivalent === false) {
+    return `**Final Answer:** \\(0/0.5\\) Your final answer does not match the CAS-verified answer ${correctAnswer}. Compare your final value, signs, and listed solutions with this verified result.`;
+  }
+
+  return `**Final Answer:** The CAS verified answer is ${correctAnswer}, but I could not automatically match your final answer to it. I used the same grading rubric below to judge whether your final answer is equivalent.`;
+}
+
+function buildVerdictSection(finalAnswerScore: number, reasoningScore: number) {
+  const total = addScores(finalAnswerScore, reasoningScore);
+
+  if (total === 1) {
+    return "**Verdict:** Your score is \\(1/1\\): you earned \\(0.5\\) for the final answer and \\(0.5\\) for the reasoning steps. Both parts are correct, so this is complete.";
+  }
+
+  if (finalAnswerScore === 0.5 && reasoningScore === 0) {
+    return "**Verdict:** Your score is \\(0.5/1\\): you earned the final-answer point, but the reasoning point is missing or not mathematically sound yet. Keep the answer, then repair the specific reasoning step named above so your method supports it.";
+  }
+
+  if (finalAnswerScore === 0 && reasoningScore === 0.5) {
+    return "**Verdict:** Your score is \\(0.5/1\\): your reasoning has useful mathematical structure, but the final answer does not match the verified result. Use the reasoning feedback to correct the last computation or final statement.";
+  }
+
+  return "**Verdict:** Your score is \\(0/1\\): the final answer is not correct and the reasoning does not yet justify the correct result. Start from the mistake identified above, then recompute the final answer carefully.";
+}
+
+function replaceStructuredSection(
+  feedback: string,
+  label: "Final Answer" | "Reasoning steps" | "Verdict",
+  replacement: string,
+) {
+  const sectionPattern = new RegExp(
+    `\\*\\*${label}:\\*\\*[\\s\\S]*?(?=\\n\\n\\*\\*(?:Final Answer|Reasoning steps|Verdict):\\*\\*|$)`,
+    "i",
+  );
+
+  if (sectionPattern.test(feedback)) {
+    return feedback.replace(sectionPattern, replacement);
+  }
+
+  return `${replacement}\n\n${feedback}`;
+}
+
+function extractStructuredSectionContent(
+  feedback: string,
+  label: "Final Answer" | "Reasoning steps" | "Verdict",
+) {
+  const sectionPattern = new RegExp(
+    `\\*\\*${label}:\\*\\*([\\s\\S]*?)(?=\\n\\n\\*\\*(?:Final Answer|Reasoning steps|Verdict):\\*\\*|$)`,
+    "i",
+  );
+  return feedback.match(sectionPattern)?.[1]?.trim() ?? "";
+}
+
+function enforceHalfPointStructure(
+  result: NormalizedGradingResult,
+  casResult: CasResult,
+  casEquivalence: CasEquivalence,
+): NormalizedGradingResult {
+  const casFinalAnswerScore = finalAnswerScoreFromCas(
+    casResult,
+    casEquivalence,
+  );
+  const finalAnswerScore =
+    casFinalAnswerScore === null
+      ? result.finalAnswerScore
+      : casFinalAnswerScore;
+  const reasoningScore = result.reasoningScore;
+  const grade = addScores(finalAnswerScore, reasoningScore);
+
+  let feedback = normalizeFeedbackStructure(result.feedback);
+
+  if (casFinalAnswerScore !== null) {
+    feedback = replaceStructuredSection(
+      feedback,
+      "Final Answer",
+      buildFinalAnswerSection(casResult, casEquivalence),
+    );
+  }
+
+  feedback = replaceStructuredSection(
+    feedback,
+    "Verdict",
+    [
+      buildVerdictSection(finalAnswerScore, reasoningScore),
+      extractStructuredSectionContent(feedback, "Verdict")
+        ? `Additional guidance: ${extractStructuredSectionContent(feedback, "Verdict")}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" "),
+  );
+
+  return {
+    grade,
+    finalAnswerScore,
+    reasoningScore,
+    feedback: normalizeFeedbackStructure(feedback),
+    errorType: errorTypeFromScores(
+      finalAnswerScore,
+      reasoningScore,
+      result.errorType,
+    ),
+    isOptimized: true,
+  };
 }
 
 function incorrectFinalAnswerFeedback(groundTruth: string | null) {
   const correctAnswer = formatCasAnswer(groundTruth);
   return {
     grade: 0,
-    feedback: `**Answer:** Your final answer is incorrect. The verified correct answer is ${correctAnswer}; update your final answer to match this value.\n\n**Reasoning:** Because the final answer does not match the verified result, review your arithmetic and sign handling in the determinant calculation.\n\n**Verdict:** The final answer is wrong, so the submission cannot receive full credit. Recalculate the determinant carefully and check each cofactor sign against the displayed matrix.`,
+    feedback: `**Final Answer:** \\(0/0.5\\) Your final answer is incorrect. The verified correct answer is ${correctAnswer}; update your final answer to match this value.\n\n**Reasoning steps:** \\(0/0.5\\) I could not reliably judge the reasoning steps because the model feedback was unavailable.\n\n**Verdict:** Your score is \\(0/1\\). Recalculate carefully and compare your final result with the CAS-verified answer.`,
     errorType: "Incorrect Answer",
     isOptimized: true,
   };
@@ -41,16 +242,25 @@ function normalizeSecondPersonFeedback(feedback: string) {
 
 function normalizeFeedbackStructure(feedback: string) {
   return normalizeSecondPersonFeedback(feedback)
-    .replace(/(^|\n)(Answer):\s*/g, "$1**Answer:** ")
-    .replace(/(^|\n)(Reasoning):\s*/g, "$1**Reasoning:** ")
-    .replace(/(^|\n)(Verdict):\s*/g, "$1**Verdict:** ")
-    .replace(/\*\*\s*Answer\s*:\s*\*\*/g, "**Answer:**")
-    .replace(/\*\*\s*Reasoning\s*:\s*\*\*/g, "**Reasoning:**")
-    .replace(/\*\*\s*Verdict\s*:\s*\*\*/g, "**Verdict:**");
+    .replace(/(^|\n)(Final Answer|Answer):\s*/gi, "$1**Final Answer:** ")
+    .replace(
+      /(^|\n)(Reasoning steps|Reasoning Steps|Reasoning):\s*/gi,
+      "$1**Reasoning steps:** ",
+    )
+    .replace(/(^|\n)(Verdict):\s*/gi, "$1**Verdict:** ")
+    .replace(/\*\*\s*(Final Answer|Answer)\s*:\s*\*\*/gi, "**Final Answer:**")
+    .replace(
+      /\*\*\s*(Reasoning steps|Reasoning Steps|Reasoning)\s*:\s*\*\*/gi,
+      "**Reasoning steps:**",
+    )
+    .replace(/\*\*\s*Verdict\s*:\s*\*\*/gi, "**Verdict:**");
 }
 
 function parseJsonObject(text: string) {
-  const cleaned = text.replace(/```json/g, "").replace(/```/g, "").trim();
+  const cleaned = text
+    .replace(/```json/g, "")
+    .replace(/```/g, "")
+    .trim();
   if (!cleaned) return null;
 
   try {
@@ -71,21 +281,48 @@ function extractGeminiText(response: any) {
     const text = response.text();
     if (text?.trim()) return text;
   } catch {
-    // Fall back to raw candidate parts below.
+    // Fall back to filtering raw candidate parts below.
   }
 
-  return response.candidates?.[0]?.content?.parts
-    ?.map((part: any) => part.text ?? "")
-    .join("")
-    .trim() ?? "";
+  // Gemini 2.5 Flash includes thinking parts (thought: true) — skip them
+  return (
+    response.candidates?.[0]?.content?.parts
+      ?.filter((part: any) => !part.thought)
+      ?.map((part: any) => part.text ?? "")
+      .join("")
+      .trim() ?? ""
+  );
 }
 
-function normalizeGradingResult(content: any) {
-  const rawFeedback = typeof content.feedback === "string" ? content.feedback : String(content.feedback ?? "");
+function normalizeGradingResult(content: any): NormalizedGradingResult {
+  const rawFeedback =
+    typeof content.feedback === "string"
+      ? content.feedback
+      : String(content.feedback ?? "");
+  const hasScores =
+    content.finalAnswerScore !== undefined ||
+    content.reasoningScore !== undefined;
+  const normalizedGrade = normalizeTotalGrade(content.grade);
+  const finalAnswerScore = hasScores
+    ? normalizeHalfPointScore(content.finalAnswerScore)
+    : normalizedGrade >= 0.5
+      ? 0.5
+      : 0;
+  const reasoningScore = hasScores
+    ? normalizeHalfPointScore(content.reasoningScore)
+    : normalizedGrade === 1
+      ? 0.5
+      : 0;
+  const grade = hasScores
+    ? addScores(finalAnswerScore, reasoningScore)
+    : normalizedGrade;
+
   return {
-    grade: content.grade === 1 ? 1 : 0,
+    grade,
+    finalAnswerScore,
+    reasoningScore,
     feedback: normalizeFeedbackStructure(rawFeedback),
-    errorType: content.grade === 1 ? "" : content.errorType || "",
+    errorType: grade === 1 ? "" : content.errorType || "",
     isOptimized: true,
   };
 }
@@ -108,24 +345,32 @@ function casBackedFallbackFeedback(
   casResult: { isComputable: boolean; groundTruth: string | null },
   casEquivalence: { isEquivalent: boolean | null; casChecked: boolean },
   reasoning: string,
-) {
+): PipelineCompatibleResult {
   if (!casResult.isComputable || !casEquivalence.casChecked) {
     return {
       grade: 0,
-      feedback: "**Answer:** I could not verify the final answer automatically.\n\n**Reasoning:** Gemini returned an unreadable response, so no reliable reasoning judgment was available.\n\n**Verdict:** Please try again or switch to OpenAI GPT-4o for this submission.",
+      feedback:
+        "**Final Answer:** I could not verify the final answer automatically.\n\n**Reasoning steps:** Gemini returned an unreadable response, so no reliable reasoning judgment was available.\n\n**Verdict:** Your score is \\(0/1\\) because the grading system could not safely score either half. Please try again or switch models for this submission.",
       errorType: "Parse Error",
       isOptimized: true,
     };
   }
 
   if (casEquivalence.isEquivalent === false) {
-    return incorrectFinalAnswerFeedback(casResult.groundTruth);
+    const reasoningScore = hasAssessableReasoning(reasoning) ? 0.5 : 0;
+    const grade = addScores(0, reasoningScore);
+    return {
+      grade,
+      feedback: `**Final Answer:** \\(0/0.5\\) Your final answer does not match the CAS-verified answer ${formatCasAnswer(casResult.groundTruth)}.\n\n**Reasoning steps:** \\(${reasoningScore}/0.5\\) ${reasoningScore === 0.5 ? "Your reasoning contains enough mathematical structure to review, but the final value still needs correction." : "Your reasoning is too brief to assess the method."}\n\n${buildVerdictSection(0, reasoningScore)}`,
+      errorType: errorTypeFromScores(0, reasoningScore),
+      isOptimized: true,
+    };
   }
 
   if (!hasAssessableReasoning(reasoning)) {
     return {
-      grade: 0,
-      feedback: `**Answer:** Your final answer is correct; it matches the verified answer ${formatCasAnswer(casResult.groundTruth)}.\n\n**Reasoning:** Your reasoning is too brief to assess the method.\n\n**Verdict:** Your answer is correct, but you need to show your reasoning steps so I can assess your understanding.`,
+      grade: 0.5,
+      feedback: `**Final Answer:** \\(0.5/0.5\\) Your final answer is correct; it matches the CAS-verified answer ${formatCasAnswer(casResult.groundTruth)}.\n\n**Reasoning steps:** \\(0/0.5\\) Your reasoning is too brief to assess the method.\n\n${buildVerdictSection(0.5, 0)}`,
       errorType: "Thin Reasoning",
       isOptimized: true,
     };
@@ -133,7 +378,7 @@ function casBackedFallbackFeedback(
 
   return {
     grade: 1,
-    feedback: `**Answer:** Your final answer is correct; it matches the verified answer ${formatCasAnswer(casResult.groundTruth)}.\n\n**Reasoning:** Your reasoning includes enough mathematical work to support the answer.\n\n**Verdict:** You have provided a correct answer with assessable reasoning, so full credit is awarded.`,
+    feedback: `**Final Answer:** \\(0.5/0.5\\) Your final answer is correct; it matches the CAS-verified answer ${formatCasAnswer(casResult.groundTruth)}.\n\n**Reasoning steps:** \\(0.5/0.5\\) Your reasoning includes enough mathematical work to support the answer.\n\n${buildVerdictSection(0.5, 0.5)}`,
     errorType: "",
     isOptimized: true,
   };
@@ -156,16 +401,20 @@ function enforceCasFinalAnswer(
   }
 
   if (casEquivalence.isEquivalent === true) {
-    const answerHeader = `**Answer:** Your final answer is correct; it matches the verified answer ${formatCasAnswer(casResult.groundTruth)}.`;
+    const answerHeader = `**Final Answer:** Your final answer is correct; it matches the verified answer ${formatCasAnswer(casResult.groundTruth)}.`;
     const feedback = result.feedback || "";
-    const reconciledFeedback = feedback.includes("**Reasoning:**")
-      ? feedback.replace(/\*\*Answer:\*\*[\s\S]*?(?=\n\n\*\*Reasoning:\*\*)/, answerHeader)
+    const reconciledFeedback = feedback.includes("**Reasoning steps:**")
+      ? feedback.replace(
+          /\*\*Final Answer:\*\*[\s\S]*?(?=\n\n\*\*Reasoning steps:\*\*)/,
+          answerHeader,
+        )
       : `${answerHeader}\n\n${feedback}`;
 
     return {
       ...result,
       feedback: normalizeFeedbackStructure(reconciledFeedback),
-      errorType: result.grade === 1 ? "" : result.errorType || "Reasoning Issue",
+      errorType:
+        result.grade === 1 ? "" : result.errorType || "Reasoning Issue",
     };
   }
 
@@ -175,24 +424,106 @@ function enforceCasFinalAnswer(
   };
 }
 
+function buildCasLayerResult(
+  casResult: CasResult,
+  casEquivalence: CasEquivalence,
+): CasLayerResult {
+  return {
+    isComputable: casResult.isComputable,
+    checked: casEquivalence.casChecked,
+    equivalent: casEquivalence.isEquivalent,
+    expectedAnswer: casResult.groundTruth,
+    expression: casResult.expression ?? null,
+    description: casResult.description ?? "",
+    confidence: casEquivalence.casChecked
+      ? 0.95
+      : casResult.isComputable
+        ? 0.75
+        : 0.25,
+  };
+}
+
+function appendDidacticFeedback(
+  feedback: string,
+  didacticLayer: DidacticLayerResult,
+) {
+  if (!didacticLayer.feedback) return normalizeFeedbackStructure(feedback);
+  if (feedback.includes("**Learning focus:**")) {
+    return normalizeFeedbackStructure(feedback);
+  }
+  return normalizeFeedbackStructure(`${feedback}\n\n${didacticLayer.feedback}`);
+}
+
+function attachPipelineDiagnostics(
+  result: PipelineCompatibleResult,
+  topicName: string,
+  casResult: CasResult,
+  casEquivalence: CasEquivalence,
+  aiContent: unknown,
+) {
+  const casLayer = buildCasLayerResult(casResult, casEquivalence);
+  const reasoningScore =
+    result.reasoningScore !== undefined
+      ? normalizeHalfPointScore(result.reasoningScore)
+      : result.grade === 1
+        ? 0.5
+        : 0;
+  const aiLayer: AiDiagnosisResult = normalizeAiDiagnosis(aiContent, {
+    topicName,
+    errorType: result.errorType,
+    reasoningScore,
+    casLayer,
+  });
+  const didacticLayer = buildDidacticInterpretation({
+    topicName,
+    grade: result.grade,
+    casLayer,
+    aiDiagnosis: aiLayer,
+  });
+  const layerDiagnostics: PipelineDiagnostics = {
+    casLayer,
+    aiLayer,
+    didacticLayer,
+  };
+
+  return {
+    ...result,
+    feedback: appendDidacticFeedback(result.feedback, didacticLayer),
+    errorType: result.grade === 1 ? "" : result.errorType || aiLayer.errorType,
+    techniqueUsed: aiLayer.techniqueUsed,
+    misconception: result.grade === 1 ? "" : aiLayer.misconception,
+    conceptTags: didacticLayer.conceptTags,
+    praxeology: didacticLayer.praxeology,
+    profileUpdate: didacticLayer.profileUpdate,
+    layerDiagnostics,
+  };
+}
+
 export const gradeSubmission = action({
-// ... (omitting for brevity as I'm replacing the whole file structure or a large chunk)
+  // ... (omitting for brevity as I'm replacing the whole file structure or a large chunk)
   args: {
     problemStatement: v.string(),
     studentAnswer: v.string(),
     reasoning: v.string(),
     model: v.string(),
     topicName: v.string(),
+    answerFormatInstruction: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     try {
-    const prompt = `
+      const answerFormatContext = args.answerFormatInstruction
+        ? `Expected Final Answer Format: ${args.answerFormatInstruction}
+      Treat any listed alternative formats as semantically equivalent. If the problem asks for multiple values, set notation is accepted and order does not matter.`
+        : "";
+
+      const prompt = `
     You are a strict but helpful math tutor. Grade the following student submission for correctness and logic.
     Address the student directly in the second person (e.g., "Your answer is..."). Never refer to the learner as "the student".
 
     Problem: ${args.problemStatement}
     Student's Final Answer: ${args.studentAnswer}
     Student's Reasoning: ${args.reasoning}
+    ${answerFormatContext}
 
     IMPORTANT: If "Student's Final Answer" is empty or missing, you MUST identify their intended final answer from their "Reasoning" steps. If no final answer can be found anywhere, the grade should be 0.
 
@@ -208,10 +539,10 @@ export const gradeSubmission = action({
 
     MANDATORY FEEDBACK STRUCTURE — you MUST produce exactly three labelled sections. Never collapse them into one paragraph.
 
-    Section 1 — write the literal header "**Answer:**" then on the same line:
+    Section 1 — write the literal header "**Final Answer:**" then on the same line:
     Assess only the final answer. Is it correct or not? If incorrect, state the correct answer AND one actionable sentence on what the student needs to fix specifically in their final answer. If correct, confirm it.
 
-    Section 2 — write the literal header "**Reasoning:**" then on the same line:
+    Section 2 — write the literal header "**Reasoning steps:**" then on the same line:
     Assess only the reasoning steps independently from the answer. Go through the steps the student provided. If the steps are correct, confirm them. If a step is wrong or missing, name that step and add one actionable sentence on what the student needs to show or correct in their working. This section must never be skipped or merged with Section 1.
 
     Section 3 — write the literal header "**Verdict:**" then on the same line:
@@ -219,83 +550,119 @@ export const gradeSubmission = action({
 
     Return ONLY a valid JSON object with no markdown formatting. The JSON must have:
     - "grade": 1 for correct, 0 for incorrect.
-    - "feedback": structured as "**Answer:** ... \\n\\n**Reasoning:** ... \\n\\n**Verdict:** ...". ALWAYS follow the DELIMITER PROTOCOL.
+    - "feedback": structured as "**Final Answer:** ... \\n\\n**Reasoning steps:** ... \\n\\n**Verdict:** ...". ALWAYS follow the DELIMITER PROTOCOL.
     - "errorType": If grade is 0, a 2-4 word category of the error. If grade is 1, return an empty string.
     IMPORTANT: Double-escape all backslashes in the JSON string (e.g., "\\\\text", "\\\\frac").
         `;
 
-        if (args.model === "gemini-2.5-flash") {
-             const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
-             if (!GOOGLE_API_KEY) return { grade: 0, feedback: "Error: Missing GOOGLE_API_KEY" };
+      if (args.model === "gemini-2.5-flash") {
+        const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
+        if (!GOOGLE_API_KEY)
+          return { grade: 0, feedback: "Error: Missing GOOGLE_API_KEY" };
 
-             const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
-             const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-             // Gemini prompt slightly adjusted for JSON structure enforcement via prompt engineering as strict JSON mode varies
-             const geminiPrompt = `
+        // Gemini prompt slightly adjusted for JSON structure enforcement via prompt engineering as strict JSON mode varies
+        const geminiPrompt = `
              System: You are a helpful math tutor. Grade the following student submission.
              
-             Problem: ${args.problemStatement}
-             Student Answer: ${args.studentAnswer}
-             Reasoning: ${args.reasoning}
+              Problem: ${args.problemStatement}
+              Student Answer: ${args.studentAnswer}
+              Reasoning: ${args.reasoning}
+              ${answerFormatContext}
 
-             Instructions:
-             1. Address the student directly in the second person. Never refer to the learner as "the student".
-             2. Return ONLY a valid JSON object. Do not wrap it in markdown code blocks.
-             3. The JSON must have "grade" (1 or 0) and "feedback" (string).
-             4. Double escape LaTeX backslashes in the JSON string (e.g., \\\\frac, \\\\mathbf).
-             5. STRICTLY use \\\\[ ... \\\\] delimiters for block math (matrices, separate equations).
-             6. STRICTLY use \\\\( ... \\\\) delimiters for ALL inline math (e.g., \\\\(x\\\\), \\\\(\\\\frac{1}{2}\\\\)).
-             7. NEVER use $ or $$ as delimiters. NEVER output raw LaTeX without delimiters.
-             8. Do NOT wrap normal text explanations in math delimiters.
+              Instructions:
+              1. Address the student directly in the second person. Never refer to the learner as "the student".
+              2. Return ONLY a valid JSON object. Do not wrap it in markdown code blocks.
+              3. The JSON must have "grade" (1 or 0) and "feedback" (string).
+              4. Double escape LaTeX backslashes in the JSON string (e.g., \\\\frac, \\\\mathbf).
+              5. STRICTLY use \\\\[ ... \\\\] delimiters for block math (matrices, separate equations).
+              6. STRICTLY use \\\\( ... \\\\) delimiters for ALL inline math (e.g., \\\\(x\\\\), \\\\(\\\\frac{1}{2}\\\\)).
+              7. NEVER use $ or $$ as delimiters. NEVER output raw LaTeX without delimiters.
+              8. Do NOT wrap normal text explanations in math delimiters.
+              9. Apply the expected final answer format exactly like the OpenAI grader: accepted alternatives are equivalent, and set notation order does not matter.
 
              JSON Output:
              `;
 
-             const result = await model.generateContent(geminiPrompt);
-             const response = await result.response;
-             const text = response.text();
-             
-             // Clean potential markdown blocks if Gemini adds them
-             const cleaned = text.replace(/```json/g, "").replace(/```/g, "").trim();
-             
-             try {
-                const parsed = JSON.parse(cleaned);
-                return { grade: parsed.grade, feedback: normalizeSecondPersonFeedback(parsed.feedback), errorType: "" };
-             } catch (e) {
-                 console.error("Gemini JSON Parse Error", text);
-                 return { grade: 0, feedback: "Error parsing Gemini response.", errorType: "Parse Error" };
-             }
-        } else { // OpenAI (gpt-4o, gpt-4o-mini, or any unrecognised model falls back to OpenAI)
-             const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-             if (!OPENAI_API_KEY) return { grade: 0, feedback: "Error: Missing OPENAI_API_KEY" };
+        const result = await model.generateContent(geminiPrompt);
+        const response = await result.response;
+        const text = response.text();
 
-             const completion = await fetch("https://api.openai.com/v1/chat/completions", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${OPENAI_API_KEY}`
-                },
-                body: JSON.stringify({
-                    model: args.model.startsWith("gpt") ? args.model : "gpt-4o-mini", // Default to mini if unknown/deprecated model passed
-                    messages: [
-                        { role: "system", content: "You are a helpful math tutor. Grade the work. Talk directly to the learner in the second person (e.g., 'You did...'). Never write 'the student'. Return strictly valid JSON. IMPORTANT: You must DOUBLE-ESCAPE all LaTeX backslashes in the JSON string (e.g., use '\\\\text', '\\\\frac', '\\\\infty'). STRICTLY use \\\\( and \\\\) for inline math and \\\\[ and \\\\] for block math. NEVER use $ or $$ as delimiters." },
-                        { role: "user", content: prompt }
-                    ],
-                    response_format: { type: "json_object" }
-                })
-             });
+        // Clean potential markdown blocks if Gemini adds them
+        const cleaned = text
+          .replace(/```json/g, "")
+          .replace(/```/g, "")
+          .trim();
 
-             const data = await completion.json();
-             if (data.error) return { grade: 0, feedback: `OpenAI Error: ${data.error.message}`, errorType: "API Error" };
-             
-             const content = data.choices[0].message.content;
-             const parsed = JSON.parse(content);
-             return { grade: parsed.grade, feedback: normalizeSecondPersonFeedback(parsed.feedback), errorType: parsed.errorType || "" };
+        try {
+          const parsed = JSON.parse(cleaned);
+          return {
+            grade: parsed.grade,
+            feedback: normalizeSecondPersonFeedback(parsed.feedback),
+            errorType: "",
+          };
+        } catch (e) {
+          console.error("Gemini JSON Parse Error", text);
+          return {
+            grade: 0,
+            feedback: "Error parsing Gemini response.",
+            errorType: "Parse Error",
+          };
         }
+      } else {
+        // OpenAI (gpt-4o, gpt-4o-mini, or any unrecognised model falls back to OpenAI)
+        const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+        if (!OPENAI_API_KEY)
+          return { grade: 0, feedback: "Error: Missing OPENAI_API_KEY" };
+
+        const completion = await fetch(
+          "https://api.openai.com/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${OPENAI_API_KEY}`,
+            },
+            body: JSON.stringify({
+              model: args.model.startsWith("gpt") ? args.model : "gpt-4o-mini", // Default to mini if unknown/deprecated model passed
+              messages: [
+                {
+                  role: "system",
+                  content:
+                    "You are a helpful math tutor. Grade the work. Talk directly to the learner in the second person (e.g., 'You did...'). Never write 'the student'. Return strictly valid JSON. IMPORTANT: You must DOUBLE-ESCAPE all LaTeX backslashes in the JSON string (e.g., use '\\\\text', '\\\\frac', '\\\\infty'). STRICTLY use \\\\( and \\\\) for inline math and \\\\[ and \\\\] for block math. NEVER use $ or $$ as delimiters.",
+                },
+                { role: "user", content: prompt },
+              ],
+              response_format: { type: "json_object" },
+            }),
+          },
+        );
+
+        const data = await completion.json();
+        if (data.error)
+          return {
+            grade: 0,
+            feedback: `OpenAI Error: ${data.error.message}`,
+            errorType: "API Error",
+          };
+
+        const content = data.choices[0].message.content;
+        const parsed = JSON.parse(content);
+        return {
+          grade: parsed.grade,
+          feedback: normalizeSecondPersonFeedback(parsed.feedback),
+          errorType: parsed.errorType || "",
+        };
+      }
     } catch (err: any) {
-        console.error("Unexpected Grading Error:", err);
-        return { grade: 0, feedback: `Unexpected system error: ${err.message}`, errorType: "System Error" };
+      console.error("Unexpected Grading Error:", err);
+      return {
+        grade: 0,
+        feedback: `Unexpected system error: ${err.message}`,
+        errorType: "System Error",
+      };
     }
   },
 });
@@ -308,7 +675,8 @@ export const checkPracticeAnswer = action({
   },
   handler: async (ctx, args) => {
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-    if (!OPENAI_API_KEY) return { isCorrect: false, feedback: "Error: Missing OpenAI Key" };
+    if (!OPENAI_API_KEY)
+      return { isCorrect: false, feedback: "Error: Missing OpenAI Key" };
 
     const prompt = `
       Question: ${args.questionText}
@@ -321,28 +689,41 @@ export const checkPracticeAnswer = action({
     `;
 
     try {
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${OPENAI_API_KEY}`
-            },
-            body: JSON.stringify({
-                model: "gpt-4o-mini",
-                messages: [
-                    { role: "system", content: "You are a helpful math tutor. Verify the answer. Address the learner directly as you/your; never write 'the student'. Return strictly valid JSON. IMPORTANT: You must DOUBLE-ESCAPE all LaTeX backslashes in the JSON string (e.g., use '\\\\text', '\\\\frac', '\\\\infty'). STRICTLY use \\\\( and \\\\) for ALL inline math (e.g., \\\\(x\\\\), \\\\(\\\\frac{1}{2}\\\\)). STRICTLY use \\\\[ and \\\\] for block/display math (e.g., matrices). NEVER use $ or $$ delimiters." },
-                    { role: "user", content: prompt }
-                ],
-                response_format: { type: "json_object" }
-            })
-        });
+      const response = await fetch(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${OPENAI_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              {
+                role: "system",
+                content:
+                  "You are a helpful math tutor. Verify the answer. Address the learner directly as you/your; never write 'the student'. Return strictly valid JSON. IMPORTANT: You must DOUBLE-ESCAPE all LaTeX backslashes in the JSON string (e.g., use '\\\\text', '\\\\frac', '\\\\infty'). STRICTLY use \\\\( and \\\\) for ALL inline math (e.g., \\\\(x\\\\), \\\\(\\\\frac{1}{2}\\\\)). STRICTLY use \\\\[ and \\\\] for block/display math (e.g., matrices). NEVER use $ or $$ delimiters.",
+              },
+              { role: "user", content: prompt },
+            ],
+            response_format: { type: "json_object" },
+          }),
+        },
+      );
 
-        const data = await response.json();
-        const content = JSON.parse(data.choices[0].message.content);
-        return { isCorrect: content.isCorrect, feedback: normalizeSecondPersonFeedback(content.feedback) };
+      const data = await response.json();
+      const content = JSON.parse(data.choices[0].message.content);
+      return {
+        isCorrect: content.isCorrect,
+        feedback: normalizeSecondPersonFeedback(content.feedback),
+      };
     } catch (e: any) {
-        console.error("Practice Grading Error:", e);
-        return { isCorrect: false, feedback: "Error checking answer. Please try again." };
+      console.error("Practice Grading Error:", e);
+      return {
+        isCorrect: false,
+        feedback: "Error checking answer. Please try again.",
+      };
     }
   },
 });
@@ -356,18 +737,20 @@ export const transcribeReasoning = action({
     if (!OPENAI_API_KEY) throw new Error("Missing OPENAI_API_KEY");
 
     try {
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${OPENAI_API_KEY}`
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            {
-              role: "system",
-              content: `You are a high-precision Math Transcription Expert specializing in handwritten pedagogical solutions.
+      const response = await fetch(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${OPENAI_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              {
+                role: "system",
+                content: `You are a high-precision Math Transcription Expert specializing in handwritten pedagogical solutions.
               
               YOUR TASK:
               Transcribe the provided image into clean, professionally formatted LaTeX.
@@ -384,24 +767,25 @@ export const transcribeReasoning = action({
               - Return ONLY the LaTeX transcription. 
               - Do NOT include any conversational text (e.g. "Here is the transcription...").
               - Do NOT use markdown code blocks; just the raw text with LaTeX delimiters.
-              - Ensure the output is immediately readable by a MathJax/KaTeX renderer.`
-            },
-            {
-              role: "user",
-              content: [
-                { type: "text", text: "Transcribe this image." },
-                {
-                  type: "image_url",
-                  image_url: {
-                    url: args.image,
-                  }
-                }
-              ]
-            }
-          ],
-          max_tokens: 1000
-        })
-      });
+              - Ensure the output is immediately readable by a MathJax/KaTeX renderer.`,
+              },
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: "Transcribe this image." },
+                  {
+                    type: "image_url",
+                    image_url: {
+                      url: args.image,
+                    },
+                  },
+                ],
+              },
+            ],
+            max_tokens: 1000,
+          }),
+        },
+      );
 
       const data = await response.json();
       if (data.error) throw new Error(data.error.message);
@@ -421,34 +805,43 @@ export const gradeOptimized = action({
     reasoning: v.string(),
     model: v.string(),
     topicName: v.string(),
+    answerFormatInstruction: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // Start independent work together to reduce the synchronous grading wait.
     const casResultPromise = ctx.runAction(internal.cas.computeGroundTruth, {
       problemStatement: args.problemStatement,
       topicName: args.topicName,
-    }) as Promise<{ isComputable: boolean; groundTruth: string | null; expression: string | null; description?: string }>;
+    }) as Promise<{
+      isComputable: boolean;
+      groundTruth: string | null;
+      expression: string | null;
+      description?: string;
+    }>;
 
-    const expertCorrectionsPromise = ctx.runQuery(api.corrections.getApprovedCorrectionsForTopic, {
-      topicName: args.topicName,
-      limit: 1
-    });
+    const expertCorrectionsPromise = ctx.runQuery(
+      api.corrections.getApprovedCorrectionsForTopic,
+      {
+        topicName: args.topicName,
+        limit: 1,
+      },
+    );
 
     // 1. CAS: compute the verified correct answer before involving the AI
     const casResult = await casResultPromise;
 
     // 2. CAS: check student answer equivalence (short-circuit when possible)
-    let casEquivalence: { isEquivalent: boolean | null; casChecked: boolean } = { isEquivalent: null, casChecked: false };
+    let casEquivalence: { isEquivalent: boolean | null; casChecked: boolean } =
+      { isEquivalent: null, casChecked: false };
     if (casResult.isComputable && casResult.expression) {
-      casEquivalence = await ctx.runAction(internal.cas.checkAnswerEquivalence, {
-        studentAnswer: args.studentAnswer || args.reasoning,
-        groundTruth: casResult.groundTruth!,
-        expression: casResult.expression,
-      }) as { isEquivalent: boolean | null; casChecked: boolean };
-    }
-
-    if (casEquivalence.casChecked && casEquivalence.isEquivalent === false) {
-      return incorrectFinalAnswerFeedback(casResult.groundTruth);
+      casEquivalence = (await ctx.runAction(
+        internal.cas.checkAnswerEquivalence,
+        {
+          studentAnswer: args.studentAnswer || args.reasoning,
+          groundTruth: casResult.groundTruth!,
+          expression: casResult.expression,
+        },
+      )) as { isEquivalent: boolean | null; casChecked: boolean };
     }
 
     // 3. Get few-shot examples (expert corrections) for this topic
@@ -458,11 +851,15 @@ export const gradeOptimized = action({
     if (expertCorrections && expertCorrections.length > 0) {
       fewShotContext = `
       ### Reference Standards (Expert Professor Corrections):
-      ${expertCorrections.map((c: any, i: number) => `
+      ${expertCorrections
+        .map(
+          (c: any, i: number) => `
       Example ${i + 1}:
       - AI Feedback was corrected to: "${c.correctedFeedback}"
       - Corrected Grade: ${c.correctedGrade}
-      `).join("\n")}
+      `,
+        )
+        .join("\n")}
       `;
     }
 
@@ -471,13 +868,15 @@ export const gradeOptimized = action({
       ? `
     ⚠️  CAS VERIFIED ANSWER (computed deterministically by mathjs — do NOT recompute):
         Expression evaluated: ${casResult.expression}
-        Correct answer: ${casResult.groundTruth}
+        Correct answer: ${formatCasAnswer(casResult.groundTruth)}
         ${casResult.description ? `What was computed: ${casResult.description}` : ""}
-        ${casEquivalence.casChecked
-          ? casEquivalence.isEquivalent === true
-            ? "CAS EQUIVALENCE CHECK: Student's answer matches the verified answer ✓ — the final answer is CORRECT."
-            : "CAS EQUIVALENCE CHECK: Student's answer does NOT match the verified answer ✗ — the final answer is WRONG."
-          : "CAS equivalence check could not parse student answer — use the verified answer above to judge correctness."}
+        ${
+          casEquivalence.casChecked
+            ? casEquivalence.isEquivalent === true
+              ? "CAS EQUIVALENCE CHECK: Student's answer matches the verified answer ✓ — the final answer is CORRECT."
+              : "CAS EQUIVALENCE CHECK: Student's answer does NOT match the verified answer ✗ — the final answer is WRONG."
+            : "CAS equivalence check could not parse student answer — use the verified answer above to judge correctness."
+        }
     Use the verified answer above as ground truth. Do NOT perform your own numerical computation.
       `
       : "";
@@ -491,12 +890,21 @@ export const gradeOptimized = action({
     Problem: ${args.problemStatement}
     Student's Final Answer: ${args.studentAnswer}
     Student's Reasoning: ${args.reasoning}
+    ${args.answerFormatInstruction ? `Expected Final Answer Format: ${args.answerFormatInstruction}` : ""}
+
+    SCORING RUBRIC:
+    - The total grade is 1 point.
+    - Final Answer is worth 0.5 point. Return "finalAnswerScore": 0.5 if the final answer is correct/equivalent, otherwise 0.
+    - Reasoning steps are worth 0.5 point. Return "reasoningScore": 0.5 only when the reasoning is mathematically sound enough to justify the answer, otherwise 0.
+    - The returned "grade" MUST equal finalAnswerScore + reasoningScore, so it can only be 0, 0.5, or 1.
+    - When CAS says the final answer is correct or incorrect, you MUST use that CAS result for finalAnswerScore. Do not override it.
 
     RULES:
     0. **Direct Address Only**: Address the learner as "you" and "your" in every section. Never write "the student", "the learner", or third-person phrases such as "The student has shown".
-    1. **Grade 1 requires BOTH**: A grade of 1 is only awarded when the final answer is correct AND the reasoning shows the key logical steps. Condensed or shorthand steps are acceptable as long as the mathematical logic is visible.
+    1. **Grade is the sum of two half-points**: Award up to \\(0.5\\) for Final Answer and up to \\(0.5\\) for Reasoning steps. A correct final answer with weak reasoning earns \\(0.5\\), not \\(0\\) or \\(1\\).
     2. **Thin/Missing Reasoning → Grade 0**: If the reasoning is empty or says nothing mathematical (e.g. "I did it on paper"), assign grade 0. Feedback MUST state: "Your answer is correct, but you need to show your reasoning steps so I can assess your understanding."
-    3. **Final Answer Detection**: If "Student's Final Answer" is empty, find the answer within the "Reasoning" steps. If no answer can be found anywhere, assign grade 0.
+    IMPORTANT HALF-POINT CLARIFICATION: This overrides any binary grading wording. Missing or weak reasoning means reasoningScore is 0, but finalAnswerScore can still be 0.5 if CAS or equivalence shows the final answer is correct.
+    3. **Final Answer Detection**: If "Student's Final Answer" is empty, find the answer within the "Reasoning" steps. If no answer can be found anywhere, finalAnswerScore is 0.
     4. **Trust the CAS**: If a CAS verified answer is provided above, use it as the ground truth for correctness. Do NOT recompute the answer yourself — AI arithmetic is unreliable. The CAS is always right.
     5. **Reasoning Consistency**: Only assign grade 0 for incorrect reasoning if it is mathematically wrong or directly contradicts the final answer. A different but valid method, condensed steps, or unconventional notation must receive full credit.
     6. **Semantic Equivalence**: Mathematically equivalent statements MUST receive the same grade regardless of phrasing, notation, or word choice. For example, writing "\\(\\det(A) \\neq 0\\)" is identical to writing "the determinant is non-zero". Rephrasing a correct conclusion in equivalent words is NOT a reasoning error.
@@ -507,49 +915,91 @@ export const gradeOptimized = action({
        - Use \\( ... \\) for inline math and \\[ ... \\] for block math. Double-escape backslashes in JSON (e.g., "\\\\frac", "\\\\mathbf").
        - NEVER use $ or $$ as delimiters. NEVER output raw LaTeX (e.g., \\boldsymbol, \\begin) without delimiters.
 
-    MANDATORY FEEDBACK STRUCTURE — you MUST produce exactly three labelled sections. Never collapse them into one paragraph.
+    MANDATORY FEEDBACK STRUCTURE — produce exactly three sections with these exact bold headers. Never collapse them.
 
-    Section 1 — write the literal header "**Answer:**" then on the same line:
-    Assess only the final answer. Is it correct or not? If incorrect, state the correct answer AND one actionable sentence on what the student needs to fix specifically in their final answer. If correct, confirm it.
+    Section 1 — write the literal header "**Final Answer:**" then on the same line:
+    Assess only the final answer. Is it correct or not? Show its half-point score \\(x/0.5\\). If incorrect, state the correct answer AND one actionable sentence on what needs to be fixed. If correct, confirm it.
 
-    Section 2 — write the literal header "**Reasoning:**" then on the same line:
-    Assess only the reasoning steps independently from the answer. Go through the steps the student provided. If the steps are correct, confirm them. If a step is wrong or missing, name that step and add one actionable sentence on what the student needs to show or correct in their working. This section must never be skipped or merged with Section 1.
+    Section 2 — write the literal header "**Reasoning steps:**" then on the same line:
+    Assess only the reasoning steps independently. Show its half-point score \\(x/0.5\\). Go through the steps provided. If correct, confirm them. If wrong or missing, name the specific step and give one actionable sentence on what needs to be shown or corrected. Never skip or merge this with Section 1.
 
     Section 3 — write the literal header "**Verdict:**" then on the same line:
-    Justify the grade in 2-3 sentences. List every mistake found across the answer and the reasoning. If grade is 1, confirm both are correct. Use "you" and "your"; never write "the student".
+    Justify the grade in 2-3 sentences. List every mistake found. If grade is 1, confirm both parts are correct. Use "you" and "your"; never write "the student".
 
     Return ONLY a valid JSON object:
     {
-      "grade": number (0 or 1),
-      "feedback": "**Answer:** ... \\n\\n**Reasoning:** ... \\n\\n**Verdict:** ...",
-      "errorType": "2-4 word category if grade 0, else empty"
+      "finalAnswerScore": number (0 or 0.5),
+      "reasoningScore": number (0 or 0.5),
+      "grade": number (0, 0.5, or 1),
+      "feedback": "**Final Answer:** ... \\n\\n**Reasoning steps:** ... \\n\\n**Verdict:** ...",
+      "errorType": "2-4 word category if grade < 1, else empty",
+      "techniqueUsed": "the mathematical technique or strategy you identify",
+      "misconception": "the underlying misconception if grade < 1, else empty",
+      "errorLocation": "final answer, reasoning steps, calculation, notation, or none detected",
+      "conceptTags": ["short mathematical concept tags"],
+      "diagnosisConfidence": number between 0 and 1
     }
     `;
 
-    const systemMessage = "You are a supportive Math Professor. Address the learner directly as you/your; never write 'the student'. Return strictly valid JSON. IMPORTANT: Double-escape all LaTeX backslashes (e.g., '\\\\frac', '\\\\mathbf'). Use \\\\( and \\\\) for inline math and \\\\[ and \\\\] for block math. NEVER use $ or $$ as delimiters.";
+    const answerFormatSystemInstruction = args.answerFormatInstruction
+      ? `\n\nExpected final answer format: ${args.answerFormatInstruction}\nAccept every listed alternative format as equivalent. If the answer is a set or list of roots/eigenvalues/solutions, set notation is accepted and order does not matter.`
+      : "";
+    const systemMessage =
+      "You are a supportive Math Professor. Use this exact half-point rubric: Final Answer is 0.5, Reasoning steps are 0.5, and grade is their sum. Address the learner directly as you/your; never write 'the student'. Return strictly valid JSON. IMPORTANT: Double-escape all LaTeX backslashes (e.g., '\\\\frac', '\\\\mathbf'). Use \\\\( and \\\\) for inline math and \\\\[ and \\\\] for block math. NEVER use $ or $$ as delimiters.";
 
     try {
       if (args.model === "gemini-2.5-flash") {
         const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
-        if (!GOOGLE_API_KEY) return { grade: 0, feedback: "Error: Missing GOOGLE_API_KEY", errorType: "Config Error", isOptimized: true };
+        if (!GOOGLE_API_KEY)
+          return {
+            grade: 0,
+            feedback: "Error: Missing GOOGLE_API_KEY",
+            errorType: "Config Error",
+            isOptimized: true,
+          };
 
         const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
         const geminiModel = genAI.getGenerativeModel({
           model: "gemini-2.5-flash",
-          systemInstruction: systemMessage + "\n\nYou MUST format the feedback with **Answer:**, **Reasoning:**, and **Verdict:** sections.",
-          generationConfig: { 
+          systemInstruction:
+            systemMessage +
+            answerFormatSystemInstruction +
+            "\n\nYou MUST use the same instruction as the OpenAI grader. Format feedback with **Final Answer:**, **Reasoning steps:**, and **Verdict:** sections.",
+          generationConfig: {
             responseMimeType: "application/json",
             temperature: 0,
-            maxOutputTokens: 700,
+            maxOutputTokens: 2000,
+            thinkingConfig: { thinkingBudget: 0 },
             responseSchema: {
               type: SchemaType.OBJECT,
               properties: {
+                finalAnswerScore: { type: SchemaType.NUMBER },
+                reasoningScore: { type: SchemaType.NUMBER },
                 grade: { type: SchemaType.NUMBER },
                 feedback: { type: SchemaType.STRING },
-                errorType: { type: SchemaType.STRING }
+                errorType: { type: SchemaType.STRING },
+                techniqueUsed: { type: SchemaType.STRING },
+                misconception: { type: SchemaType.STRING },
+                errorLocation: { type: SchemaType.STRING },
+                conceptTags: {
+                  type: SchemaType.ARRAY,
+                  items: { type: SchemaType.STRING },
+                },
+                diagnosisConfidence: { type: SchemaType.NUMBER },
               },
-              required: ["grade", "feedback", "errorType"]
-            }
+              required: [
+                "finalAnswerScore",
+                "reasoningScore",
+                "grade",
+                "feedback",
+                "errorType",
+                "techniqueUsed",
+                "misconception",
+                "errorLocation",
+                "conceptTags",
+                "diagnosisConfidence",
+              ],
+            },
           } as any,
         });
 
@@ -562,63 +1012,136 @@ export const gradeOptimized = action({
             finishReason: result.response.candidates?.[0]?.finishReason,
             promptFeedback: result.response.promptFeedback,
           });
-          return casBackedFallbackFeedback(casResult, casEquivalence, args.reasoning);
+          return attachPipelineDiagnostics(
+            casBackedFallbackFeedback(
+              casResult,
+              casEquivalence,
+              args.reasoning,
+            ),
+            args.topicName,
+            casResult,
+            casEquivalence,
+            null,
+          );
         }
         const graded = normalizeGradingResult(content);
-        return enforceCasFinalAnswer(graded, casResult, casEquivalence);
+        return attachPipelineDiagnostics(
+          enforceHalfPointStructure(graded, casResult, casEquivalence),
+          args.topicName,
+          casResult,
+          casEquivalence,
+          content,
+        );
       } else {
         const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-        if (!OPENAI_API_KEY) return { grade: 0, feedback: "Error: Missing OPENAI_API_KEY", errorType: "Config Error", isOptimized: true };
+        if (!OPENAI_API_KEY)
+          return {
+            grade: 0,
+            feedback: "Error: Missing OPENAI_API_KEY",
+            errorType: "Config Error",
+            isOptimized: true,
+          };
 
-        const openaiModel = args.model.startsWith("gpt") ? args.model : "gpt-4o-mini";
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${OPENAI_API_KEY}`
-          },
-          body: JSON.stringify({
-            model: openaiModel,
-            messages: [
-              { role: "system", content: systemMessage },
-              { role: "user", content: unifiedPrompt }
-            ],
-            response_format: {
-              type: "json_schema",
-              json_schema: {
-                name: "grading_result",
-                strict: true,
-                schema: {
-                  type: "object",
-                  properties: {
-                    grade: { type: "number" },
-                    feedback: { type: "string" },
-                    errorType: { type: "string" }
-                  },
-                  required: ["grade", "feedback", "errorType"],
-                  additionalProperties: false
-                }
-              }
+        const openaiModel = args.model.startsWith("gpt")
+          ? args.model
+          : "gpt-4o-mini";
+        const response = await fetch(
+          "https://api.openai.com/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${OPENAI_API_KEY}`,
             },
-            temperature: 0,
-            max_tokens: 360
-          })
-        });
+            body: JSON.stringify({
+              model: openaiModel,
+              messages: [
+                { role: "system", content: systemMessage },
+                { role: "user", content: unifiedPrompt },
+              ],
+              response_format: {
+                type: "json_schema",
+                json_schema: {
+                  name: "grading_result",
+                  strict: true,
+                  schema: {
+                    type: "object",
+                    properties: {
+                      finalAnswerScore: { type: "number" },
+                      reasoningScore: { type: "number" },
+                      grade: { type: "number" },
+                      feedback: { type: "string" },
+                      errorType: { type: "string" },
+                      techniqueUsed: { type: "string" },
+                      misconception: { type: "string" },
+                      errorLocation: { type: "string" },
+                      conceptTags: {
+                        type: "array",
+                        items: { type: "string" },
+                      },
+                      diagnosisConfidence: { type: "number" },
+                    },
+                    required: [
+                      "finalAnswerScore",
+                      "reasoningScore",
+                      "grade",
+                      "feedback",
+                      "errorType",
+                      "techniqueUsed",
+                      "misconception",
+                      "errorLocation",
+                      "conceptTags",
+                      "diagnosisConfidence",
+                    ],
+                    additionalProperties: false,
+                  },
+                },
+              },
+              temperature: 0,
+              max_tokens: 900,
+            }),
+          },
+        );
 
         const data = await response.json();
-        if (data.error) return { grade: 0, feedback: `API Error: ${data.error.message}`, errorType: "API Error", isOptimized: true };
+        if (data.error)
+          return attachPipelineDiagnostics(
+            {
+              grade: 0,
+              feedback: `API Error: ${data.error.message}`,
+              errorType: "API Error",
+              isOptimized: true,
+            },
+            args.topicName,
+            casResult,
+            casEquivalence,
+            null,
+          );
         const content = JSON.parse(data.choices[0].message.content);
         const graded = normalizeGradingResult(content);
-        return enforceCasFinalAnswer(graded, casResult, casEquivalence);
+        return attachPipelineDiagnostics(
+          enforceHalfPointStructure(graded, casResult, casEquivalence),
+          args.topicName,
+          casResult,
+          casEquivalence,
+          content,
+        );
       }
     } catch (e: any) {
       console.error("Optimized Grading Error:", e);
-      return { 
-        grade: 0, 
-        feedback: "**Answer:** Unverifiable\n\n**Reasoning:** An unexpected syntax error occurred while generating your feedback. Please try checking your answer again.\n\n**Verdict:** System Error", 
-        errorType: "Feedback Error", 
-        isOptimized: true 
-      };
+      return attachPipelineDiagnostics(
+        {
+          grade: 0,
+          feedback:
+            "**Final Answer:** Unverifiable\n\n**Reasoning steps:** An unexpected syntax error occurred while generating your feedback. Please try checking your answer again.\n\n**Verdict:** System Error",
+          errorType: "Feedback Error",
+          isOptimized: true,
+        },
+        args.topicName,
+        casResult,
+        casEquivalence,
+        null,
+      );
     }
   },
 });
@@ -655,14 +1178,22 @@ export const runJudgeForSubmission = internalAction({
       await ctx.runMutation(internal.submissions.patchSubmissionWithJudge, {
         submissionId: args.submissionId,
         grade: judgeResult.suggestedGrade,
-        feedback: normalizeSecondPersonFeedback(judgeResult.isModified ? judgeResult.refinedFeedback : args.feedback),
+        feedback: normalizeSecondPersonFeedback(
+          judgeResult.isModified ? judgeResult.refinedFeedback : args.feedback,
+        ),
         errorType: judgeResult.errorType || "",
-        judgeFeedback: normalizeSecondPersonFeedback(judgeResult.refinedFeedback),
+        judgeFeedback: normalizeSecondPersonFeedback(
+          judgeResult.refinedFeedback,
+        ),
         isJudgeModified: judgeResult.isModified,
         judgeConfidence: judgeResult.judgeConfidence,
       });
     } catch (err) {
-      console.error("Background judge failed for submission", args.submissionId, err);
+      console.error(
+        "Background judge failed for submission",
+        args.submissionId,
+        err,
+      );
       // Patch judgeStatus to complete even on failure so the UI doesn't hang
       await ctx.runMutation(internal.submissions.patchSubmissionWithJudge, {
         submissionId: args.submissionId,
@@ -684,10 +1215,14 @@ export const gradeWithJudge = action({
     reasoning: v.string(),
     model: v.string(),
     topicName: v.string(),
+    answerFormatInstruction: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // 1. Get initial grade
-    const initialResult = (await ctx.runAction(api.grading.gradeOptimized, args)) as { grade: number; feedback: string; errorType?: string };
+    const initialResult = (await ctx.runAction(
+      api.grading.gradeOptimized,
+      args,
+    )) as { grade: number; feedback: string; errorType?: string };
 
     try {
       // 2. Invoke Judge
@@ -710,14 +1245,20 @@ export const gradeWithJudge = action({
       // 3. Prepare final result
       return {
         grade: judgeResult.suggestedGrade,
-        feedback: normalizeSecondPersonFeedback(judgeResult.isModified ? judgeResult.refinedFeedback : initialResult.feedback),
+        feedback: normalizeSecondPersonFeedback(
+          judgeResult.isModified
+            ? judgeResult.refinedFeedback
+            : initialResult.feedback,
+        ),
         errorType: judgeResult.errorType || initialResult.errorType || "",
         judgeMetadata: {
-          judgeFeedback: normalizeSecondPersonFeedback(judgeResult.refinedFeedback),
+          judgeFeedback: normalizeSecondPersonFeedback(
+            judgeResult.refinedFeedback,
+          ),
           isJudgeModified: judgeResult.isModified,
           judgeConfidence: judgeResult.judgeConfidence,
-          judgeReasoning: judgeResult.reasoning
-        }
+          judgeReasoning: judgeResult.reasoning,
+        },
       };
     } catch (err) {
       console.error("Judge failed, falling back to initial result", err);
@@ -725,7 +1266,7 @@ export const gradeWithJudge = action({
         grade: initialResult.grade,
         feedback: normalizeSecondPersonFeedback(initialResult.feedback),
         errorType: initialResult.errorType || "",
-        judgeMetadata: undefined
+        judgeMetadata: undefined,
       };
     }
   },
@@ -740,15 +1281,17 @@ export const gradeWithMarkingScheme = action({
     studentReasoning: v.string(),
     topicName: v.string(),
     model: v.string(),
-    criteria: v.array(v.object({
-      id: v.string(),
-      description: v.string(),
-      marks: v.number(),
-    })),
+    criteria: v.array(
+      v.object({
+        id: v.string(),
+        description: v.string(),
+        marks: v.number(),
+      }),
+    ),
   },
   handler: async (ctx, args) => {
     const criteriaLines = args.criteria
-      .map(c => `- [${c.id}] (${c.marks} marks): "${c.description}"`)
+      .map((c) => `- [${c.id}] (${c.marks} marks): "${c.description}"`)
       .join("\n");
 
     const prompt = `
@@ -780,22 +1323,37 @@ Return ONLY valid JSON (no markdown):
 }
     `;
 
-    const systemMsg = "You are a strict Math Professor. Return only valid JSON. Double-escape all LaTeX backslashes. Use \\\\( and \\\\) for inline math and \\\\[ and \\\\] for block math. Never use $ or $$.";
+    const systemMsg =
+      "You are a strict Math Professor. Return only valid JSON. Double-escape all LaTeX backslashes. Use \\\\( and \\\\) for inline math and \\\\[ and \\\\] for block math. Never use $ or $$.";
 
     try {
       if (args.model === "gemini-2.5-flash") {
         const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
-        if (!GOOGLE_API_KEY) return { grade: 0, feedback: "Error: Missing GOOGLE_API_KEY", criteriaResults: [], errorType: "Config Error" };
+        if (!GOOGLE_API_KEY)
+          return {
+            grade: 0,
+            feedback: "Error: Missing GOOGLE_API_KEY",
+            criteriaResults: [],
+            errorType: "Config Error",
+          };
 
         const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
         const geminiModel = genAI.getGenerativeModel({
           model: "gemini-2.5-flash",
           generationConfig: { responseMimeType: "application/json" } as any,
         });
-        const result = await geminiModel.generateContent(`${systemMsg}\n\n${prompt}`);
+        const result = await geminiModel.generateContent(
+          `${systemMsg}\n\n${prompt}`,
+        );
         const text = result.response.text();
         const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) return { grade: 0, feedback: "Error: unexpected Gemini response.", criteriaResults: [], errorType: "Parse Error" };
+        if (!jsonMatch)
+          return {
+            grade: 0,
+            feedback: "Error: unexpected Gemini response.",
+            criteriaResults: [],
+            errorType: "Parse Error",
+          };
         const content = JSON.parse(jsonMatch[0]);
         return {
           grade: content.totalGrade ?? 0,
@@ -805,23 +1363,43 @@ Return ONLY valid JSON (no markdown):
         };
       } else {
         const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-        if (!OPENAI_API_KEY) return { grade: 0, feedback: "Error: Missing OPENAI_API_KEY", criteriaResults: [], errorType: "Config Error" };
+        if (!OPENAI_API_KEY)
+          return {
+            grade: 0,
+            feedback: "Error: Missing OPENAI_API_KEY",
+            criteriaResults: [],
+            errorType: "Config Error",
+          };
 
-        const openaiModel = args.model.startsWith("gpt") ? args.model : "gpt-4o-mini";
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_API_KEY}` },
-          body: JSON.stringify({
-            model: openaiModel,
-            messages: [
-              { role: "system", content: systemMsg },
-              { role: "user", content: prompt },
-            ],
-            response_format: { type: "json_object" },
-          }),
-        });
+        const openaiModel = args.model.startsWith("gpt")
+          ? args.model
+          : "gpt-4o-mini";
+        const response = await fetch(
+          "https://api.openai.com/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${OPENAI_API_KEY}`,
+            },
+            body: JSON.stringify({
+              model: openaiModel,
+              messages: [
+                { role: "system", content: systemMsg },
+                { role: "user", content: prompt },
+              ],
+              response_format: { type: "json_object" },
+            }),
+          },
+        );
         const data = await response.json();
-        if (data.error) return { grade: 0, feedback: `API Error: ${data.error.message}`, criteriaResults: [], errorType: "API Error" };
+        if (data.error)
+          return {
+            grade: 0,
+            feedback: `API Error: ${data.error.message}`,
+            criteriaResults: [],
+            errorType: "API Error",
+          };
         const content = JSON.parse(data.choices[0].message.content);
         return {
           grade: content.totalGrade ?? 0,
@@ -832,7 +1410,12 @@ Return ONLY valid JSON (no markdown):
       }
     } catch (e: any) {
       console.error("Marking scheme grading error:", e);
-      return { grade: 0, feedback: "Error during grading. Please try again.", criteriaResults: [], errorType: "System Error" };
+      return {
+        grade: 0,
+        feedback: "Error during grading. Please try again.",
+        criteriaResults: [],
+        errorType: "System Error",
+      };
     }
   },
 });

@@ -11,6 +11,15 @@ export const eigenvalueLogic = {
         statement: `Find the eigenvalues of $$ A = \\begin{pmatrix} ${a} & 0 \\\\ 0 & ${b} \\end{pmatrix} $$`,
         prompt: "Find all eigenvalues $\\lambda$:",
         solution: `$\\lambda_1 = ${a},\\ \\lambda_2 = ${b}$`,
+        answerFormat: {
+          placeholder: "Example: lambda in {2, 5}",
+          instruction: "Give all eigenvalues as a set. Set notation is accepted, and order does not matter.",
+          alternatives: ["lambda in {2, 5}", "{2, 5}", "lambda = 2, 5"],
+          fields: [
+            { key: "lambda1", label: "lambda_1", placeholder: "2" },
+            { key: "lambda2", label: "lambda_2", placeholder: "5" },
+          ],
+        },
         explanation: `For a diagonal matrix, the eigenvalues are simply the diagonal entries.
 We can verify by solving $\\det(A - \\lambda I) = 0$:
 $$ \\det \\begin{pmatrix} ${a} - \\lambda & 0 \\\\ 0 & ${b} - \\lambda \\end{pmatrix} = (${a} - \\lambda)(${b} - \\lambda) = 0 $$
@@ -37,6 +46,15 @@ Therefore $\\lambda_1 = ${a}$ and $\\lambda_2 = ${b}$.`,
         statement: `Find the eigenvalues of $$ A = \\begin{pmatrix} ${a} & ${c} \\\\ 0 & ${b} \\end{pmatrix} $$`,
         prompt: "Find all eigenvalues $\\lambda$:",
         solution: `$\\lambda_1 = ${a},\\ \\lambda_2 = ${b}$`,
+        answerFormat: {
+          placeholder: "Example: lambda in {2, 5}",
+          instruction: "Give all eigenvalues as a set. Set notation is accepted, and order does not matter.",
+          alternatives: ["lambda in {2, 5}", "{2, 5}", "lambda = 2, 5"],
+          fields: [
+            { key: "lambda1", label: "lambda_1", placeholder: "2" },
+            { key: "lambda2", label: "lambda_2", placeholder: "5" },
+          ],
+        },
         explanation: `For a triangular matrix, the eigenvalues are the diagonal entries.
 Verify via $\\det(A - \\lambda I) = 0$:
 $$ \\det \\begin{pmatrix} ${a} - \\lambda & ${c} \\\\ 0 & ${b} - \\lambda \\end{pmatrix} = (${a} - \\lambda)(${b} - \\lambda) = 0 $$
@@ -59,6 +77,15 @@ Therefore $\\lambda_1 = ${a}$ and $\\lambda_2 = ${b}$.`,
       statement: `Find the eigenvalues of $$ A = \\begin{pmatrix} ${val + 1} & 1 \\\\ 1 & ${val + 1} \\end{pmatrix} $$`,
       prompt: "Find all eigenvalues $\\lambda$:",
       solution: `$\\lambda_1 = ${val},\\ \\lambda_2 = ${val + 2}$`,
+      answerFormat: {
+        placeholder: "Example: lambda in {2, 5}",
+        instruction: "Give all eigenvalues as a set. Set notation is accepted, and order does not matter.",
+        alternatives: ["lambda in {2, 5}", "{2, 5}", "lambda = 2, 5"],
+        fields: [
+          { key: "lambda1", label: "lambda_1", placeholder: "2" },
+          { key: "lambda2", label: "lambda_2", placeholder: "5" },
+        ],
+      },
       explanation: `Solve $\\det(A - \\lambda I) = 0$:
 $$ \\det \\begin{pmatrix} ${val + 1} - \\lambda & 1 \\\\ 1 & ${val + 1} - \\lambda \\end{pmatrix} = (${val + 1} - \\lambda)^2 - 1 = 0 $$
 $$ (${val + 1} - \\lambda)^2 = 1 \\implies ${val + 1} - \\lambda = \\pm 1 $$
