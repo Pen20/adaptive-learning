@@ -137,6 +137,12 @@ Final Summary:
       solution,
       explanation,
       hint: "First find the roots of the characteristic polynomial. Then, for each root, find the non-trivial solutions to $(A - \\lambda I)\\mathbf{x} = \\mathbf{0}$.",
+      reasoningSteps: `Step 1 — Form the characteristic equation: Compute det(λI − A) = 0. For a 2×2 matrix this gives λ² − (trace)λ + (det) = 0.
+Step 2 — Write the polynomial: Substitute trace = a + d and det = ad − bc explicitly.
+Step 3 — Solve for eigenvalues: Factor the polynomial or use the quadratic formula to find λ₁ and λ₂.
+Step 4 — For each eigenvalue, set up (A − λI)x = 0: Write the 2×2 homogeneous system with the specific λ substituted in.
+Step 5 — Row-reduce (A − λI) and identify the free variable: Express one unknown in terms of the other.
+Step 6 — State a basis vector for each eigenspace: Write the eigenvector in column form [x₁, x₂]ᵀ and state the basis.`,
       guide: eigenspaces2x2Guide
     };
   }

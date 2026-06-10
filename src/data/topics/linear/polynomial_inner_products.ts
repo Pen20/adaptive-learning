@@ -59,6 +59,10 @@ For these specific polynomials:
       solution: `$${result}$`,
       explanation,
       hint: "The standard inner product of two polynomials is the dot product of their coefficient vectors $(a_0, a_1, a_2)$ and $(b_0, b_1, b_2)$.",
+      reasoningSteps: `Step 1 — Recall the definition: the standard inner product on P₂ is ⟨p, q⟩ = a₀b₀ + a₁b₁ + a₂b₂ (dot product of coefficient vectors).
+Step 2 — Extract the coefficients: identify a₀, a₁, a₂ from p and b₀, b₁, b₂ from q.
+Step 3 — Compute each pairwise product: a₀·b₀, a₁·b₁, a₂·b₂.
+Step 4 — Sum the three products and state ⟨p, q⟩ = [result].`,
       guide: polynomialInnerProductGuide
     };
   }

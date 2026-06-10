@@ -26,6 +26,7 @@ export const gradeAndSaveSubmission = action({
     model: v.string(),
     usedHints: v.boolean(),
     answerFormatInstruction: v.optional(v.string()),
+    reasoningStepsContext: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<GradeAndSaveResult> => {
     const identity = await ctx.auth.getUserIdentity();
@@ -41,6 +42,7 @@ export const gradeAndSaveSubmission = action({
       model: args.model,
       topicName: args.topicName,
       answerFormatInstruction: args.answerFormatInstruction,
+      reasoningStepsContext: args.reasoningStepsContext,
     })) as {
       grade: number;
       feedback: string;

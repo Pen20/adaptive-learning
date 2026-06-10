@@ -25,6 +25,9 @@ We can verify by solving $\\det(A - \\lambda I) = 0$:
 $$ \\det \\begin{pmatrix} ${a} - \\lambda & 0 \\\\ 0 & ${b} - \\lambda \\end{pmatrix} = (${a} - \\lambda)(${b} - \\lambda) = 0 $$
 Therefore $\\lambda_1 = ${a}$ and $\\lambda_2 = ${b}$.`,
         hint: "For a diagonal matrix, the eigenvalues are the entries on the main diagonal.",
+        reasoningSteps: `Step 1 — Identify the matrix structure: Recognise that A is a diagonal matrix (all off-diagonal entries are zero).
+Step 2 — Apply the shortcut: For a diagonal matrix the eigenvalues are exactly the entries on the main diagonal — no characteristic equation needs to be computed.
+Step 3 — State the eigenvalues: Write both diagonal entries as λ₁ and λ₂.`,
         guide: {
           title: "Eigenvalues Guide",
           content: `
@@ -60,6 +63,10 @@ Verify via $\\det(A - \\lambda I) = 0$:
 $$ \\det \\begin{pmatrix} ${a} - \\lambda & ${c} \\\\ 0 & ${b} - \\lambda \\end{pmatrix} = (${a} - \\lambda)(${b} - \\lambda) = 0 $$
 Therefore $\\lambda_1 = ${a}$ and $\\lambda_2 = ${b}$.`,
         hint: "For a triangular matrix, the eigenvalues are the diagonal entries.",
+        reasoningSteps: `Step 1 — Identify the matrix structure: Recognise that A is upper triangular (all entries below the main diagonal are zero).
+Step 2 — Apply the shortcut: For a triangular matrix the eigenvalues are exactly the diagonal entries.
+Step 3 — (Optional) Verify: Expanding det(A − λI) = 0 along the triangular structure confirms that the determinant factors as a product of the diagonal terms.
+Step 4 — State the eigenvalues: Write both diagonal entries as λ₁ and λ₂.`,
         guide: {
           title: "Eigenvalues Guide",
           content: `
@@ -91,6 +98,10 @@ $$ \\det \\begin{pmatrix} ${val + 1} - \\lambda & 1 \\\\ 1 & ${val + 1} - \\lamb
 $$ (${val + 1} - \\lambda)^2 = 1 \\implies ${val + 1} - \\lambda = \\pm 1 $$
 Case 1: $\\lambda = ${val}$. Case 2: $\\lambda = ${val + 2}$.`,
       hint: "Solve the characteristic equation $\\det(A - \\lambda I) = 0$.",
+      reasoningSteps: `Step 1 — Form the characteristic matrix (A − λI): Subtract λ from each diagonal entry of A.
+Step 2 — Expand det(A − λI) = 0: For this 2×2 symmetric matrix compute (n+1−λ)² − 1·1 = 0.
+Step 3 — Solve the squared equation: Rewrite as (n+1−λ)² = 1, then take square roots to get two cases: n+1−λ = +1 and n+1−λ = −1.
+Step 4 — Extract both eigenvalues: λ₁ = n from the +1 case and λ₂ = n+2 from the −1 case.`,
       guide: {
         title: "Eigenvalues Guide",
         content: `

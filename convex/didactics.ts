@@ -39,7 +39,7 @@ const TOPIC_DIDACTICS: Record<string, TopicDidacticMap> = {
   eigenvalues: {
     taskType: "find eigenvalues of a matrix",
     technology:
-      "eigenvalues are roots of the characteristic equation",
+      "eigenvalues are roots of the characteristic equation det(A - λI) = 0",
     theory: "linear transformations and invariant directions",
     recommendedNextTask:
       "practice building and solving characteristic polynomials",
@@ -52,29 +52,38 @@ const TOPIC_DIDACTICS: Record<string, TopicDidacticMap> = {
     recommendedNextTask:
       "practice factoring cubic characteristic polynomials",
   },
+  // ── Calculus topics ────────────────────────────────────────────────────────
   derivatives: {
-    taskType: "differentiate a function",
+    taskType: "differentiate a function using the appropriate rule",
     technology:
-      "derivative rules preserve equivalence while tracking rate of change",
-    theory: "local linear approximation and rates of change",
+      "each differentiation rule (power, chain, product, quotient) is a precise recipe for tracking how a function's output changes with its input",
+    theory: "local linear approximation: the derivative measures the instantaneous rate of change",
     recommendedNextTask:
-      "practice naming the rule used before simplifying the derivative",
+      "practice identifying which rule applies before computing — name the rule, identify u and v (or inner/outer), then differentiate step by step",
   },
   limits: {
-    taskType: "evaluate a limit",
+    taskType: "evaluate a limit by choosing the right technique",
     technology:
-      "limits describe the value approached by a function near a point",
-    theory: "continuity and local function behavior",
+      "a limit describes the value a function approaches — not necessarily reaches — as the input gets close to a point; indeterminate forms require algebraic manipulation before substitution",
+    theory: "continuity, the definition of the derivative, and the behavior of functions near a point all rest on limits",
     recommendedNextTask:
-      "practice choosing between substitution, factoring, and limit laws",
+      "practice recognising the form of the limit first (direct substitution, 0/0 indeterminate, or infinity) and selecting the matching technique before computing",
+  },
+  piecewise_continuity: {
+    taskType: "determine whether a piecewise function is continuous at a boundary point",
+    technology:
+      "continuity at a point requires the left-hand limit, right-hand value, and the function value to all agree; a mismatch produces a jump discontinuity",
+    theory: "the formal definition of continuity and the relationship between one-sided limits and two-sided limits",
+    recommendedNextTask:
+      "practice evaluating each piece separately at the boundary, comparing the results, and stating a precise conclusion with justification",
   },
   domain_range: {
-    taskType: "determine domain and range",
+    taskType: "determine the domain and range of a function",
     technology:
-      "domain and range describe allowable inputs and resulting outputs",
-    theory: "function structure and set notation",
+      "the domain is restricted wherever the function is undefined (denominator = 0, negative radicand); the range is determined by the minimum, maximum, or excluded output values",
+    theory: "function structure, set notation, and the distinction between inputs that are allowed and outputs that are produced",
     recommendedNextTask:
-      "practice translating function restrictions into interval notation",
+      "practice identifying the restriction rule for each function type (square root, rational, absolute value) and translating it into interval or set notation",
   },
 };
 

@@ -30,6 +30,9 @@ $$ ${k1}\\langle u, w \\rangle - ${k2}\\langle v, w \\rangle $$`;
         solution,
         explanation,
         hint: "Use the additivity axiom to split the sum and the homogeneity axiom to pull out the constants.",
+        reasoningSteps: `Step 1 — Apply the Additivity Axiom: split the inner product over the sum in the first slot: ⟨k₁u − k₂v, w⟩ = ⟨k₁u, w⟩ + ⟨−k₂v, w⟩.
+Step 2 — Apply the Homogeneity Axiom to each term: pull the scalar multiplier out of the first slot: ⟨k₁u, w⟩ = k₁⟨u, w⟩ and ⟨−k₂v, w⟩ = −k₂⟨v, w⟩.
+Step 3 — Combine and state the expanded result: k₁⟨u, w⟩ − k₂⟨v, w⟩.`,
         guide: innerProductGuide
       };
     } else {
@@ -57,6 +60,11 @@ $$ \\langle 2v, 3u \\rangle $$`;
         solution,
         explanation,
         hint: "Remember that for a real inner product space, the homogeneity axiom applies to both slots due to symmetry.",
+        reasoningSteps: `Step 1 — Apply the Homogeneity Axiom to the outer scalar in the first slot: ⟨2v, 3u⟩ = 2⟨v, 3u⟩.
+Step 2 — Apply the Symmetry Axiom to swap the slots: ⟨v, 3u⟩ = ⟨3u, v⟩.
+Step 3 — Apply the Homogeneity Axiom again to pull out the scalar from the new first slot: ⟨3u, v⟩ = 3⟨u, v⟩.
+Step 4 — Combine the scalar factors: 2 · 3 · ⟨u, v⟩ = 6⟨u, v⟩.
+Step 5 — Substitute the given value ⟨u, v⟩ = k and state the numerical result.`,
         guide: innerProductGuide
       };
     }

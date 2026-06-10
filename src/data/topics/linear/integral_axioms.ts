@@ -83,6 +83,11 @@ Thus, the Positivity Axiom holds.`;
       solution,
       explanation,
       hint,
+      reasoningSteps: `Step 1 — State the axiom to be proved: write the axiom identity in terms of the integral definition ⟨f, g⟩ = ∫ₐᵇ f(x)g(x) dx.
+Step 2 — Start from the left-hand side of the identity: substitute the definition of the inner product for the expression on the left.
+Step 3 — Apply the relevant algebraic or integration property: commutativity of multiplication (for Symmetry), distributivity of multiplication over addition and linearity of the integral (for Additivity), constant multiple rule for the integral (for Homogeneity), or non-negativity of squares (for Positivity).
+Step 4 — Show that the result equals the right-hand side of the axiom identity.
+Step 5 — Conclude: state which axiom was verified and why the argument is valid.`,
       guide: integralAxiomsGuide
     };
   }

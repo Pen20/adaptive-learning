@@ -341,6 +341,24 @@ function hasAssessableReasoning(reasoning: string) {
   return mathSignals.some((pattern) => pattern.test(compact));
 }
 
+function isLinearAlgebraTopic(topicName: string) {
+  return /linear|quadratic|systems?|equations?|eigen|determinant|matri|independence|gram|inner product|axiom|polynomial/i.test(
+    topicName,
+  );
+}
+
+function buildLinearAlgebraReasoningInstruction(topicName: string) {
+  if (!isLinearAlgebraTopic(topicName)) return "";
+
+  return `
+    LINEAR ALGEBRA REASONING DIAGNOSIS:
+    - Read the student's entire reasoning as one connected argument before judging the reasoning point. Do NOT decide from one phrase, one line, or one notation choice in isolation.
+    - If the reasoningScore is 0, the "**Reasoning steps:**" section MUST identify the root cause that lost the reasoning mark: the earliest mathematical break that makes the method unable to justify the answer.
+    - Name both the local step and the underlying concept, e.g. determinant setup vs cofactor/sign expansion, characteristic polynomial setup vs root solving, row-operation equivalence, span/linear-combination logic, eigenvector equation, Gram-Schmidt projection, or inner-product axiom.
+    - Accept equivalent wording and condensed valid work when the full sentence or full chain shows the correct idea. Do not penalize merely because the student used different words, tuple notation, column-vector notation, or a different valid order of steps.
+    - When several later lines are consequences of the same earlier mistake, explain that root mistake instead of listing symptoms.`;
+}
+
 function casBackedFallbackFeedback(
   casResult: { isComputable: boolean; groundTruth: string | null },
   casEquivalence: { isEquivalent: boolean | null; casChecked: boolean },
@@ -515,6 +533,8 @@ export const gradeSubmission = action({
         ? `Expected Final Answer Format: ${args.answerFormatInstruction}
       Treat any listed alternative formats as semantically equivalent. If the problem asks for multiple values, set notation is accepted and order does not matter.`
         : "";
+      const linearAlgebraReasoningInstruction =
+        buildLinearAlgebraReasoningInstruction(args.topicName);
 
       const prompt = `
     You are a strict but helpful math tutor. Grade the following student submission for correctness and logic.
@@ -524,6 +544,7 @@ export const gradeSubmission = action({
     Student's Final Answer: ${args.studentAnswer}
     Student's Reasoning: ${args.reasoning}
     ${answerFormatContext}
+    ${linearAlgebraReasoningInstruction}
 
     IMPORTANT: If "Student's Final Answer" is empty or missing, you MUST identify their intended final answer from their "Reasoning" steps. If no final answer can be found anywhere, the grade should be 0.
 
@@ -543,7 +564,7 @@ export const gradeSubmission = action({
     Assess only the final answer. Is it correct or not? If incorrect, state the correct answer AND one actionable sentence on what the student needs to fix specifically in their final answer. If correct, confirm it.
 
     Section 2 — write the literal header "**Reasoning steps:**" then on the same line:
-    Assess only the reasoning steps independently from the answer. Go through the steps the student provided. If the steps are correct, confirm them. If a step is wrong or missing, name that step and add one actionable sentence on what the student needs to show or correct in their working. This section must never be skipped or merged with Section 1.
+    Assess only the reasoning steps independently from the answer. Read the full reasoning sentence or chain before deciding. If the steps are correct, confirm them. If a step is wrong or missing, identify the root mathematical cause that lost the reasoning mark, name the step where that cause first appears, and add one actionable sentence on what the student needs to show or correct in their working. This section must never be skipped or merged with Section 1.
 
     Section 3 — write the literal header "**Verdict:**" then on the same line:
     Justify the grade in 2-3 sentences. List every mistake found across the answer and the reasoning. If grade is 1, confirm both are correct. Use "you" and "your"; never write "the student".
@@ -806,6 +827,7 @@ export const gradeOptimized = action({
     model: v.string(),
     topicName: v.string(),
     answerFormatInstruction: v.optional(v.string()),
+    reasoningStepsContext: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // Start independent work together to reduce the synchronous grading wait.
@@ -863,6 +885,18 @@ export const gradeOptimized = action({
       `;
     }
 
+    const linearAlgebraReasoningInstruction =
+      buildLinearAlgebraReasoningInstruction(args.topicName);
+
+    const reasoningScaffold = args.reasoningStepsContext
+      ? `
+EXPECTED REASONING PROCESS (${args.topicName}):
+${args.reasoningStepsContext}
+
+When grading "**Reasoning steps:**": Go through the student's work and match it against these steps in order. Identify the FIRST step where the student's reasoning diverges, skips a required computation, or contains an error. Name it by its number and label (e.g. "Step 2 — Form det(A − λI)"). State what was expected versus what the student wrote. If all steps are present and correct, confirm which steps were completed successfully.
+`
+      : "";
+
     // 4. Build CAS context block injected into the prompt
     const casContext = casResult.isComputable
       ? `
@@ -891,6 +925,8 @@ export const gradeOptimized = action({
     Student's Final Answer: ${args.studentAnswer}
     Student's Reasoning: ${args.reasoning}
     ${args.answerFormatInstruction ? `Expected Final Answer Format: ${args.answerFormatInstruction}` : ""}
+    ${linearAlgebraReasoningInstruction}
+    ${reasoningScaffold}
 
     SCORING RUBRIC:
     - The total grade is 1 point.
@@ -906,10 +942,11 @@ export const gradeOptimized = action({
     IMPORTANT HALF-POINT CLARIFICATION: This overrides any binary grading wording. Missing or weak reasoning means reasoningScore is 0, but finalAnswerScore can still be 0.5 if CAS or equivalence shows the final answer is correct.
     3. **Final Answer Detection**: If "Student's Final Answer" is empty, find the answer within the "Reasoning" steps. If no answer can be found anywhere, finalAnswerScore is 0.
     4. **Trust the CAS**: If a CAS verified answer is provided above, use it as the ground truth for correctness. Do NOT recompute the answer yourself — AI arithmetic is unreliable. The CAS is always right.
-    5. **Reasoning Consistency**: Only assign grade 0 for incorrect reasoning if it is mathematically wrong or directly contradicts the final answer. A different but valid method, condensed steps, or unconventional notation must receive full credit.
+    5. **Reasoning Consistency**: Read the full reasoning sentence or chain before judging. Only assign grade 0 for incorrect reasoning if the whole argument is mathematically wrong, misses a required justification, or directly contradicts the final answer. A different but valid method, condensed steps, or unconventional notation must receive full credit.
     6. **Semantic Equivalence**: Mathematically equivalent statements MUST receive the same grade regardless of phrasing, notation, or word choice. For example, writing "\\(\\det(A) \\neq 0\\)" is identical to writing "the determinant is non-zero". Rephrasing a correct conclusion in equivalent words is NOT a reasoning error.
     7. **Wrong Answer or Wrong Reasoning → Show the Correct Result**: If the final answer or reasoning is wrong, briefly state what the correct answer/result is after explaining the mistake. One or two sentences is enough.
     8. **Be concise**: Each feedback section should be one short sentence unless a specific mathematical mistake must be named.
+    8a. **Notice Rule (no penalty)**: Even when awarding full reasoning marks, if you notice ANY minor issue — wrong sign (e.g., \\(\\det(A + \\lambda I)\\) instead of \\(\\det(A - \\lambda I)\\)), a notation slip, an incorrect intermediate step that did not affect the final answer, or a self-corrected error — you MUST add a brief notice in the "**Reasoning steps:**" section after the score line. Format it as: "Note: [describe the issue clearly and what the correct form is]." This notice does NOT reduce the score. If everything is completely correct, omit the notice.
     9. **STRICT MATH DELIMITER PROTOCOL**:
        - You MUST wrap EVERY mathematical symbol, variable, matrix, or expression in delimiters.
        - Use \\( ... \\) for inline math and \\[ ... \\] for block math. Double-escape backslashes in JSON (e.g., "\\\\frac", "\\\\mathbf").
@@ -921,7 +958,7 @@ export const gradeOptimized = action({
     Assess only the final answer. Is it correct or not? Show its half-point score \\(x/0.5\\). If incorrect, state the correct answer AND one actionable sentence on what needs to be fixed. If correct, confirm it.
 
     Section 2 — write the literal header "**Reasoning steps:**" then on the same line:
-    Assess only the reasoning steps independently. Show its half-point score \\(x/0.5\\). Go through the steps provided. If correct, confirm them. If wrong or missing, name the specific step and give one actionable sentence on what needs to be shown or corrected. Never skip or merge this with Section 1.
+    Assess only the reasoning steps independently. Show its half-point score \\(x/0.5\\). Read the full reasoning sentence or chain before deciding. If correct, confirm them. If wrong or missing, identify the root mathematical cause that lost the reasoning mark, name where it first appears in the student's work, and give one actionable sentence on what needs to be shown or corrected. Never skip or merge this with Section 1.
 
     Section 3 — write the literal header "**Verdict:**" then on the same line:
     Justify the grade in 2-3 sentences. List every mistake found. If grade is 1, confirm both parts are correct. Use "you" and "your"; never write "the student".
@@ -1216,6 +1253,7 @@ export const gradeWithJudge = action({
     model: v.string(),
     topicName: v.string(),
     answerFormatInstruction: v.optional(v.string()),
+    reasoningStepsContext: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // 1. Get initial grade

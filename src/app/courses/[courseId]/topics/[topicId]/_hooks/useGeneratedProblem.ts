@@ -35,6 +35,7 @@ function buildProblemData(topicId: string): ProblemData {
     guide: engine.guide,
     title: generated.title,
     answerFormat: getAnswerFormat(topicId, generated),
+    reasoningSteps: generated.reasoningSteps,
   };
 }
 

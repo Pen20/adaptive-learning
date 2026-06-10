@@ -89,6 +89,17 @@ export const vectorSpaceAxiomsLogic = {
       explanation: selected.explanation,
       hint: selected.hint,
       guide: vectorSpaceGuide,
+      reasoningSteps: selected.isVectorSpace
+        ? `Step 1 — Identify the set and its operations: state what V is and what addition and scalar multiplication mean.
+Step 2 — Check closure under addition: take two arbitrary elements of V, add them, and verify the result is still in V.
+Step 3 — Check closure under scalar multiplication: multiply an arbitrary element by an arbitrary scalar and verify the result is still in V.
+Step 4 — Verify the zero vector exists in V.
+Step 5 — Conclude: all 10 axioms are satisfied (inherited from the ambient space or verified directly), so V is a vector space.`
+        : `Step 1 — Identify the set and its operations: state what V is and what addition and scalar multiplication mean.
+Step 2 — Identify the axiom to test: target the axiom named in the problem (closure under addition, closure under scalar multiplication, zero vector, or a distributive law).
+Step 3 — Construct a specific counterexample: choose concrete vectors or scalars that expose the failure.
+Step 4 — Show the axiom fails: compute the result explicitly and show it lies outside V (or violates the axiom identity).
+Step 5 — Conclude: V is NOT a vector space because [named axiom] fails at the counterexample.`,
     };
   },
   guide: {

@@ -38,6 +38,11 @@ $$ 1 \\cdot k = ${b1} \\cdot ${ratio} $$
 $$ k = ${k_ans} $$
 (Note: We also verified that the constants do not have the same ratio, ensuring the lines are distinct and parallel, not identical.)`,
       hint: "For a system to have no solution, the lines must be parallel (same slope) but have different intercepts. Compare the ratios of the coefficients of $x$ and $y$.",
+      reasoningSteps: `Step 1 — Recall the no-solution condition: The two lines must be parallel but not identical. Parallel lines have equal slope-ratios: a₁/a₂ = b₁/b₂, but different constant ratios: b₁/b₂ ≠ c₁/c₂.
+Step 2 — Set up the coefficient ratio equation: a₁/a₂ = b₁/k.
+Step 3 — Substitute the known values: simplify the left-side ratio and cross-multiply to isolate k.
+Step 4 — Verify the no-solution condition: confirm that c₁/c₂ ≠ b₁/k (the constants must NOT be in the same ratio, otherwise the lines would be identical with infinitely many solutions).
+Step 5 — State k = [answer].`,
       guide: {
         title: "Conditions for No Solution",
         content: `

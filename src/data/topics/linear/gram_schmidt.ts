@@ -53,6 +53,20 @@ export const gramSchmidtLogic = {
 
   Thus, the orthonormal basis is $\\{ u_1, u_2, u_3 \\}$.`,
         hint: "For a symmetric matrix, eigenvectors from distinct eigenvalues are orthogonal. You just need to normalize distinct eigenvectors.",
+        reasoningSteps: `Part (a) — Eigenvalues:
+  Step 1: Identify the block-diagonal structure. The isolated (3,3) entry c is immediately an eigenvalue for the direction [0,0,1].
+  Step 2: For the 2×2 top-left block [[a,b],[b,a]], apply the pattern: eigenvalues = a ± b (diagonal ± off-diagonal for this symmetric form).
+  Step 3: List all three eigenvalues: λ = a+b, a−b, c.
+
+Part (b) — Eigenvectors:
+  Step 4: For λ = a+b, row-reduce (A − λI) to find the null space — this gives v₁ = [1, 1, 0]ᵀ (up to scalar).
+  Step 5: For λ = a−b, row-reduce (A − λI) to find the null space — this gives v₂ = [1, −1, 0]ᵀ (up to scalar).
+  Step 6: For λ = c, the null space of (A − cI) gives v₃ = [0, 0, 1]ᵀ.
+
+Part (c) — Orthonormal Basis:
+  Step 7: Verify orthogonality via dot products. Because A is symmetric, eigenvectors for distinct eigenvalues are automatically orthogonal — confirm with v₁·v₂ = 0, v₁·v₃ = 0, v₂·v₃ = 0.
+  Step 8: Normalise each eigenvector by dividing by its norm ‖vᵢ‖ = √(vᵢ · vᵢ).
+  Step 9: State the three unit vectors uᵢ = vᵢ/‖vᵢ‖ as the orthonormal basis.`,
         guide: {
           title: "Spectral Theorem & Gram-Schmidt",
           content: `

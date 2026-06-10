@@ -19,6 +19,10 @@ Divide both sides by ${a}:
 $$ x = \\frac{${result - b}}{${a}} $$
 $$ x = ${x} $$`,
       hint: "First, subtract the constant from both sides, then divide by the coefficient of $x$.",
+      reasoningSteps: `Step 1 — Identify the equation form: ax + b = c.
+Step 2 — Subtract the constant b from both sides to isolate the x-term: ax = c − b.
+Step 3 — Divide both sides by the coefficient a: x = (c − b) / a.
+Step 4 — Simplify and state x = [value].`,
       guide: {
         title: "Solving Linear Equations",
         content: `

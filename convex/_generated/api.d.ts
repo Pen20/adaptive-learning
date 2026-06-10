@@ -9,6 +9,7 @@
  */
 
 import type * as aiDiagnosis from "../aiDiagnosis.js";
+import type * as calculusCasUtils from "../calculusCasUtils.js";
 import type * as cas from "../cas.js";
 import type * as corrections from "../corrections.js";
 import type * as courses from "../courses.js";
@@ -38,6 +39,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   aiDiagnosis: typeof aiDiagnosis;
+  calculusCasUtils: typeof calculusCasUtils;
   cas: typeof cas;
   corrections: typeof corrections;
   courses: typeof courses;

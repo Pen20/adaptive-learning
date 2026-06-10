@@ -75,6 +75,7 @@ export function useProblemGrading({
         answerFormatInstruction: buildAnswerFormatInstruction(
           problemData.answerFormat,
         ),
+        reasoningStepsContext: problemData.reasoningSteps,
       })) as GradingResult & { submissionId: Id<"submissions"> };
 
       setResult({

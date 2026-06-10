@@ -87,6 +87,12 @@ $$ ${matrixStr} $$`;
       },
       explanation,
       hint: "For a companion matrix, the characteristic polynomial coefficients are simply the negated entries of the last row. Try to find one integer root first.",
+      reasoningSteps: `Step 1 — Recognise the companion matrix: The last row directly encodes the characteristic polynomial coefficients (negated). No full 3×3 cofactor expansion is needed — read off the cubic λ³ + c₂λ² + c₁λ + c₀ = 0 immediately.
+Step 2 — Write the characteristic polynomial: Substitute the last-row entries to get the explicit cubic.
+Step 3 — Apply the Rational Root Theorem: Integer roots must divide the constant term c₀. Test these divisors by direct substitution to identify λ = r₁.
+Step 4 — Divide out (λ − r₁): Use synthetic division to reduce the cubic to a quadratic factor (λ − r₁)(λ² − 2pλ + (p²−q)) = 0.
+Step 5 — Solve the quadratic factor: Apply the quadratic formula to get λ₂ = p + √q and λ₃ = p − √q.
+Step 6 — State all three eigenvalues.`,
       guide: eigenvalues3x3Guide
     };
   }

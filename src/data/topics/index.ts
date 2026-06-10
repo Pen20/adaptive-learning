@@ -39,6 +39,7 @@ export interface GeneratedProblem {
   hint: string;
   guide?: { title: string; content: string };
   answerFormat?: AnswerFormat;
+  reasoningSteps?: string;
   [key: string]: unknown;
 }
 

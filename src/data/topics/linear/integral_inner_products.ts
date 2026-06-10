@@ -44,6 +44,11 @@ Calculate $\\langle f, g \\rangle$ for the functions $f(x) = ${f_str}$ and $g(x)
       solution,
       explanation,
       hint: "Multiply the two functions first, then use the fundamental theorem of calculus to evaluate the integral from 0 to 1.",
+      reasoningSteps: `Step 1 — Write out the integral definition: ⟨f, g⟩ = ∫₀¹ f(x)g(x) dx.
+Step 2 — Multiply the two functions: expand f(x)·g(x) into a polynomial (collect x² terms, x terms, and constant terms).
+Step 3 — Integrate term by term: apply the power rule ∫xⁿ dx = xⁿ⁺¹/(n+1) to each term.
+Step 4 — Evaluate at the limits [0, 1]: substitute x = 1 and x = 0 and subtract.
+Step 5 — Simplify the result to a single fraction or integer and state ⟨f, g⟩ = [value].`,
       guide: integralInnerProductGuide
     };
   }

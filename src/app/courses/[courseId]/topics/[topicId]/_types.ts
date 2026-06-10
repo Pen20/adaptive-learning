@@ -8,6 +8,7 @@ export interface ProblemData {
   guide?: { title: string; content: string };
   title?: string;
   answerFormat: AnswerFormat;
+  reasoningSteps?: string;
 }
 
 export interface GradingResult {

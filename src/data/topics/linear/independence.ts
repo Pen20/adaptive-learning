@@ -94,6 +94,11 @@ $$
   
 Thus, one possible solution is $\\mathbf{w} = ${n_latex}$. Any non-zero scalar multiple of this vector is also a valid independent choice.`,
         hint: "Calculate the cross product of u and v. The resulting vector is guaranteed to be linearly independent of both.",
+        reasoningSteps: `Step 1 — Understand the requirement: w must not lie in span(u, v), i.e. {u, v, w} must be linearly independent — the 3×3 matrix [u | v | w] must have non-zero determinant.
+Step 2 — Choose the cross product method: w = u × v is orthogonal to both u and v and therefore cannot lie in their plane. This guarantees independence without needing to check the determinant explicitly.
+Step 3 — Compute the cross product via the 3×3 determinant with unit vectors e₁, e₂, e₃ in the first row: expand along row 1 to get the three components of w.
+Step 4 — State w = [n₁, n₂, n₃]. Any non-zero scalar multiple is equally valid.
+Step 5 — (Optional) Verify: det([u | v | w]) ≠ 0 confirms linear independence.`,
         guide: {
           title: "Linear Independence Strategy",
           content: `
