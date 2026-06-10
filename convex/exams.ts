@@ -275,7 +275,9 @@ export const releaseExamResults = mutation({
             .collect();
 
         for (const sub of submissions) {
-            if (sub.status === "submitted" && sub.score !== undefined) {
+            if (sub.status !== "submitted" || sub.score === undefined) {
+                console.warn(`[releaseExamResults] Skipping userId=${sub.userId}: status=${sub.status}, score=${sub.score}`);
+            } else {
                 // Get user email
                 // Note: user might be different from sub.userId if looking up by "userId" field vs Clerk ID.
                 // Our schema uses 'userId' string which matches Clerk ID.
@@ -284,7 +286,9 @@ export const releaseExamResults = mutation({
                     .withIndex("by_userId", q => q.eq("userId", sub.userId))
                     .first();
                 
-                if (student?.email) {
+                if (!student?.email) {
+                    console.warn(`[releaseExamResults] No email found for userId=${sub.userId}, skipping notification.`);
+                } else {
                     await ctx.scheduler.runAfter(0, api.email.sendResultEmail, {
                         email: student.email,
                         examTitle: exam.title,
