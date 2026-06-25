@@ -18,6 +18,7 @@ interface UseProblemGradingArgs {
   reasoning: string;
   model: string;
   usedHints: boolean;
+  useBestOfN?: boolean;
 }
 
 function buildAnswerFormatInstruction(answerFormat: AnswerFormat) {
@@ -40,6 +41,7 @@ export function useProblemGrading({
   reasoning,
   model,
   usedHints,
+  useBestOfN,
 }: UseProblemGradingArgs) {
   const gradeAndSaveSubmission = useAction(
     api.gradingPipeline.gradeAndSaveSubmission,
@@ -76,6 +78,7 @@ export function useProblemGrading({
           problemData.answerFormat,
         ),
         reasoningStepsContext: problemData.reasoningSteps,
+        useBestOfN,
       })) as GradingResult & { submissionId: Id<"submissions"> };
 
       setResult({

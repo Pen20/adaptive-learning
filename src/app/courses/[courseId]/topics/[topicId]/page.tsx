@@ -6,8 +6,9 @@ import { useAction, useMutation } from "convex/react";
 import { useUser } from "@clerk/nextjs";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -38,6 +39,7 @@ export default function ProblemPage() {
   const [finalAnswer, setFinalAnswer] = useState("");
   const [reasoning, setReasoning] = useState("");
   const [model, setModel] = useState("gpt-4o");
+  const [useBestOfN, setUseBestOfN] = useState(false);
   const [showHint, setShowHint] = useState(false);
   const [showSolution, setShowSolution] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
@@ -63,6 +65,7 @@ export default function ProblemPage() {
     reasoning,
     model,
     usedHints: showHint,
+    useBestOfN,
   });
 
   const generatePractice = useAction(api.recommendations.generatePractice);
@@ -187,7 +190,7 @@ export default function ProblemPage() {
             {topicId.replace(/_/g, " ")} Practice
           </h1>
         </div>
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
           <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
             AI Grader:
           </span>
@@ -200,6 +203,23 @@ export default function ProblemPage() {
               <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
             </SelectContent>
           </Select>
+          <div
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-colors ${
+              useBestOfN
+                ? "border-violet-400 bg-violet-50 text-violet-700"
+                : "border-slate-200 bg-white text-slate-500"
+            }`}
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            <span className="text-xs font-medium whitespace-nowrap">
+              Best-of-3 RLHF
+            </span>
+            <Switch
+              checked={useBestOfN}
+              onCheckedChange={setUseBestOfN}
+              className="scale-75"
+            />
+          </div>
         </div>
       </div>
 

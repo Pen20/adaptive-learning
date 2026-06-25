@@ -27,6 +27,8 @@ export const gradeAndSaveSubmission = action({
     usedHints: v.boolean(),
     answerFormatInstruction: v.optional(v.string()),
     reasoningStepsContext: v.optional(v.string()),
+    // RLHF: when true, runs Best-of-N sampling with the judge as reward model
+    useBestOfN: v.optional(v.boolean()),
   },
   handler: async (ctx, args): Promise<GradeAndSaveResult> => {
     const identity = await ctx.auth.getUserIdentity();
@@ -35,7 +37,7 @@ export const gradeAndSaveSubmission = action({
       throw new Error("Unauthorized: userId mismatch");
     }
 
-    const gradeResult = (await ctx.runAction(api.grading.gradeOptimized, {
+    const gradingArgs = {
       problemStatement: args.problemStatement,
       studentAnswer: args.finalAnswer,
       reasoning: args.reasoningSteps,
@@ -43,7 +45,12 @@ export const gradeAndSaveSubmission = action({
       topicName: args.topicName,
       answerFormatInstruction: args.answerFormatInstruction,
       reasoningStepsContext: args.reasoningStepsContext,
-    })) as {
+    };
+
+    const gradeResult = (await (args.useBestOfN
+      ? ctx.runAction(api.grading.gradeBestOfN, gradingArgs)
+      : ctx.runAction(api.grading.gradeOptimized, gradingArgs)
+    )) as {
       grade: number;
       feedback: string;
       errorType?: string;

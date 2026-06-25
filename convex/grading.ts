@@ -828,6 +828,7 @@ export const gradeOptimized = action({
     topicName: v.string(),
     answerFormatInstruction: v.optional(v.string()),
     reasoningStepsContext: v.optional(v.string()),
+    temperature: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     // Start independent work together to reduce the synchronous grading wait.
@@ -847,6 +848,12 @@ export const gradeOptimized = action({
         topicName: args.topicName,
         limit: 1,
       },
+    );
+
+    // Approach 4 — fetch outcome-validated examples in parallel (min reward = 5 mastery points)
+    const highRewardPromise = ctx.runQuery(
+      internal.submissions.getHighRewardSubmissions,
+      { topicName: args.topicName, minReward: 5, limit: 2 },
     );
 
     // 1. CAS: compute the verified correct answer before involving the AI
@@ -885,6 +892,29 @@ export const gradeOptimized = action({
       `;
     }
 
+    // Approach 4 — inject outcome-validated few-shot examples (feedback proven to raise mastery)
+    const highRewardSubmissions = await highRewardPromise;
+    let outcomeValidatedContext = "";
+    if (highRewardSubmissions && highRewardSubmissions.length > 0) {
+      const examples = (highRewardSubmissions as any[]).filter(
+        (s) => s.judgeFeedback || s.aiFeedback,
+      );
+      if (examples.length > 0) {
+        outcomeValidatedContext = `
+      ### Outcome-Validated Feedback Examples (these feedback styles produced measurable mastery improvement):
+      ${examples
+        .map(
+          (s: any, i: number) => `
+      Example ${i + 1} (mastery gain: +${s.outcomeReward} points, grade: ${s.grade}):
+      - Feedback that worked: "${s.judgeFeedback || s.aiFeedback}"
+      `,
+        )
+        .join("\n")}
+      When generating feedback, favour the pedagogical style shown above — specific, actionable, and targeted to the exact mistake.
+      `;
+      }
+    }
+
     const linearAlgebraReasoningInstruction =
       buildLinearAlgebraReasoningInstruction(args.topicName);
 
@@ -919,6 +949,7 @@ When grading "**Reasoning steps:**": Go through the student's work and match it 
     You are a supportive Math Professor. Grade the submission for the topic: "${args.topicName}".
 
     ${fewShotContext}
+    ${outcomeValidatedContext}
     ${casContext}
 
     Problem: ${args.problemStatement}
@@ -1004,7 +1035,7 @@ When grading "**Reasoning steps:**": Go through the student's work and match it 
             "\n\nYou MUST use the same instruction as the OpenAI grader. Format feedback with **Final Answer:**, **Reasoning steps:**, and **Verdict:** sections.",
           generationConfig: {
             responseMimeType: "application/json",
-            temperature: 0,
+            temperature: args.temperature ?? 0,
             maxOutputTokens: 2000,
             thinkingConfig: { thinkingBudget: 0 },
             responseSchema: {
@@ -1134,7 +1165,7 @@ When grading "**Reasoning steps:**": Go through the student's work and match it 
                   },
                 },
               },
-              temperature: 0,
+              temperature: args.temperature ?? 0,
               max_tokens: 900,
             }),
           },
@@ -1455,5 +1486,118 @@ Return ONLY valid JSON (no markdown):
         errorType: "System Error",
       };
     }
+  },
+});
+
+// ─── RLHF: Best-of-N Sampling ─────────────────────────────────────────────────
+//
+// Generates N independent grading candidates at temperature > 0 (so outputs
+// genuinely differ), then uses the LLM-as-Judge as a reward model to score
+// each candidate. The candidate with the highest judge confidence is returned.
+//
+// This implements the RLAIF Best-of-N pattern:
+//   1. Sample N candidates from the policy (gradeOptimized × N)
+//   2. Score each with the reward model (evaluateEvaluator)
+//   3. Return argmax over reward scores
+//
+// N is capped at 3 to keep API cost predictable (3 grading + 3 judge calls).
+export const gradeBestOfN = action({
+  args: {
+    problemStatement: v.string(),
+    studentAnswer: v.string(),
+    reasoning: v.string(),
+    model: v.string(),
+    topicName: v.string(),
+    answerFormatInstruction: v.optional(v.string()),
+    reasoningStepsContext: v.optional(v.string()),
+    n: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const N = Math.min(Math.max(args.n ?? 3, 2), 3);
+
+    const gradingArgs = {
+      problemStatement: args.problemStatement,
+      studentAnswer: args.studentAnswer,
+      reasoning: args.reasoning,
+      model: args.model,
+      topicName: args.topicName,
+      answerFormatInstruction: args.answerFormatInstruction,
+      reasoningStepsContext: args.reasoningStepsContext,
+      temperature: 0.4,
+    };
+
+    // Step 1 — Generate N candidates in parallel at temperature=0.4 for diversity
+    const candidates = (await Promise.all(
+      Array.from({ length: N }, () =>
+        ctx.runAction(api.grading.gradeOptimized, gradingArgs),
+      ),
+    )) as Array<{
+      grade: number;
+      feedback: string;
+      errorType?: string;
+      [key: string]: unknown;
+    }>;
+
+    // Step 2 — Score every candidate with the judge (this is the reward model)
+    const judgeResults = (await Promise.all(
+      candidates.map((candidate) =>
+        ctx.runAction(api.judge.evaluateEvaluator, {
+          problemStatement: args.problemStatement,
+          studentAnswer: args.studentAnswer,
+          studentReasoning: args.reasoning,
+          assistantGrade: candidate.grade,
+          assistantFeedback: candidate.feedback,
+          topicName: args.topicName,
+        }),
+      ),
+    )) as Array<{
+      suggestedGrade: number;
+      refinedFeedback: string;
+      errorType: string;
+      isModified: boolean;
+      judgeConfidence: number;
+      reasoning: string;
+    }>;
+
+    // Step 3 — Select the candidate the reward model rates highest
+    let bestIndex = 0;
+    let bestConfidence = -1;
+    for (let i = 0; i < judgeResults.length; i++) {
+      if (judgeResults[i].judgeConfidence > bestConfidence) {
+        bestConfidence = judgeResults[i].judgeConfidence;
+        bestIndex = i;
+      }
+    }
+
+    const bestCandidate = candidates[bestIndex];
+    const bestJudge = judgeResults[bestIndex];
+
+    // Preserve partial (0.5) grades when the judge approves — only override
+    // the grade when the judge explicitly flags an alignment failure.
+    const finalGrade = bestJudge.isModified
+      ? bestJudge.suggestedGrade
+      : bestCandidate.grade;
+
+    const finalFeedback = bestJudge.isModified
+      ? normalizeSecondPersonFeedback(bestJudge.refinedFeedback)
+      : normalizeSecondPersonFeedback(bestCandidate.feedback);
+
+    return {
+      ...bestCandidate,
+      grade: finalGrade,
+      feedback: finalFeedback,
+      errorType: bestJudge.errorType || bestCandidate.errorType || "",
+      bestOfNMetadata: {
+        n: N,
+        selectedIndex: bestIndex,
+        selectedJudgeConfidence: bestConfidence,
+        allCandidates: candidates.map((c, i) => ({
+          index: i,
+          grade: c.grade,
+          judgeConfidence: judgeResults[i].judgeConfidence,
+          isJudgeModified: judgeResults[i].isModified,
+        })),
+      },
+    };
   },
 });

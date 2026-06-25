@@ -65,7 +65,7 @@ export default defineSchema({
     problemStatement: v.string(),
     finalAnswer: v.string(),
     reasoningSteps: v.string(),
-    grade: v.number(), 
+    grade: v.number(),
     aiFeedback: v.string(),
     judgeFeedback: v.optional(v.string()),
     isJudgeModified: v.optional(v.boolean()),
@@ -73,9 +73,13 @@ export default defineSchema({
     errorType: v.optional(v.string()),
     usedHints: v.boolean(),
     judgeStatus: v.optional(v.union(v.literal("pending"), v.literal("complete"))),
+    // Approach 4 — Outcome-Based Reward Model fields
+    masteryBefore: v.optional(v.number()),  // mastery snapshot before this submission updates it
+    outcomeReward: v.optional(v.number()),  // Δ = masteryAfter − masteryBefore, written on next submission
   }).index("by_user_topic", ["userId", "topicName"])
     .index("by_user", ["userId"])
-    .index("by_user_topic_grade", ["userId", "topicName", "grade"]),
+    .index("by_user_topic_grade", ["userId", "topicName", "grade"])
+    .index("by_topic_outcome", ["topicName", "outcomeReward"]),
 
   studentTopicStats: defineTable({
     userId: v.string(),
@@ -143,6 +147,44 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_topic_status", ["topicName", "status"])
     .index("by_status", ["status"]),
+
+  phase1Evaluations: defineTable({
+    submissionId: v.id("submissions"),
+    topicName: v.string(),
+    problemStatement: v.string(),
+    studentAnswer: v.string(),
+    studentReasoning: v.string(),
+    originalGrade: v.number(),
+    // Single-pass pipeline results
+    spGrade: v.number(),
+    spJudgeConfidence: v.number(),
+    spIsJudgeModified: v.boolean(),
+    spErrorType: v.string(),
+    spFeedback: v.string(),
+    // Best-of-N pipeline results
+    bonGrade: v.number(),
+    bonJudgeConfidence: v.number(),
+    bonIsJudgeModified: v.boolean(),
+    bonSelectedIndex: v.number(),
+    bonAllConfidences: v.array(v.number()),
+    bonErrorType: v.string(),
+    bonFeedback: v.string(),
+    // CAS ground truth
+    casIsComputable: v.boolean(),
+    casGroundTruth: v.optional(v.string()),
+    casSpAgrees: v.optional(v.boolean()),
+    casBonAgrees: v.optional(v.boolean()),
+    // Derived
+    gradesAgree: v.boolean(),
+    confidenceDelta: v.number(), // bonConfidence - spConfidence
+    // Human evaluation (filled in later)
+    humanPreference: v.optional(v.union(v.literal("single"), v.literal("bon"), v.literal("tie"))),
+    humanRaterNotes: v.optional(v.string()),
+    model: v.string(),
+    createdAt: v.number(),
+  }).index("by_topic", ["topicName"])
+    .index("by_created", ["createdAt"])
+    .index("by_submission", ["submissionId"]),
 
   courses: defineTable({
     courseId: v.string(), // slug like "linear_algebra"

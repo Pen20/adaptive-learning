@@ -16,6 +16,7 @@ import type * as courses from "../courses.js";
 import type * as debug from "../debug.js";
 import type * as didactics from "../didactics.js";
 import type * as email from "../email.js";
+import type * as evaluation from "../evaluation.js";
 import type * as exams from "../exams.js";
 import type * as feedback from "../feedback.js";
 import type * as grading from "../grading.js";
@@ -46,6 +47,7 @@ declare const fullApi: ApiFromModules<{
   debug: typeof debug;
   didactics: typeof didactics;
   email: typeof email;
+  evaluation: typeof evaluation;
   exams: typeof exams;
   feedback: typeof feedback;
   grading: typeof grading;

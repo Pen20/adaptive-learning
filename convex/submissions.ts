@@ -1,4 +1,4 @@
-import { mutation, query, internalMutation } from "./_generated/server";
+import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 
@@ -68,7 +68,26 @@ export const saveSubmission = mutation({
     const { judgeAlreadyRun, pipelineDiagnostics, ...insertArgs } = args;
     void judgeAlreadyRun;
     void pipelineDiagnostics;
-    const submissionId = await ctx.db.insert("submissions", { ...insertArgs, judgeStatus });
+
+    // Approach 4 — snapshot mastery BEFORE this submission updates it
+    const preMastery = await ctx.db
+      .query("studentMastery")
+      .withIndex("by_user_mastery", (q) =>
+        q.eq("userId", args.userId).eq("topicName", args.topicName)
+      )
+      .first();
+    const masteryBefore = preMastery?.masteryScore ?? 0;
+
+    // Approach 4 — find the immediately preceding submission to backfill its outcomeReward
+    const prevSubmission = await ctx.db
+      .query("submissions")
+      .withIndex("by_user_topic", (q) =>
+        q.eq("userId", args.userId).eq("topicName", args.topicName)
+      )
+      .order("desc")
+      .first();
+
+    const submissionId = await ctx.db.insert("submissions", { ...insertArgs, judgeStatus, masteryBefore });
     const now = Date.now();
     const gradeCredit = getGradeCredit(args.grade);
     const scoreIncrement = getMasteryIncrementForGrade(args.grade);
@@ -109,15 +128,16 @@ export const saveSubmission = mutation({
       });
     }
 
-    // Update mastery (always track the topic, increment score only if correct)
-    const existingMastery = await ctx.db
-      .query("studentMastery")
-      .withIndex("by_user_mastery", (q) => q.eq("userId", args.userId).eq("topicName", args.topicName))
-      .first();
-    
-    if (existingMastery) {
-      await ctx.db.patch(existingMastery._id, {
-        masteryScore: Math.min(existingMastery.masteryScore + scoreIncrement, 100),
+    // Approach 4 — backfill outcomeReward on previous submission now that we know masteryBefore (= masteryAfter for prev)
+    if (prevSubmission && prevSubmission.masteryBefore !== undefined) {
+      const outcomeReward = masteryBefore - prevSubmission.masteryBefore;
+      await ctx.db.patch(prevSubmission._id, { outcomeReward });
+    }
+
+    // Update mastery — reuse preMastery to avoid a redundant query
+    if (preMastery) {
+      await ctx.db.patch(preMastery._id, {
+        masteryScore: Math.min(preMastery.masteryScore + scoreIncrement, 100),
         lastAttempt: now,
       });
     } else {
@@ -369,5 +389,24 @@ export const patchSubmissionWithJudge = internalMutation({
   handler: async (ctx, args) => {
     const { submissionId, ...patch } = args;
     await ctx.db.patch(submissionId, { ...patch, judgeStatus: "complete" });
+  },
+});
+
+// Approach 4 — returns top-N submissions by outcomeReward for a topic, across all users.
+// Used by gradeOptimized to inject outcome-validated feedback styles as few-shot examples.
+export const getHighRewardSubmissions = internalQuery({
+  args: {
+    topicName: v.string(),
+    minReward: v.number(),
+    limit: v.number(),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("submissions")
+      .withIndex("by_topic_outcome", (q) =>
+        q.eq("topicName", args.topicName).gte("outcomeReward", args.minReward)
+      )
+      .order("desc")
+      .take(Math.min(args.limit, 5));
   },
 });
