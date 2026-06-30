@@ -68,7 +68,7 @@ export const gradeAndSaveSubmission = action({
       aiFeedback: gradeResult.feedback,
       errorType: gradeResult.errorType,
       usedHints: args.usedHints,
-      judgeAlreadyRun: false,
+      judgeAlreadyRun: !!args.useBestOfN,
       pipelineDiagnostics: gradeResult.layerDiagnostics
         ? JSON.stringify(gradeResult.layerDiagnostics)
         : undefined,
