@@ -1,6 +1,6 @@
 import { action, internalAction } from "./_generated/server";
 import { v } from "convex/values";
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { api, internal } from "./_generated/api";
 import { normalizeAiDiagnosis } from "./aiDiagnosis";
 import { buildDidacticInterpretation } from "./didactics";
@@ -1027,58 +1027,61 @@ When grading "**Reasoning steps:**": Go through the student's work and match it 
           };
 
         const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
-        const geminiModel = genAI.getGenerativeModel({
-          model: "gemini-2.5-flash",
-          systemInstruction:
-            systemMessage +
-            answerFormatSystemInstruction +
-            "\n\nYou MUST use the same instruction as the OpenAI grader. Format feedback with **Final Answer:**, **Reasoning steps:**, and **Verdict:** sections.",
-          generationConfig: {
-            responseMimeType: "application/json",
-            temperature: args.temperature ?? 0,
-            maxOutputTokens: 2000,
-            thinkingConfig: { thinkingBudget: 0 },
-            responseSchema: {
-              type: SchemaType.OBJECT,
-              properties: {
-                finalAnswerScore: { type: SchemaType.NUMBER },
-                reasoningScore: { type: SchemaType.NUMBER },
-                grade: { type: SchemaType.NUMBER },
-                feedback: { type: SchemaType.STRING },
-                errorType: { type: SchemaType.STRING },
-                techniqueUsed: { type: SchemaType.STRING },
-                misconception: { type: SchemaType.STRING },
-                errorLocation: { type: SchemaType.STRING },
-                conceptTags: {
-                  type: SchemaType.ARRAY,
-                  items: { type: SchemaType.STRING },
-                },
-                diagnosisConfidence: { type: SchemaType.NUMBER },
-              },
-              required: [
-                "finalAnswerScore",
-                "reasoningScore",
-                "grade",
-                "feedback",
-                "errorType",
-                "techniqueUsed",
-                "misconception",
-                "errorLocation",
-                "conceptTags",
-                "diagnosisConfidence",
-              ],
-            },
-          } as any,
-        });
+        const geminiSystemInstruction =
+          systemMessage +
+          answerFormatSystemInstruction +
+          "\n\nYou MUST use the same instruction as the OpenAI grader. Format feedback with **Final Answer:**, **Reasoning steps:**, and **Verdict:** sections.";
 
-        const result = await geminiModel.generateContent(unifiedPrompt);
-        const text = extractGeminiText(result.response);
-        const content = parseJsonObject(text);
+        let content: any = null;
+        let lastGeminiText = "";
+
+        try {
+          const geminiModel = genAI.getGenerativeModel({
+            model: "gemini-2.5-flash",
+            systemInstruction: geminiSystemInstruction,
+            generationConfig: {
+              responseMimeType: "application/json",
+              temperature: args.temperature ?? 0,
+              maxOutputTokens: 2000,
+            } as any,
+          });
+
+          const result = await geminiModel.generateContent(unifiedPrompt);
+          lastGeminiText = extractGeminiText(result.response);
+          content = parseJsonObject(lastGeminiText);
+        } catch (structuredError) {
+          console.error(
+            "Gemini structured grading failed, retrying with prompt-only JSON mode:",
+            structuredError,
+          );
+        }
+
+        if (!content) {
+          try {
+            const fallbackGeminiModel = genAI.getGenerativeModel({
+              model: "gemini-2.5-flash",
+              generationConfig: {
+                temperature: args.temperature ?? 0,
+                maxOutputTokens: 2000,
+              } as any,
+            });
+
+            const fallbackPrompt = `${geminiSystemInstruction}\n\n${unifiedPrompt}\n\nReturn ONLY a valid JSON object.`;
+            const fallbackResult =
+              await fallbackGeminiModel.generateContent(fallbackPrompt);
+            lastGeminiText = extractGeminiText(fallbackResult.response);
+            content = parseJsonObject(lastGeminiText);
+          } catch (fallbackError) {
+            console.error(
+              "Gemini fallback grading failed after structured mode error:",
+              fallbackError,
+            );
+          }
+        }
+
         if (!content) {
           console.error("Gemini returned no parseable JSON object:", {
-            text,
-            finishReason: result.response.candidates?.[0]?.finishReason,
-            promptFeedback: result.response.promptFeedback,
+            text: lastGeminiText,
           });
           return attachPipelineDiagnostics(
             casBackedFallbackFeedback(
@@ -1245,10 +1248,8 @@ export const runJudgeForSubmission = internalAction({
 
       await ctx.runMutation(internal.submissions.patchSubmissionWithJudge, {
         submissionId: args.submissionId,
-        grade: judgeResult.suggestedGrade,
-        feedback: normalizeSecondPersonFeedback(
-          judgeResult.isModified ? judgeResult.refinedFeedback : args.feedback,
-        ),
+        grade: args.grade,
+        feedback: normalizeSecondPersonFeedback(args.feedback),
         errorType: judgeResult.errorType || "",
         judgeFeedback: normalizeSecondPersonFeedback(
           judgeResult.refinedFeedback,
@@ -1313,12 +1314,8 @@ export const gradeWithJudge = action({
 
       // 3. Prepare final result
       return {
-        grade: judgeResult.suggestedGrade,
-        feedback: normalizeSecondPersonFeedback(
-          judgeResult.isModified
-            ? judgeResult.refinedFeedback
-            : initialResult.feedback,
-        ),
+        grade: initialResult.grade,
+        feedback: normalizeSecondPersonFeedback(initialResult.feedback),
         errorType: judgeResult.errorType || initialResult.errorType || "",
         judgeMetadata: {
           judgeFeedback: normalizeSecondPersonFeedback(
@@ -1560,9 +1557,18 @@ export const gradeBestOfN = action({
     }>;
 
     // Step 3 — Select the candidate the reward model rates highest
+    const selectableIndices = candidates
+      .map((candidate, index) => ({ candidate, index }))
+      .filter(({ candidate }) => candidate.errorType !== "Feedback Error")
+      .map(({ index }) => index);
+    const candidatePool =
+      selectableIndices.length > 0
+        ? selectableIndices
+        : candidates.map((_, index) => index);
+
     let bestIndex = 0;
     let bestConfidence = -1;
-    for (let i = 0; i < judgeResults.length; i++) {
+    for (const i of candidatePool) {
       if (judgeResults[i].judgeConfidence > bestConfidence) {
         bestConfidence = judgeResults[i].judgeConfidence;
         bestIndex = i;
@@ -1572,21 +1578,17 @@ export const gradeBestOfN = action({
     const bestCandidate = candidates[bestIndex];
     const bestJudge = judgeResults[bestIndex];
 
-    // Preserve partial (0.5) grades when the judge approves — only override
-    // the grade when the judge explicitly flags an alignment failure.
-    const finalGrade = bestJudge.isModified
-      ? bestJudge.suggestedGrade
-      : bestCandidate.grade;
-
-    const finalFeedback = bestJudge.isModified
-      ? normalizeSecondPersonFeedback(bestJudge.refinedFeedback)
-      : normalizeSecondPersonFeedback(bestCandidate.feedback);
+    // The judge is used as a reward model for ranking only. Once a candidate
+    // has been CAS-backed and selected, we do not let the judge overwrite its
+    // grade or feedback, since that can corrupt a correct final-answer verdict.
+    const finalGrade = bestCandidate.grade;
+    const finalFeedback = normalizeSecondPersonFeedback(bestCandidate.feedback);
 
     return {
       ...bestCandidate,
       grade: finalGrade,
       feedback: finalFeedback,
-      errorType: bestJudge.errorType || bestCandidate.errorType || "",
+      errorType: bestCandidate.errorType || "",
       bestOfNMetadata: {
         n: N,
         selectedIndex: bestIndex,

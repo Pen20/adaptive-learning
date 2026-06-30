@@ -8,6 +8,8 @@ import {
   computeQuadraticRoots,
   formatRational,
   isNumericListEquivalent,
+  parseSimpleRelation,
+  parseSingleNumericAnswer,
 } from "./mathAnswerUtils";
 import {
   gcdCalc,
@@ -216,6 +218,44 @@ function computeEigenvalues3x3Direct(problemStatement: string) {
 /**
  * Evaluate a nerdamer expression at a specific x value. Returns null on error.
  */
+function formatNumericEigenvalue(value: number) {
+  if (Math.abs(value - Math.round(value)) < 1e-8) {
+    return String(Math.round(value));
+  }
+  return Number(value.toPrecision(14)).toString();
+}
+
+function computeEigenvalues2x2Direct(problemStatement: string) {
+  const numericMatrix = parseNumericMatrix(problemStatement);
+  if (
+    !numericMatrix ||
+    numericMatrix.length !== 2 ||
+    !numericMatrix.every((row) => row.length === 2)
+  ) {
+    return null;
+  }
+
+  const [[a, b], [c, d]] = numericMatrix;
+  const trace = a + d;
+  const determinant = a * d - b * c;
+  const discriminant = trace * trace - 4 * determinant;
+  if (discriminant < -1e-9) return null;
+
+  const sqrtDiscriminant = Math.sqrt(Math.max(0, discriminant));
+  const eigenvalues = [
+    (trace - sqrtDiscriminant) / 2,
+    (trace + sqrtDiscriminant) / 2,
+  ].sort((left, right) => left - right);
+
+  const groundTruth = `[${eigenvalues.map(formatNumericEigenvalue).join(", ")}]`;
+  return {
+    isComputable: true,
+    groundTruth,
+    expression: groundTruth,
+    description: "Eigenvalues of the displayed 2x2 matrix",
+  };
+}
+
 function evalAt(expr: string, x: number): number | null {
   try {
     const val = Number(formatResult(nerdamer(expr, { x: String(x) })));
@@ -376,6 +416,11 @@ function computeDirectGroundTruth(
   problemStatement: string,
   topicName: string,
 ) {
+  if (topicName === "eigenvalues") {
+    const result = computeEigenvalues2x2Direct(problemStatement);
+    if (result) return result;
+  }
+
   if (topicName === "eigenvalues_3x3") {
     const result = computeEigenvalues3x3Direct(problemStatement);
     if (result) return result;
@@ -430,6 +475,34 @@ function computeDirectGroundTruth(
             expression: answer,
             description:
               "Value of k that makes the 2×2 determinant equal to zero",
+          };
+        }
+      }
+    }
+
+    if (
+      /determinant is non-zero/i.test(problemStatement) &&
+      symbolicMatrix &&
+      symbolicMatrix.length === 3 &&
+      symbolicMatrix.every((row) => row.length === 3)
+    ) {
+      const [[a, b, c], [d, e, f], [g, h, i]] = symbolicMatrix;
+      if (
+        g === "k" &&
+        b === h &&
+        c === i &&
+        d === "-3" &&
+        e === "0" &&
+        f === "-5"
+      ) {
+        const excludedValue = Number(a);
+        if (!Number.isNaN(excludedValue)) {
+          return {
+            isComputable: true,
+            groundTruth: `k != ${excludedValue}`,
+            expression: `k != ${excludedValue}`,
+            description:
+              "Value of k excluded to keep the 3x3 determinant non-zero",
           };
         }
       }
@@ -652,29 +725,41 @@ export const checkAnswerEquivalence = internalAction({
         return { isEquivalent: null, casChecked: false };
       }
 
-      // 4. Simple fraction answers (e.g. limit at infinity "3/2")
-      if (/^\d+\/\d+$/.test(args.groundTruth.trim())) {
-        const [num, den] = args.groundTruth.split("/").map(Number);
-        const truthVal = num / den;
-        const studentClean = args.studentAnswer
-          .replace(/\\\(|\\\)|\$\$|\$/g, "")
-          .trim();
-        const studentParsed = studentClean.includes("/")
-          ? (() => {
-              const [sn, sd] = studentClean.split("/").map(Number);
-              return Number.isFinite(sn / sd) ? sn / sd : null;
-            })()
-          : Number(studentClean);
-        if (studentParsed !== null && Number.isFinite(studentParsed)) {
+      // 4. Simple parameter relations such as "k != 3"
+      const truthRelation = parseSimpleRelation(args.groundTruth);
+      if (truthRelation) {
+        const studentRelation = parseSimpleRelation(args.studentAnswer);
+        if (!studentRelation) {
+          return { isEquivalent: false, casChecked: true };
+        }
+
+        const sameVariable =
+          studentRelation.variable.replace(/_/g, "").toLowerCase() ===
+          truthRelation.variable.replace(/_/g, "").toLowerCase();
+        const sameOperator = studentRelation.operator === truthRelation.operator;
+        const sameValue =
+          Math.abs(studentRelation.value - truthRelation.value) < 1e-8;
+
+        return {
+          isEquivalent: sameVariable && sameOperator && sameValue,
+          casChecked: true,
+        };
+      }
+
+      // 5. Plain numeric answers, including parameter-style forms like "k = 1"
+      if (/^-?\d+(?:\.\d+)?(?:\/-?\d+(?:\.\d+)?)?$/.test(args.groundTruth.trim())) {
+        const truthVal = parseSingleNumericAnswer(args.groundTruth);
+        const studentParsed = parseSingleNumericAnswer(args.studentAnswer);
+        if (truthVal !== null && studentParsed !== null) {
           const isEquivalent = Math.abs(studentParsed - truthVal) < 1e-8;
           console.log(
-            `[CAS] Fraction check: "${args.studentAnswer}" vs "${args.groundTruth}" → ${isEquivalent}`,
+            `[CAS] Numeric check: "${args.studentAnswer}" vs "${args.groundTruth}" → ${isEquivalent}`,
           );
           return { isEquivalent, casChecked: true };
         }
       }
 
-      // 5. Symbolic / function comparison — try nerdamer then numeric sampling
+      // 6. Symbolic / function comparison — try nerdamer then numeric sampling
       const cleaned = toNerdamerExpr(args.studentAnswer);
       if (!cleaned) return { isEquivalent: null, casChecked: false };
 

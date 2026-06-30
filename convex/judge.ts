@@ -92,12 +92,13 @@ AI Feedback: ${args.assistantFeedback}
 --- YOUR THREE ALIGNMENT CHECKS ---
 1. PROBLEM RELEVANCE: Does the feedback specifically address THIS problem? Fail if the feedback is generic and could apply to any question.
 2. MATHEMATICAL ACCURACY: Are the mathematical statements in the feedback correct for THIS problem? Fail if the feedback contains wrong formulas, wrong values, or contradicts the correct solution.
-3. GRADE CONSISTENCY: Independently solve the problem yourself and verify the correct answer. Then compare it sign-by-sign and value-by-value against what the student wrote. A missing negative sign, wrong coefficient, or any numeric error means the answer is WRONG → grade must be 0. Fail this check if a wrong answer received grade 1, or a correct answer received grade 0.
+3. GRADE CONSISTENCY: Use the CAS verified answer above as ground truth whenever it is available. Compare the student's final answer against that verified result sign-by-sign and value-by-value. A missing negative sign, wrong coefficient, or any numeric error means the answer is wrong. Fail this check if a wrong answer received a passing grade, or a correct answer was marked fully incorrect.
 
 --- RULES ---
 - If all three checks pass → set isModified: false and copy the original feedback as refinedFeedback. Do NOT rewrite working feedback.
 - If any check fails → set isModified: true and write a corrected refinedFeedback that fixes ONLY the failing checks.
-- Do NOT change the grade unless check 3 clearly fails.
+- Do NOT override CAS-backed final-answer correctness. If CAS verifies the answer, your refined feedback must not contradict that verdict.
+- Do NOT change the grade unless check 3 clearly fails, and never use your own independent arithmetic to overrule CAS.
 - Do NOT penalise valid alternative methods or condensed steps. Condensed reasoning is acceptable.
 - **Semantic Equivalence**: Mathematically equivalent statements MUST receive the same grade regardless of phrasing or notation. "\\(\\det(A) \\neq 0\\)" and "the determinant is non-zero" are identical. Adding or omitting connective words like "since", "thus", or "therefore" does NOT change the mathematical content. Never flag a correct answer as wrong solely due to rephrasing.
 - Grade 1 requires both a correct answer AND reasoning that shows the key steps. Thin reasoning (no steps at all) is grade 0, but concise or shorthand steps are acceptable.

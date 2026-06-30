@@ -91,6 +91,21 @@ export function parseNumericList(raw: string): number[] {
     .replace(/\\\(|\\\)|\\\[|\\\]|\$\$|\$/g, "")
     .replace(/[a-zA-Z]+_\{?\d+\}?/g, "")
     .replace(/[a-zA-Z]+_\(\d+\)/g, "")
+    .replace(/(-?\d+(?:\.\d+)?)\s*(?:\+\/-|±)\s*\\sqrt\{(\d+(?:\.\d+)?)\}/g, (_, n, m) => {
+      const base = Number(n);
+      const root = Math.sqrt(Number(m));
+      return `${base + root}, ${base - root}`;
+    })
+    .replace(/(-?\d+(?:\.\d+)?)\s*(?:\+\/-|±)\s*sqrt\((\d+(?:\.\d+)?)\)/g, (_, n, m) => {
+      const base = Number(n);
+      const root = Math.sqrt(Number(m));
+      return `${base + root}, ${base - root}`;
+    })
+    .replace(/(-?\d+(?:\.\d+)?)\s*(?:\+\/-|±)\s*(-?\d+(?:\.\d+)?)/g, (_, n, m) => {
+      const base = Number(n);
+      const offset = Number(m);
+      return `${base + offset}, ${base - offset}`;
+    })
     // Evaluate combined "n ± sqrt(m)" / "n ± \sqrt{m}" before extracting bare digits
     .replace(/(-?\d+(?:\.\d+)?)\s*\+\s*\\sqrt\{(\d+(?:\.\d+)?)\}/g, (_, n, m) => String(Number(n) + Math.sqrt(Number(m))))
     .replace(/(-?\d+(?:\.\d+)?)\s*\+\s*sqrt\((\d+(?:\.\d+)?)\)/g, (_, n, m) => String(Number(n) + Math.sqrt(Number(m))))
@@ -105,6 +120,39 @@ export function parseNumericList(raw: string): number[] {
   )
     .map(parseNumericToken)
     .filter((value): value is number => value !== null);
+}
+
+export function parseSingleNumericAnswer(raw: string): number | null {
+  const values = parseNumericList(raw);
+  if (values.length === 0) return null;
+  return values[values.length - 1] ?? null;
+}
+
+export function parseSimpleRelation(raw: string) {
+  const normalized = raw
+    .replace(/\\boxed\{([^}]*)\}/g, "$1")
+    .replace(/\\dfrac/g, "\\frac")
+    .replace(/\\frac\{(-?\d+)\}\{(-?\d+)\}/g, "$1/$2")
+    .replace(/\\neq/g, "!=")
+    .replace(/\bnot\s+equal\s+to\b/gi, "!=")
+    .replace(/\bnot\s+equal\b/gi, "!=")
+    .replace(/\bneq\b/gi, "!=")
+    .replace(/\\\(|\\\)|\\\[|\\\]|\$\$|\$/g, "")
+    .trim();
+
+  const match = normalized.match(
+    /^([a-zA-Z]+(?:_\d+)?)\s*(=|!=)\s*(-?\d+(?:\.\d+)?(?:\/-?\d+(?:\.\d+)?)?)$/,
+  );
+  if (!match) return null;
+
+  const value = parseNumericToken(match[3]);
+  if (value === null) return null;
+
+  return {
+    variable: match[1],
+    operator: match[2] as "=" | "!=",
+    value,
+  };
 }
 
 function sameNumericSet(left: number[], right: number[]) {
