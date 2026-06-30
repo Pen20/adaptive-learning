@@ -2,7 +2,8 @@ import { action } from "./_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 
-function normalizeSecondPersonFeedback(feedback: string) {
+function normalizeSecondPersonFeedback(feedback: string): string {
+  if (typeof feedback !== "string") return String(feedback ?? "");
   return feedback
     .replace(/\bThe student has\b/g, "You have")
     .replace(/\bthe student has\b/g, "you have")
