@@ -71,7 +71,7 @@ export const evaluateEvaluator = action({
 
     const fewShotContext = expertCorrections?.length
       ? `### Expert Alignment Examples for topic "${args.topicName}":
-${expertCorrections.map((c: any, i: number) =>
+${expertCorrections.map((c, i: number) =>
   `Example ${i + 1}: corrected feedback → "${c.correctedFeedback}" | corrected grade → ${c.correctedGrade}`
 ).join("\n")}`
       : "";
@@ -166,9 +166,10 @@ Return ONLY valid JSON:
           gradeConsistency: checks.gradeConsistency !== false,
         },
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Judge Error:", err);
-      throw new Error(`Judge failed: ${err.message}`);
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(`Judge failed: ${message}`);
     }
   },
 });
