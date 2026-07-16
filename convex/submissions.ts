@@ -58,6 +58,11 @@ export const saveSubmission = mutation({
     usedHints: v.boolean(),
     judgeAlreadyRun: v.optional(v.boolean()),
     pipelineDiagnostics: v.optional(v.string()),
+    // Quiz study — condition/phase are stored on the submission; the frozen-pool
+    // phase is forwarded to the background judge (not stored).
+    experimentCondition: v.optional(v.string()),
+    experimentPhase: v.optional(v.number()),
+    judgeFrozenPoolPhase: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -65,7 +70,7 @@ export const saveSubmission = mutation({
     if (identity.subject !== args.userId) throw new Error("Unauthorized: userId mismatch");
 
     const judgeStatus = args.judgeAlreadyRun ? "complete" : "pending";
-    const { judgeAlreadyRun, pipelineDiagnostics, ...insertArgs } = args;
+    const { judgeAlreadyRun, pipelineDiagnostics, judgeFrozenPoolPhase, ...insertArgs } = args;
     void judgeAlreadyRun;
     void pipelineDiagnostics;
 
@@ -102,6 +107,7 @@ export const saveSubmission = mutation({
         grade: args.grade,
         feedback: args.aiFeedback,
         topicName: args.topicName,
+        frozenPoolPhase: judgeFrozenPoolPhase,
       });
     }
 

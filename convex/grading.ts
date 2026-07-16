@@ -829,6 +829,12 @@ export const gradeOptimized = action({
     answerFormatInstruction: v.optional(v.string()),
     reasoningStepsContext: v.optional(v.string()),
     temperature: v.optional(v.number()),
+    // Quiz study flags (set by gradingPipeline for enrolled participants):
+    // includeOutcomeContext=false disables the outcome-validated few-shot pool
+    // (conditions A and B); frozenPoolPhase reads few-shot pools from the
+    // phase snapshot instead of live data, so the treatment stays constant.
+    includeOutcomeContext: v.optional(v.boolean()),
+    frozenPoolPhase: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     // Start independent work together to reduce the synchronous grading wait.
@@ -842,19 +848,35 @@ export const gradeOptimized = action({
       description?: string;
     }>;
 
-    const expertCorrectionsPromise = ctx.runQuery(
-      api.corrections.getApprovedCorrectionsForTopic,
-      {
-        topicName: args.topicName,
-        limit: 1,
-      },
-    );
+    const expertCorrectionsPromise =
+      args.frozenPoolPhase !== undefined
+        ? ctx.runQuery(internal.experiment.getFrozenPool, {
+            phase: args.frozenPoolPhase,
+            poolType: "expertCorrections",
+            topicName: args.topicName,
+            limit: 1,
+          })
+        : ctx.runQuery(api.corrections.getApprovedCorrectionsForTopic, {
+            topicName: args.topicName,
+            limit: 1,
+          });
 
     // Approach 4 — fetch outcome-validated examples in parallel (min reward = 5 mastery points)
-    const highRewardPromise = ctx.runQuery(
-      internal.submissions.getHighRewardSubmissions,
-      { topicName: args.topicName, minReward: 5, limit: 2 },
-    );
+    const highRewardPromise =
+      args.includeOutcomeContext === false
+        ? Promise.resolve([])
+        : args.frozenPoolPhase !== undefined
+          ? ctx.runQuery(internal.experiment.getFrozenPool, {
+              phase: args.frozenPoolPhase,
+              poolType: "outcomeValidated",
+              topicName: args.topicName,
+              limit: 2,
+            })
+          : ctx.runQuery(internal.submissions.getHighRewardSubmissions, {
+              topicName: args.topicName,
+              minReward: 5,
+              limit: 2,
+            });
 
     // 1. CAS: compute the verified correct answer before involving the AI
     const casResult = await casResultPromise;
@@ -1227,6 +1249,10 @@ export const runJudgeForSubmission = internalAction({
     grade: v.number(),
     feedback: v.string(),
     topicName: v.string(),
+    // Quiz study — background judge must use the frozen pool too, so the
+    // judgeConfidence logged for condition A is measured under the same
+    // few-shot context as conditions B/C.
+    frozenPoolPhase: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     try {
@@ -1237,6 +1263,7 @@ export const runJudgeForSubmission = internalAction({
         assistantGrade: args.grade,
         assistantFeedback: args.feedback,
         topicName: args.topicName,
+        frozenPoolPhase: args.frozenPoolPhase,
       })) as {
         suggestedGrade: number;
         refinedFeedback: string;
@@ -1508,6 +1535,10 @@ export const gradeBestOfN = action({
     answerFormatInstruction: v.optional(v.string()),
     reasoningStepsContext: v.optional(v.string()),
     n: v.optional(v.number()),
+    // Quiz study flags — forwarded to gradeOptimized (candidate generation)
+    // and evaluateEvaluator (judge few-shot pool). See gradeOptimized.
+    includeOutcomeContext: v.optional(v.boolean()),
+    frozenPoolPhase: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const N = Math.min(Math.max(args.n ?? 3, 2), 3);
@@ -1521,6 +1552,8 @@ export const gradeBestOfN = action({
       answerFormatInstruction: args.answerFormatInstruction,
       reasoningStepsContext: args.reasoningStepsContext,
       temperature: 0.4,
+      includeOutcomeContext: args.includeOutcomeContext,
+      frozenPoolPhase: args.frozenPoolPhase,
     };
 
     // Step 1 — Generate N candidates in parallel at temperature=0.4 for diversity
@@ -1545,6 +1578,7 @@ export const gradeBestOfN = action({
           assistantGrade: candidate.grade,
           assistantFeedback: candidate.feedback,
           topicName: args.topicName,
+          frozenPoolPhase: args.frozenPoolPhase,
         }),
       ),
     )) as Array<{

@@ -34,7 +34,12 @@ function toNerdamerExpr(raw: string): string {
     .replace(/[a-z]'\([^)]*\)\s*=\s*/g, "")
     // Named function prefix: "f(x) =" etc.
     .replace(/[a-z]\([^)]*\)\s*=\s*/g, "")
+    .replace(/\\[dt]frac\{([^}]+)\}\{([^}]+)\}/g, "($1)/($2)")
     .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, "($1)/($2)")
+    // LaTeX exponent braces: e^{2x} → e^(2x), x^{3} → x^(3)
+    .replace(/\^\{([^}]+)\}/g, "^($1)")
+    // Adjacent parenthesised factors: (a)(b) → (a)*(b)
+    .replace(/\)\s*\(/g, ")*(")
     .replace(/\\sqrt\[([^\]]+)\]\{([^}]+)\}/g, "($2)^(1/$1)")
     .replace(/\\sqrt\{([^}]+)\}/g, "sqrt($1)")
     .replace(/\\sqrt/g, "sqrt")
@@ -258,7 +263,11 @@ function computeEigenvalues2x2Direct(problemStatement: string) {
 
 function evalAt(expr: string, x: number): number | null {
   try {
-    const val = Number(formatResult(nerdamer(expr, { x: String(x) })));
+    // .evaluate() forces numeric evaluation — without it, expressions
+    // containing e/pi stay symbolic and Number() yields NaN.
+    const val = Number(
+      nerdamer(expr, { x: String(x) }).evaluate().text("decimals"),
+    );
     return Number.isFinite(val) ? val : null;
   } catch {
     return null;
@@ -412,7 +421,10 @@ function computeDerivativeDirectly(problemStatement: string) {
 
 // ── Main dispatcher ───────────────────────────────────────────────────────────
 
-function computeDirectGroundTruth(
+// Exported for the quiz study (convex/studyQuiz.ts): quiz items must be graded
+// fully deterministically, so only this direct path is allowed — never the
+// LLM-extraction fallback inside computeGroundTruth.
+export function computeDirectGroundTruth(
   problemStatement: string,
   topicName: string,
 ) {
@@ -677,18 +689,17 @@ Return JSON:
 });
 
 /**
- * CAS: Check if the student's answer is equivalent to the verified ground truth.
- * Handles: numeric lists, plain strings (piecewise verdict), symbolic expressions,
- * and numeric function sampling (derivatives).
+ * Deterministic equivalence check between a student answer and a verified
+ * ground truth. Handles: numeric lists, plain strings (piecewise verdict),
+ * symbolic expressions, and numeric function sampling (derivatives).
+ * Pure function — also used directly by the quiz study (convex/studyQuiz.ts).
  */
-export const checkAnswerEquivalence = internalAction({
-  args: {
-    studentAnswer: v.string(),
-    groundTruth: v.string(),
-    expression: v.string(),
-  },
-  handler: async (ctx, args) => {
-    try {
+export function checkEquivalenceDirect(
+  studentAnswer: string,
+  groundTruth: string,
+): { isEquivalent: boolean | null; casChecked: boolean } {
+  const args = { studentAnswer, groundTruth };
+  try {
       // 1. Numeric list comparison (quadratic roots, eigenvalues, etc.)
       const listEquivalence = isNumericListEquivalent(
         args.studentAnswer,
@@ -788,5 +799,18 @@ export const checkAnswerEquivalence = internalAction({
       );
       return { isEquivalent: null, casChecked: false };
     }
+}
+
+/**
+ * CAS: Check if the student's answer is equivalent to the verified ground truth.
+ */
+export const checkAnswerEquivalence = internalAction({
+  args: {
+    studentAnswer: v.string(),
+    groundTruth: v.string(),
+    expression: v.string(),
+  },
+  handler: async (ctx, args) => {
+    return checkEquivalenceDirect(args.studentAnswer, args.groundTruth);
   },
 });

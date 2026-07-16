@@ -45,6 +45,9 @@ export const evaluateEvaluator = action({
     assistantGrade: v.number(),
     assistantFeedback: v.string(),
     topicName: v.string(),
+    // Quiz study — when set, few-shot corrections come from the frozen phase
+    // snapshot instead of live data (see convex/experiment.ts).
+    frozenPoolPhase: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -64,14 +67,22 @@ export const evaluateEvaluator = action({
       : "";
 
     // Fetch up to 2 approved expert corrections as few-shot alignment examples
-    const expertCorrections = await ctx.runQuery(api.corrections.getApprovedCorrectionsForTopic, {
-      topicName: args.topicName,
-      limit: 2,
-    });
+    const expertCorrections =
+      args.frozenPoolPhase !== undefined
+        ? ((await ctx.runQuery(internal.experiment.getFrozenPool, {
+            phase: args.frozenPoolPhase,
+            poolType: "expertCorrections",
+            topicName: args.topicName,
+            limit: 2,
+          })) as Array<{ correctedFeedback: string; correctedGrade: number }>)
+        : await ctx.runQuery(api.corrections.getApprovedCorrectionsForTopic, {
+            topicName: args.topicName,
+            limit: 2,
+          });
 
     const fewShotContext = expertCorrections?.length
       ? `### Expert Alignment Examples for topic "${args.topicName}":
-${expertCorrections.map((c, i: number) =>
+${expertCorrections.map((c: { correctedFeedback: string; correctedGrade: number }, i: number) =>
   `Example ${i + 1}: corrected feedback → "${c.correctedFeedback}" | corrected grade → ${c.correctedGrade}`
 ).join("\n")}`
       : "";

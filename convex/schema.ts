@@ -76,6 +76,9 @@ export default defineSchema({
     // Approach 4 — Outcome-Based Reward Model fields
     masteryBefore: v.optional(v.number()),  // mastery snapshot before this submission updates it
     outcomeReward: v.optional(v.number()),  // Δ = masteryAfter − masteryBefore, written on next submission
+    // Quiz study — set when the user has an active experiment assignment for this topic
+    experimentCondition: v.optional(v.string()), // "single_pass" | "best_of_n" | "best_of_n_outcome"
+    experimentPhase: v.optional(v.number()),
   }).index("by_user_topic", ["userId", "topicName"])
     .index("by_user", ["userId"])
     .index("by_user_topic_grade", ["userId", "topicName", "grade"])
@@ -185,6 +188,100 @@ export default defineSchema({
   }).index("by_topic", ["topicName"])
     .index("by_created", ["createdAt"])
     .index("by_submission", ["submissionId"]),
+
+  // ─── Quiz study (see docs/research/protocole-etude-quiz.md §7.4) ────────────
+
+  // One row per participant × topic: which feedback condition this student
+  // receives on this topic during the study.
+  experimentAssignments: defineTable({
+    userId: v.string(), // Clerk ID
+    participantCode: v.string(), // pseudonym used in exports, e.g. "P2-014"
+    phase: v.number(), // 1 = bootstrap (A/B), 2 = main study (A/B/C)
+    topicName: v.string(),
+    condition: v.union(
+      v.literal("single_pass"),
+      v.literal("best_of_n"),
+      v.literal("best_of_n_outcome"),
+    ),
+    latinSquareRow: v.number(), // which permutation of conditions this participant got
+    topicOrder: v.number(), // position of this topic in the participant's session order
+    enrolledAt: v.number(),
+  }).index("by_user_topic", ["userId", "topicName"])
+    .index("by_phase", ["phase"])
+    .index("by_user", ["userId"]),
+
+  // Singleton: which phase is currently running. Assignments only take effect
+  // while their phase is active, so the platform behaves normally outside the study.
+  experimentConfig: defineTable({
+    activePhase: v.union(v.number(), v.null()),
+    updatedAt: v.number(),
+    updatedBy: v.string(),
+  }),
+
+  // Frozen few-shot pools (expert corrections + outcome-validated feedback),
+  // snapshotted at phase start so the treatment stays constant during a phase.
+  experimentPoolSnapshots: defineTable({
+    phase: v.number(),
+    poolType: v.union(v.literal("expertCorrections"), v.literal("outcomeValidated")),
+    topicName: v.string(),
+    entriesJson: v.string(), // JSON array of few-shot entries
+    frozenAt: v.number(),
+  }).index("by_phase_pool_topic", ["phase", "poolType", "topicName"]),
+
+  // Full per-submission grading log: all Best-of-N candidates and their judge
+  // confidences (not just the selected one), latency, model, prompt version.
+  experimentGradingLogs: defineTable({
+    submissionId: v.id("submissions"),
+    userId: v.string(),
+    participantCode: v.string(),
+    phase: v.number(),
+    topicName: v.string(),
+    condition: v.string(),
+    model: v.string(),
+    promptVersion: v.string(),
+    gradingLatencyMs: v.number(),
+    candidatesJson: v.string(), // JSON: [{index, grade, judgeConfidence, isJudgeModified}] or single-pass entry
+    selectedIndex: v.optional(v.number()),
+    createdAt: v.number(),
+  }).index("by_submission", ["submissionId"])
+    .index("by_phase", ["phase"]),
+
+  // Pre/post/delayed quizzes — the study's measurement instrument.
+  // Items are CAS-graded only (deterministic); ground truths are stored in the
+  // questions snapshot server-side and never sent to the client.
+  studyQuizAttempts: defineTable({
+    userId: v.string(),
+    participantCode: v.string(),
+    phase: v.number(),
+    topicName: v.string(), // topic slug, same convention as submissions.topicName
+    quizType: v.union(v.literal("pre"), v.literal("post"), v.literal("delayed")),
+    questionsJson: v.string(), // JSON: [{statement, prompt?, placeholder, instruction, groundTruth, expression}]
+    answersJson: v.string(), // JSON: string[] aligned with questions
+    resultsJson: v.optional(v.string()), // JSON: [{isCorrect, casChecked}] — written at submit
+    score: v.optional(v.number()), // count of correct items
+    status: v.union(v.literal("in_progress"), v.literal("submitted")),
+    startedAt: v.number(),
+    submittedAt: v.optional(v.number()),
+    timeLimitMs: v.number(),
+    overTime: v.optional(v.boolean()), // submitted after the limit + grace (flagged, not rejected)
+  }).index("by_user_topic_type", ["userId", "topicName", "quizType"])
+    .index("by_phase", ["phase"]),
+
+  // Practice sessions during the study (protocol §5.2): 30 min per topic,
+  // minimum 6 submissions to be valid, fixed difficulty script, no hints.
+  studyPracticeSessions: defineTable({
+    userId: v.string(),
+    participantCode: v.string(),
+    phase: v.number(),
+    topicName: v.string(), // topic slug
+    status: v.union(v.literal("in_progress"), v.literal("completed")),
+    submissionCount: v.number(),
+    startedAt: v.number(),
+    completedAt: v.optional(v.number()),
+    timeLimitMs: v.number(),
+    underMinimum: v.optional(v.boolean()), // completed with < 6 submissions (excluded at analysis)
+  }).index("by_user_topic", ["userId", "topicName"])
+    .index("by_phase", ["phase"]),
 
   courses: defineTable({
     courseId: v.string(), // slug like "linear_algebra"

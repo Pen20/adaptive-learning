@@ -1,6 +1,6 @@
 import { action } from "./_generated/server";
 import { v } from "convex/values";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 
 type RecommendationSource = {
   problemStatement: string;
@@ -20,6 +20,20 @@ export const generatePractice = action({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
+
+    // Quiz study (protocol §5.2): the adaptive engine is disabled for enrolled
+    // participants on their study topics — problem selection must follow the
+    // fixed difficulty script, identical across experimental arms.
+    const studyAssignment = await ctx.runQuery(internal.experiment.getActiveAssignment, {
+      userId: identity.subject,
+      topicName: args.topicName,
+    });
+    if (studyAssignment) {
+      return {
+        message: "Adaptive practice is unavailable during the study session.",
+        questions: [],
+      };
+    }
 
     // Use OPENAI_API_KEY for problem generation
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;

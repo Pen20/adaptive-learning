@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { findActiveAssignment } from "./experiment";
 
 export const getPermissions = query({
   args: {
@@ -7,13 +8,12 @@ export const getPermissions = query({
     topicName: v.string(),
   },
   handler: async (ctx, args) => {
-    const permissions = await ctx.db
+    const permissions = (await ctx.db
       .query("topicPermissions")
-      .withIndex("by_course_topic", (q) => 
+      .withIndex("by_course_topic", (q) =>
         q.eq("courseName", args.courseName).eq("topicName", args.topicName)
       )
-      .first();
-    return permissions || {
+      .first()) || {
       allowHints: true,
       allowSolution: true,
       allowDetailedSolution: true,
@@ -21,6 +21,25 @@ export const getPermissions = query({
       allowRLHF: true,
       alwaysShowSolution: false,
     };
+
+    // Quiz study (protocol §5.2): while the participant has an active study
+    // assignment for this topic, AI feedback must be the only help — hints and
+    // solutions are disabled server-side regardless of the topic's settings.
+    const identity = await ctx.auth.getUserIdentity();
+    if (identity) {
+      const assignment = await findActiveAssignment(ctx, identity.subject, args.topicName);
+      if (assignment) {
+        return {
+          ...permissions,
+          allowHints: false,
+          allowSolution: false,
+          allowDetailedSolution: false,
+          alwaysShowSolution: false,
+        };
+      }
+    }
+
+    return permissions;
   },
 });
 

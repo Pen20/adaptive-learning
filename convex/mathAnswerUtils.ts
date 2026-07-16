@@ -87,7 +87,7 @@ export function computeQuadraticRoots(problemStatement: string) {
 
 export function parseNumericList(raw: string): number[] {
   const normalized = raw
-    .replace(/\\frac\{(-?\d+)\}\{(-?\d+)\}/g, "$1/$2")
+    .replace(/\\[dt]?frac\{(-?\d+)\}\{(-?\d+)\}/g, "$1/$2")
     .replace(/\\\(|\\\)|\\\[|\\\]|\$\$|\$/g, "")
     .replace(/[a-zA-Z]+_\{?\d+\}?/g, "")
     .replace(/[a-zA-Z]+_\(\d+\)/g, "")
