@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { topicRegistry } from "../src/data/topics";
+import { generateProblemForTier } from "../src/data/studyDifficulty";
 import { checkEquivalenceDirect, computeDirectGroundTruth } from "./cas";
 
 // End-to-end determinism check for the quiz study (docs/research/protocole-etude-quiz.md §5.1):
@@ -45,5 +46,22 @@ for (const topicId of STUDY_TOPICS) {
         expect(check.isEquivalent === true).toBe(false);
       }
     });
+
+    // The quiz enforces a fixed 2 easy / 2 medium / 2 hard composition
+    // (protocol §5.1) — each tier must reliably yield CAS-gradable items.
+    for (const tier of ["easy", "medium", "hard"] as const) {
+      test(`tier "${tier}" yields at least 2 CAS-gradable problems per 14 candidates`, () => {
+        let gradable = 0;
+        const seen = new Set<string>();
+        for (let i = 0; i < 14; i++) {
+          const generated = generateProblemForTier(topicId, tier);
+          if (seen.has(generated.statement)) continue;
+          seen.add(generated.statement);
+          const direct = computeDirectGroundTruth(generated.statement, topicId);
+          if (direct && direct.isComputable && direct.groundTruth) gradable++;
+        }
+        expect(gradable).toBeGreaterThanOrEqual(2);
+      });
+    }
   });
 }

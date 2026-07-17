@@ -3,6 +3,8 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { checkEquivalenceDirect, computeDirectGroundTruth } from "./cas";
+import { classifyDifficulty } from "../src/data/difficultyClassifiers";
+import type { DifficultyTier } from "../src/data/difficultyClassifiers";
 
 // Pre/post/delayed quizzes for the quiz study — the measurement instrument
 // (docs/research/protocole-etude-quiz.md §5.1).
@@ -13,6 +15,9 @@ import { checkEquivalenceDirect, computeDirectGroundTruth } from "./cas";
 // equivalence checker at submit time. Students never see scores or feedback.
 
 const QUIZ_ITEM_COUNT = 6;
+// Fixed tier composition so pre/post quizzes are isomorphic in difficulty mix
+// (protocol §5.1). Applied whenever the topic has a difficulty classifier.
+const QUIZ_TIER_COMPOSITION: Record<DifficultyTier, number> = { easy: 2, medium: 2, hard: 2 };
 const GRACE_MS = 60_000;
 const TIME_LIMITS_MS: Record<"pre" | "post" | "delayed", number> = {
   pre: 15 * 60_000,
@@ -288,7 +293,11 @@ export const startQuizAttempt = action({
     }
 
     // Keep only candidates whose ground truth is computable by the direct
-    // (deterministic) CAS path; dedupe identical statements.
+    // (deterministic) CAS path; dedupe identical statements. When the topic has
+    // a difficulty classifier, enforce the fixed tier composition (2/2/2) so
+    // every quiz — pre and post alike — has the same difficulty mix.
+    const useTiers = classifyDifficulty(args.topicName, "") !== null;
+    const tierRemaining: Record<string, number> = { ...QUIZ_TIER_COMPOSITION };
     const seen = new Set<string>();
     const questions: QuizQuestion[] = [];
     for (const candidate of args.candidates) {
@@ -296,8 +305,20 @@ export const startQuizAttempt = action({
       if (seen.has(candidate.statement)) continue;
       seen.add(candidate.statement);
 
+      if (useTiers) {
+        const tier = classifyDifficulty(args.topicName, candidate.statement);
+        if (!tier || tierRemaining[tier] <= 0) continue;
+        tierRemaining[tier] -= 1;
+      }
+
       const direct = computeDirectGroundTruth(candidate.statement, args.topicName);
-      if (!direct || !direct.isComputable || !direct.groundTruth) continue;
+      if (!direct || !direct.isComputable || !direct.groundTruth) {
+        if (useTiers) {
+          const tier = classifyDifficulty(args.topicName, candidate.statement);
+          if (tier) tierRemaining[tier] += 1; // give the slot back
+        }
+        continue;
+      }
 
       questions.push({
         statement: candidate.statement,
@@ -312,6 +333,16 @@ export const startQuizAttempt = action({
     if (questions.length < QUIZ_ITEM_COUNT) {
       throw new Error(
         `Could not build a CAS-gradable quiz for topic "${args.topicName}" (got ${questions.length}/${QUIZ_ITEM_COUNT} items). This topic may not be supported for quizzes.`,
+      );
+    }
+    // Scripted difficulty order for a consistent testing experience: 2 easy,
+    // then 2 medium, then 2 hard (stable for topics without a classifier).
+    if (useTiers) {
+      const tierRank: Record<string, number> = { easy: 0, medium: 1, hard: 2 };
+      questions.sort(
+        (a, b) =>
+          (tierRank[classifyDifficulty(args.topicName, a.statement) ?? "easy"] ?? 0) -
+          (tierRank[classifyDifficulty(args.topicName, b.statement) ?? "easy"] ?? 0),
       );
     }
 

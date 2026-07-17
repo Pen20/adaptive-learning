@@ -7,6 +7,8 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/lib/convex";
 import type { Id } from "@/lib/convex";
 import { getAnswerFormat, topicRegistry } from "@/data/topics";
+import { generateProblemForTier } from "@/data/studyDifficulty";
+import type { DifficultyTier } from "@/data/studyDifficulty";
 import { MathRenderer } from "@/components/MathRenderer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,21 +36,26 @@ const QUIZ_LABELS: Record<QuizType, string> = {
   delayed: "Follow-up quiz",
 };
 
-const CANDIDATE_COUNT = 40;
+const CANDIDATES_PER_TIER = 14;
 
+// Tier-balanced candidate pool so the server can enforce the fixed 2/2/2
+// difficulty composition (protocol §5.1). For topics without a classifier,
+// generateProblemForTier falls back to unconstrained generation.
 function buildCandidates(topicId: string) {
   const engine = topicRegistry[topicId];
   if (!engine) return [];
   const candidates = [];
-  for (let i = 0; i < CANDIDATE_COUNT; i++) {
-    const generated = engine.generate();
-    const format = getAnswerFormat(topicId, generated);
-    candidates.push({
-      statement: generated.statement,
-      prompt: generated.prompt,
-      placeholder: format.placeholder,
-      instruction: format.instruction,
-    });
+  for (const tier of ["easy", "medium", "hard"] as DifficultyTier[]) {
+    for (let i = 0; i < CANDIDATES_PER_TIER; i++) {
+      const generated = generateProblemForTier(topicId, tier);
+      const format = getAnswerFormat(topicId, generated);
+      candidates.push({
+        statement: generated.statement,
+        prompt: generated.prompt,
+        placeholder: format.placeholder,
+        instruction: format.instruction,
+      });
+    }
   }
   return candidates;
 }
