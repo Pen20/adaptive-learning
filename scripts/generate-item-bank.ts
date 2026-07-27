@@ -13,7 +13,7 @@
 //
 // Outputs:
 //   docs/research/item-bank/item-bank.json   (machine-readable, with answer key)
-//   docs/research/banque-items-pilote.md     (reviewable document, in French)
+//   docs/research/banque-items-pilote.md     (reviewable document)
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -36,10 +36,10 @@ const TIER_PLAN: Array<{ tier: DifficultyTier; count: number }> = [
   { tier: "medium", count: 2 },
   { tier: "hard", count: 2 },
 ];
-const TIER_LABELS_FR: Record<DifficultyTier, string> = {
-  easy: "facile",
-  medium: "moyen",
-  hard: "difficile",
+const TIER_LABELS: Record<DifficultyTier, string> = {
+  easy: "easy",
+  medium: "medium",
+  hard: "hard",
 };
 const MAX_TRIES_PER_ITEM = 500;
 
@@ -143,68 +143,68 @@ function buildBank(): BankItem[] {
 
 function renderMarkdown(items: BankItem[]): string {
   const lines: string[] = [];
-  lines.push(`# Banque d'items pilotes — Quiz pré/post de l'étude`);
+  lines.push(`# Pilot Item Bank — Pre/Post Quiz for the Study`);
   lines.push("");
-  lines.push(`**Générée le :** 2026-07-18 · **Script :** \`scripts/generate-item-bank.ts\` · **Seed :** ${BASE_SEED} (reproductible)`);
+  lines.push(`**Generated:** 2026-07-18 · **Script:** \`scripts/generate-item-bank.ts\` · **Seed:** ${BASE_SEED} (reproducible)`);
   lines.push("");
-  lines.push(`## Objet`);
+  lines.push(`## Purpose`);
   lines.push("");
-  lines.push(`Formes fixes destinées au **pilotage de l'instrument de mesure** (protocole §5.1, docs/research/protocole-etude-quiz.md) auprès de 10–15 étudiants hors étude. Chaque sujet a deux versions isomorphes — **Version A** (pré-test) et **Version B** (post-test) — mêmes squelettes de problèmes, mêmes proportions de difficulté (2 faciles, 2 moyens, 2 difficiles), paramètres numériques différents. Chaque item a été validé automatiquement : la vérité terrain est calculée par le CAS direct (déterministe, sans LLM) et la solution officielle du générateur est notée correcte par le correcteur d'équivalence.`);
+  lines.push(`Fixed forms for **piloting the measurement instrument** (protocol §5.1, docs/research/protocole-etude-quiz.md) with 10–15 students outside the study. Each topic has two isomorphic versions — **Version A** (pre-test) and **Version B** (post-test) — same problem skeletons, same difficulty composition (2 easy, 2 medium, 2 hard), different numeric parameters. Every item was validated automatically: the ground truth is computed by the direct CAS path (deterministic, no LLM) and the generator's official solution is graded correct by the equivalence checker.`);
   lines.push("");
-  lines.push(`## Administration du pilote`);
+  lines.push(`## Pilot administration`);
   lines.push("");
-  lines.push(`- 6 items par sujet, **15 minutes**, réponse finale uniquement, une tentative par item, sans feedback ni indice.`);
-  lines.push(`- Tous les pilotes reçoivent **les mêmes items** (c'est la condition du calcul des indices psychométriques).`);
-  lines.push(`- Correction avec la clé de réponse ci-dessous (équivalences acceptées : notation d'ensemble, fractions équivalentes, formes symboliquement égales — mêmes règles que \`checkEquivalenceDirect\`).`);
+  lines.push(`- 6 items per topic, **15 minutes**, final answer only, one attempt per item, no feedback and no hints.`);
+  lines.push(`- All pilot participants receive **the same items** (a precondition for computing the psychometric indices).`);
+  lines.push(`- Mark using the answer key below (accepted equivalences: set notation, equivalent fractions, symbolically equal forms — the same rules as \`checkEquivalenceDirect\`).`);
   lines.push("");
-  lines.push(`## Critères de rétention des items (§5.1)`);
+  lines.push(`## Item retention criteria (§5.1)`);
   lines.push("");
-  lines.push(`- **Indice de difficulté** p (proportion de réussite) visé : **0,40 – 0,70**.`);
-  lines.push(`- **Indice de discrimination** D (méthode des groupes extrêmes 27 % ou corrélation point-bisériale) : **> 0,20**.`);
-  lines.push(`- Item hors cibles → régénérer un remplaçant du même palier avec le script (changer BASE_SEED) et re-piloter si possible.`);
+  lines.push(`- **Difficulty index** p (proportion correct), target: **0.40 – 0.70**.`);
+  lines.push(`- **Discrimination index** D (27% extreme-groups method or point-biserial correlation): **> 0.20**.`);
+  lines.push(`- Item outside the targets → regenerate a replacement in the same tier with the script (change BASE_SEED) and re-pilot if feasible.`);
   lines.push("");
 
   for (const topic of STUDY_TOPICS) {
     lines.push(`---`);
     lines.push("");
-    lines.push(`# Sujet : ${topic.title} (\`${topic.slug}\`)`);
+    lines.push(`# Topic: ${topic.title} (\`${topic.slug}\`)`);
     for (const version of VERSIONS) {
       lines.push("");
-      lines.push(`## Version ${version} ${version === "A" ? "(pré-test)" : "(post-test)"}`);
+      lines.push(`## Version ${version} ${version === "A" ? "(pre-test)" : "(post-test)"}`);
       const versionItems = items.filter((i) => i.topic === topic.slug && i.version === version);
       for (const item of versionItems) {
         lines.push("");
-        lines.push(`### ${item.id} — ${TIER_LABELS_FR[item.tier]}`);
+        lines.push(`### ${item.id} — ${TIER_LABELS[item.tier]}`);
         lines.push("");
         lines.push(item.statement);
         if (item.prompt) {
           lines.push("");
-          lines.push(`*Consigne :* ${item.prompt}`);
+          lines.push(`*Prompt:* ${item.prompt}`);
         }
         lines.push("");
-        lines.push(`*Format de réponse :* ${item.instruction} (ex. \`${item.placeholder}\`)`);
+        lines.push(`*Answer format:* ${item.instruction} (e.g. \`${item.placeholder}\`)`);
         lines.push("");
-        lines.push(`**Réponse attendue (clé CAS) :** \`${item.groundTruth}\``);
+        lines.push(`**Expected answer (CAS key):** \`${item.groundTruth}\``);
         lines.push("");
-        lines.push(`**Solution officielle :** ${item.officialSolution}`);
+        lines.push(`**Official solution:** ${item.officialSolution}`);
       }
     }
     lines.push("");
-    lines.push(`## Clé de réponse — ${topic.title}`);
+    lines.push(`## Answer key — ${topic.title}`);
     lines.push("");
-    lines.push(`| Item | Palier | Clé CAS |`);
+    lines.push(`| Item | Tier | CAS key |`);
     lines.push(`|---|---|---|`);
     for (const item of items.filter((i) => i.topic === topic.slug)) {
-      lines.push(`| ${item.id} | ${TIER_LABELS_FR[item.tier]} | \`${item.groundTruth}\` |`);
+      lines.push(`| ${item.id} | ${TIER_LABELS[item.tier]} | \`${item.groundTruth}\` |`);
     }
     lines.push("");
   }
 
   lines.push(`---`);
   lines.push("");
-  lines.push(`## Feuille de calcul des indices (à remplir après le pilote)`);
+  lines.push(`## Index worksheet (to fill in after the pilot)`);
   lines.push("");
-  lines.push(`| Item | n réponses | n correctes | p | D | Verdict (garder / remplacer) |`);
+  lines.push(`| Item | n responses | n correct | p | D | Verdict (keep / replace) |`);
   lines.push(`|---|---|---|---|---|---|`);
   for (const item of items) {
     lines.push(`| ${item.id} |  |  |  |  |  |`);

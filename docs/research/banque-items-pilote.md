@@ -1,547 +1,547 @@
-# Banque d'items pilotes — Quiz pré/post de l'étude
+# Pilot Item Bank — Pre/Post Quiz for the Study
 
-**Générée le :** 2026-07-18 · **Script :** `scripts/generate-item-bank.ts` · **Seed :** 20260718 (reproductible)
+**Generated:** 2026-07-18 · **Script:** `scripts/generate-item-bank.ts` · **Seed:** 20260718 (reproducible)
 
-## Objet
+## Purpose
 
-Formes fixes destinées au **pilotage de l'instrument de mesure** (protocole §5.1, docs/research/protocole-etude-quiz.md) auprès de 10–15 étudiants hors étude. Chaque sujet a deux versions isomorphes — **Version A** (pré-test) et **Version B** (post-test) — mêmes squelettes de problèmes, mêmes proportions de difficulté (2 faciles, 2 moyens, 2 difficiles), paramètres numériques différents. Chaque item a été validé automatiquement : la vérité terrain est calculée par le CAS direct (déterministe, sans LLM) et la solution officielle du générateur est notée correcte par le correcteur d'équivalence.
+Fixed forms for **piloting the measurement instrument** (protocol §5.1, docs/research/protocole-etude-quiz.md) with 10–15 students outside the study. Each topic has two isomorphic versions — **Version A** (pre-test) and **Version B** (post-test) — same problem skeletons, same difficulty composition (2 easy, 2 medium, 2 hard), different numeric parameters. Every item was validated automatically: the ground truth is computed by the direct CAS path (deterministic, no LLM) and the generator's official solution is graded correct by the equivalence checker.
 
-## Administration du pilote
+## Pilot administration
 
-- 6 items par sujet, **15 minutes**, réponse finale uniquement, une tentative par item, sans feedback ni indice.
-- Tous les pilotes reçoivent **les mêmes items** (c'est la condition du calcul des indices psychométriques).
-- Correction avec la clé de réponse ci-dessous (équivalences acceptées : notation d'ensemble, fractions équivalentes, formes symboliquement égales — mêmes règles que `checkEquivalenceDirect`).
+- 6 items per topic, **15 minutes**, final answer only, one attempt per item, no feedback and no hints.
+- All pilot participants receive **the same items** (a precondition for computing the psychometric indices).
+- Mark using the answer key below (accepted equivalences: set notation, equivalent fractions, symbolically equal forms — the same rules as `checkEquivalenceDirect`).
 
-## Critères de rétention des items (§5.1)
+## Item retention criteria (§5.1)
 
-- **Indice de difficulté** p (proportion de réussite) visé : **0,40 – 0,70**.
-- **Indice de discrimination** D (méthode des groupes extrêmes 27 % ou corrélation point-bisériale) : **> 0,20**.
-- Item hors cibles → régénérer un remplaçant du même palier avec le script (changer BASE_SEED) et re-piloter si possible.
+- **Difficulty index** p (proportion correct), target: **0.40 – 0.70**.
+- **Discrimination index** D (27% extreme-groups method or point-biserial correlation): **> 0.20**.
+- Item outside the targets → regenerate a replacement in the same tier with the script (change BASE_SEED) and re-pilot if feasible.
 
 ---
 
-# Sujet : Determinants (`determinants`)
+# Topic: Determinants (`determinants`)
 
-## Version A (pré-test)
+## Version A (pre-test)
 
-### DET-A-1 — facile
+### DET-A-1 — easy
 
 Find the value of $k$ for which the matrix is singular:
 $$ A = \begin{bmatrix} 6 & 3 \\ 2 & k \end{bmatrix} $$
 
-*Consigne :* Find $k$ such that $\det(A) = 0$:
+*Prompt:* Find $k$ such that $\det(A) = 0$:
 
-*Format de réponse :* Give the value of k that makes the determinant zero. Fractions, decimals, and simplified LaTeX fractions are accepted. (ex. `Example: k = 3/2`)
+*Answer format:* Give the value of k that makes the determinant zero. Fractions, decimals, and simplified LaTeX fractions are accepted. (e.g. `Example: k = 3/2`)
 
-**Réponse attendue (clé CAS) :** `1`
+**Expected answer (CAS key):** `1`
 
-**Solution officielle :** $k = 1$
+**Official solution:** $k = 1$
 
-### DET-A-2 — facile
+### DET-A-2 — easy
 
 Find the value of $k$ for which the matrix is singular:
 $$ A = \begin{bmatrix} 5 & 1 \\ 1 & k \end{bmatrix} $$
 
-*Consigne :* Find $k$ such that $\det(A) = 0$:
+*Prompt:* Find $k$ such that $\det(A) = 0$:
 
-*Format de réponse :* Give the value of k that makes the determinant zero. Fractions, decimals, and simplified LaTeX fractions are accepted. (ex. `Example: k = 3/2`)
+*Answer format:* Give the value of k that makes the determinant zero. Fractions, decimals, and simplified LaTeX fractions are accepted. (e.g. `Example: k = 3/2`)
 
-**Réponse attendue (clé CAS) :** `1/5`
+**Expected answer (CAS key):** `1/5`
 
-**Solution officielle :** $k = \dfrac{1}{5}$
+**Official solution:** $k = \dfrac{1}{5}$
 
-### DET-A-3 — moyen
+### DET-A-3 — medium
 
 Compute the determinant:
 $$ \begin{vmatrix} 2 & -2 & 2 \\ -2 & 0 & 1 \\ -2 & -2 & -2 \end{vmatrix} $$
 
-*Consigne :* Find $\det(A)$:
+*Prompt:* Find $\det(A)$:
 
-*Format de réponse :* Give the determinant value. You may write det(A) = 12 or just the number if your reasoning makes it clear. (ex. `Example: det(A) = 12`)
+*Answer format:* Give the determinant value. You may write det(A) = 12 or just the number if your reasoning makes it clear. (e.g. `Example: det(A) = 12`)
 
-**Réponse attendue (clé CAS) :** `24`
+**Expected answer (CAS key):** `24`
 
-**Solution officielle :** $\det(A) = 24$
+**Official solution:** $\det(A) = 24$
 
-### DET-A-4 — moyen
+### DET-A-4 — medium
 
 Compute the determinant:
 $$ \begin{vmatrix} 2 & 2 & -1 \\ -2 & -1 & 0 \\ 1 & 1 & 2 \end{vmatrix} $$
 
-*Consigne :* Find $\det(A)$:
+*Prompt:* Find $\det(A)$:
 
-*Format de réponse :* Give the determinant value. You may write det(A) = 12 or just the number if your reasoning makes it clear. (ex. `Example: det(A) = 12`)
+*Answer format:* Give the determinant value. You may write det(A) = 12 or just the number if your reasoning makes it clear. (e.g. `Example: det(A) = 12`)
 
-**Réponse attendue (clé CAS) :** `5`
+**Expected answer (CAS key):** `5`
 
-**Solution officielle :** $\det(A) = 5$
+**Official solution:** $\det(A) = 5$
 
-### DET-A-5 — difficile
+### DET-A-5 — hard
 
 Find the values of $k$ for which the determinant is non-zero:
 $$ \begin{bmatrix} 6 & 4 & 3 \\ -3 & 0 & -5 \\ k & 4 & 3 \end{bmatrix} $$
 
-*Consigne :* Find the values of $k$ for which the determinant is non-zero:
+*Prompt:* Find the values of $k$ for which the determinant is non-zero:
 
-*Format de réponse :* Give the excluded value as a parameter condition. You may use !=, not equal, or LaTeX \neq. (ex. `Example: k != 3`)
+*Answer format:* Give the excluded value as a parameter condition. You may use !=, not equal, or LaTeX \neq. (e.g. `Example: k != 3`)
 
-**Réponse attendue (clé CAS) :** `k != 6`
+**Expected answer (CAS key):** `k != 6`
 
-**Solution officielle :** $k \neq 6$
+**Official solution:** $k \neq 6$
 
-### DET-A-6 — difficile
+### DET-A-6 — hard
 
 Find the values of $k$ for which the determinant is non-zero:
 $$ \begin{bmatrix} 8 & 4 & 3 \\ -3 & 0 & -5 \\ k & 4 & 3 \end{bmatrix} $$
 
-*Consigne :* Find the values of $k$ for which the determinant is non-zero:
+*Prompt:* Find the values of $k$ for which the determinant is non-zero:
 
-*Format de réponse :* Give the excluded value as a parameter condition. You may use !=, not equal, or LaTeX \neq. (ex. `Example: k != 3`)
+*Answer format:* Give the excluded value as a parameter condition. You may use !=, not equal, or LaTeX \neq. (e.g. `Example: k != 3`)
 
-**Réponse attendue (clé CAS) :** `k != 8`
+**Expected answer (CAS key):** `k != 8`
 
-**Solution officielle :** $k \neq 8$
+**Official solution:** $k \neq 8$
 
 ## Version B (post-test)
 
-### DET-B-1 — facile
+### DET-B-1 — easy
 
 Find the value of $k$ for which the matrix is singular:
 $$ A = \begin{bmatrix} 6 & 2 \\ 3 & k \end{bmatrix} $$
 
-*Consigne :* Find $k$ such that $\det(A) = 0$:
+*Prompt:* Find $k$ such that $\det(A) = 0$:
 
-*Format de réponse :* Give the value of k that makes the determinant zero. Fractions, decimals, and simplified LaTeX fractions are accepted. (ex. `Example: k = 3/2`)
+*Answer format:* Give the value of k that makes the determinant zero. Fractions, decimals, and simplified LaTeX fractions are accepted. (e.g. `Example: k = 3/2`)
 
-**Réponse attendue (clé CAS) :** `1`
+**Expected answer (CAS key):** `1`
 
-**Solution officielle :** $k = 1$
+**Official solution:** $k = 1$
 
-### DET-B-2 — facile
+### DET-B-2 — easy
 
 Find the value of $k$ for which the matrix is singular:
 $$ A = \begin{bmatrix} 3 & 4 \\ 1 & k \end{bmatrix} $$
 
-*Consigne :* Find $k$ such that $\det(A) = 0$:
+*Prompt:* Find $k$ such that $\det(A) = 0$:
 
-*Format de réponse :* Give the value of k that makes the determinant zero. Fractions, decimals, and simplified LaTeX fractions are accepted. (ex. `Example: k = 3/2`)
+*Answer format:* Give the value of k that makes the determinant zero. Fractions, decimals, and simplified LaTeX fractions are accepted. (e.g. `Example: k = 3/2`)
 
-**Réponse attendue (clé CAS) :** `4/3`
+**Expected answer (CAS key):** `4/3`
 
-**Solution officielle :** $k = \dfrac{4}{3}$
+**Official solution:** $k = \dfrac{4}{3}$
 
-### DET-B-3 — moyen
+### DET-B-3 — medium
 
 Compute the determinant:
 $$ \begin{vmatrix} 2 & -2 & 1 \\ -1 & 0 & 1 \\ 0 & 1 & 0 \end{vmatrix} $$
 
-*Consigne :* Find $\det(A)$:
+*Prompt:* Find $\det(A)$:
 
-*Format de réponse :* Give the determinant value. You may write det(A) = 12 or just the number if your reasoning makes it clear. (ex. `Example: det(A) = 12`)
+*Answer format:* Give the determinant value. You may write det(A) = 12 or just the number if your reasoning makes it clear. (e.g. `Example: det(A) = 12`)
 
-**Réponse attendue (clé CAS) :** `-3`
+**Expected answer (CAS key):** `-3`
 
-**Solution officielle :** $\det(A) = -3$
+**Official solution:** $\det(A) = -3$
 
-### DET-B-4 — moyen
+### DET-B-4 — medium
 
 Compute the determinant:
 $$ \begin{vmatrix} 2 & -2 & -2 \\ -1 & -1 & 0 \\ 2 & -1 & 2 \end{vmatrix} $$
 
-*Consigne :* Find $\det(A)$:
+*Prompt:* Find $\det(A)$:
 
-*Format de réponse :* Give the determinant value. You may write det(A) = 12 or just the number if your reasoning makes it clear. (ex. `Example: det(A) = 12`)
+*Answer format:* Give the determinant value. You may write det(A) = 12 or just the number if your reasoning makes it clear. (e.g. `Example: det(A) = 12`)
 
-**Réponse attendue (clé CAS) :** `-14`
+**Expected answer (CAS key):** `-14`
 
-**Solution officielle :** $\det(A) = -14$
+**Official solution:** $\det(A) = -14$
 
-### DET-B-5 — difficile
+### DET-B-5 — hard
 
 Find the values of $k$ for which the determinant is non-zero:
 $$ \begin{bmatrix} 3 & 4 & 3 \\ -3 & 0 & -5 \\ k & 4 & 3 \end{bmatrix} $$
 
-*Consigne :* Find the values of $k$ for which the determinant is non-zero:
+*Prompt:* Find the values of $k$ for which the determinant is non-zero:
 
-*Format de réponse :* Give the excluded value as a parameter condition. You may use !=, not equal, or LaTeX \neq. (ex. `Example: k != 3`)
+*Answer format:* Give the excluded value as a parameter condition. You may use !=, not equal, or LaTeX \neq. (e.g. `Example: k != 3`)
 
-**Réponse attendue (clé CAS) :** `k != 3`
+**Expected answer (CAS key):** `k != 3`
 
-**Solution officielle :** $k \neq 3$
+**Official solution:** $k \neq 3$
 
-### DET-B-6 — difficile
+### DET-B-6 — hard
 
 Find the values of $k$ for which the determinant is non-zero:
 $$ \begin{bmatrix} 1 & 4 & 3 \\ -3 & 0 & -5 \\ k & 4 & 3 \end{bmatrix} $$
 
-*Consigne :* Find the values of $k$ for which the determinant is non-zero:
+*Prompt:* Find the values of $k$ for which the determinant is non-zero:
 
-*Format de réponse :* Give the excluded value as a parameter condition. You may use !=, not equal, or LaTeX \neq. (ex. `Example: k != 3`)
+*Answer format:* Give the excluded value as a parameter condition. You may use !=, not equal, or LaTeX \neq. (e.g. `Example: k != 3`)
 
-**Réponse attendue (clé CAS) :** `k != 1`
+**Expected answer (CAS key):** `k != 1`
 
-**Solution officielle :** $k \neq 1$
+**Official solution:** $k \neq 1$
 
-## Clé de réponse — Determinants
+## Answer key — Determinants
 
-| Item | Palier | Clé CAS |
+| Item | Tier | CAS key |
 |---|---|---|
-| DET-A-1 | facile | `1` |
-| DET-A-2 | facile | `1/5` |
-| DET-A-3 | moyen | `24` |
-| DET-A-4 | moyen | `5` |
-| DET-A-5 | difficile | `k != 6` |
-| DET-A-6 | difficile | `k != 8` |
-| DET-B-1 | facile | `1` |
-| DET-B-2 | facile | `4/3` |
-| DET-B-3 | moyen | `-3` |
-| DET-B-4 | moyen | `-14` |
-| DET-B-5 | difficile | `k != 3` |
-| DET-B-6 | difficile | `k != 1` |
+| DET-A-1 | easy | `1` |
+| DET-A-2 | easy | `1/5` |
+| DET-A-3 | medium | `24` |
+| DET-A-4 | medium | `5` |
+| DET-A-5 | hard | `k != 6` |
+| DET-A-6 | hard | `k != 8` |
+| DET-B-1 | easy | `1` |
+| DET-B-2 | easy | `4/3` |
+| DET-B-3 | medium | `-3` |
+| DET-B-4 | medium | `-14` |
+| DET-B-5 | hard | `k != 3` |
+| DET-B-6 | hard | `k != 1` |
 
 ---
 
-# Sujet : Eigenvalues & Eigenvectors (2×2) (`eigenvalues`)
+# Topic: Eigenvalues & Eigenvectors (2×2) (`eigenvalues`)
 
-## Version A (pré-test)
+## Version A (pre-test)
 
-### EIG-A-1 — facile
+### EIG-A-1 — easy
 
 Find the eigenvalues of $$ A = \begin{pmatrix} 6 & 0 \\ 0 & 9 \end{pmatrix} $$
 
-*Consigne :* Find all eigenvalues $\lambda$:
+*Prompt:* Find all eigenvalues $\lambda$:
 
-*Format de réponse :* Give all eigenvalues as a set. Set notation is accepted, and order does not matter. (ex. `Example: lambda in {2, 5}`)
+*Answer format:* Give all eigenvalues as a set. Set notation is accepted, and order does not matter. (e.g. `Example: lambda in {2, 5}`)
 
-**Réponse attendue (clé CAS) :** `[6, 9]`
+**Expected answer (CAS key):** `[6, 9]`
 
-**Solution officielle :** $\lambda_1 = 6,\ \lambda_2 = 9$
+**Official solution:** $\lambda_1 = 6,\ \lambda_2 = 9$
 
-### EIG-A-2 — facile
+### EIG-A-2 — easy
 
 Find the eigenvalues of $$ A = \begin{pmatrix} 2 & 0 \\ 0 & 5 \end{pmatrix} $$
 
-*Consigne :* Find all eigenvalues $\lambda$:
+*Prompt:* Find all eigenvalues $\lambda$:
 
-*Format de réponse :* Give all eigenvalues as a set. Set notation is accepted, and order does not matter. (ex. `Example: lambda in {2, 5}`)
+*Answer format:* Give all eigenvalues as a set. Set notation is accepted, and order does not matter. (e.g. `Example: lambda in {2, 5}`)
 
-**Réponse attendue (clé CAS) :** `[2, 5]`
+**Expected answer (CAS key):** `[2, 5]`
 
-**Solution officielle :** $\lambda_1 = 2,\ \lambda_2 = 5$
+**Official solution:** $\lambda_1 = 2,\ \lambda_2 = 5$
 
-### EIG-A-3 — moyen
+### EIG-A-3 — medium
 
 Find the eigenvalues of $$ A = \begin{pmatrix} 3 & 1 \\ 0 & 6 \end{pmatrix} $$
 
-*Consigne :* Find all eigenvalues $\lambda$:
+*Prompt:* Find all eigenvalues $\lambda$:
 
-*Format de réponse :* Give all eigenvalues as a set. Set notation is accepted, and order does not matter. (ex. `Example: lambda in {2, 5}`)
+*Answer format:* Give all eigenvalues as a set. Set notation is accepted, and order does not matter. (e.g. `Example: lambda in {2, 5}`)
 
-**Réponse attendue (clé CAS) :** `[3, 6]`
+**Expected answer (CAS key):** `[3, 6]`
 
-**Solution officielle :** $\lambda_1 = 3,\ \lambda_2 = 6$
+**Official solution:** $\lambda_1 = 3,\ \lambda_2 = 6$
 
-### EIG-A-4 — moyen
+### EIG-A-4 — medium
 
 Find the eigenvalues of $$ A = \begin{pmatrix} 1 & 4 \\ 0 & 3 \end{pmatrix} $$
 
-*Consigne :* Find all eigenvalues $\lambda$:
+*Prompt:* Find all eigenvalues $\lambda$:
 
-*Format de réponse :* Give all eigenvalues as a set. Set notation is accepted, and order does not matter. (ex. `Example: lambda in {2, 5}`)
+*Answer format:* Give all eigenvalues as a set. Set notation is accepted, and order does not matter. (e.g. `Example: lambda in {2, 5}`)
 
-**Réponse attendue (clé CAS) :** `[1, 3]`
+**Expected answer (CAS key):** `[1, 3]`
 
-**Solution officielle :** $\lambda_1 = 1,\ \lambda_2 = 3$
+**Official solution:** $\lambda_1 = 1,\ \lambda_2 = 3$
 
-### EIG-A-5 — difficile
+### EIG-A-5 — hard
 
 Find the eigenvalues of $$ A = \begin{pmatrix} 5 & 1 \\ 1 & 5 \end{pmatrix} $$
 
-*Consigne :* Find all eigenvalues $\lambda$:
+*Prompt:* Find all eigenvalues $\lambda$:
 
-*Format de réponse :* Give all eigenvalues as a set. Set notation is accepted, and order does not matter. (ex. `Example: lambda in {2, 5}`)
+*Answer format:* Give all eigenvalues as a set. Set notation is accepted, and order does not matter. (e.g. `Example: lambda in {2, 5}`)
 
-**Réponse attendue (clé CAS) :** `[4, 6]`
+**Expected answer (CAS key):** `[4, 6]`
 
-**Solution officielle :** $\lambda_1 = 4,\ \lambda_2 = 6$
+**Official solution:** $\lambda_1 = 4,\ \lambda_2 = 6$
 
-### EIG-A-6 — difficile
+### EIG-A-6 — hard
 
 Find the eigenvalues of $$ A = \begin{pmatrix} 7 & 1 \\ 1 & 7 \end{pmatrix} $$
 
-*Consigne :* Find all eigenvalues $\lambda$:
+*Prompt:* Find all eigenvalues $\lambda$:
 
-*Format de réponse :* Give all eigenvalues as a set. Set notation is accepted, and order does not matter. (ex. `Example: lambda in {2, 5}`)
+*Answer format:* Give all eigenvalues as a set. Set notation is accepted, and order does not matter. (e.g. `Example: lambda in {2, 5}`)
 
-**Réponse attendue (clé CAS) :** `[6, 8]`
+**Expected answer (CAS key):** `[6, 8]`
 
-**Solution officielle :** $\lambda_1 = 6,\ \lambda_2 = 8$
+**Official solution:** $\lambda_1 = 6,\ \lambda_2 = 8$
 
 ## Version B (post-test)
 
-### EIG-B-1 — facile
+### EIG-B-1 — easy
 
 Find the eigenvalues of $$ A = \begin{pmatrix} 4 & 0 \\ 0 & 5 \end{pmatrix} $$
 
-*Consigne :* Find all eigenvalues $\lambda$:
+*Prompt:* Find all eigenvalues $\lambda$:
 
-*Format de réponse :* Give all eigenvalues as a set. Set notation is accepted, and order does not matter. (ex. `Example: lambda in {2, 5}`)
+*Answer format:* Give all eigenvalues as a set. Set notation is accepted, and order does not matter. (e.g. `Example: lambda in {2, 5}`)
 
-**Réponse attendue (clé CAS) :** `[4, 5]`
+**Expected answer (CAS key):** `[4, 5]`
 
-**Solution officielle :** $\lambda_1 = 4,\ \lambda_2 = 5$
+**Official solution:** $\lambda_1 = 4,\ \lambda_2 = 5$
 
-### EIG-B-2 — facile
+### EIG-B-2 — easy
 
 Find the eigenvalues of $$ A = \begin{pmatrix} 2 & 0 \\ 0 & 6 \end{pmatrix} $$
 
-*Consigne :* Find all eigenvalues $\lambda$:
+*Prompt:* Find all eigenvalues $\lambda$:
 
-*Format de réponse :* Give all eigenvalues as a set. Set notation is accepted, and order does not matter. (ex. `Example: lambda in {2, 5}`)
+*Answer format:* Give all eigenvalues as a set. Set notation is accepted, and order does not matter. (e.g. `Example: lambda in {2, 5}`)
 
-**Réponse attendue (clé CAS) :** `[2, 6]`
+**Expected answer (CAS key):** `[2, 6]`
 
-**Solution officielle :** $\lambda_1 = 2,\ \lambda_2 = 6$
+**Official solution:** $\lambda_1 = 2,\ \lambda_2 = 6$
 
-### EIG-B-3 — moyen
+### EIG-B-3 — medium
 
 Find the eigenvalues of $$ A = \begin{pmatrix} 3 & 2 \\ 0 & 5 \end{pmatrix} $$
 
-*Consigne :* Find all eigenvalues $\lambda$:
+*Prompt:* Find all eigenvalues $\lambda$:
 
-*Format de réponse :* Give all eigenvalues as a set. Set notation is accepted, and order does not matter. (ex. `Example: lambda in {2, 5}`)
+*Answer format:* Give all eigenvalues as a set. Set notation is accepted, and order does not matter. (e.g. `Example: lambda in {2, 5}`)
 
-**Réponse attendue (clé CAS) :** `[3, 5]`
+**Expected answer (CAS key):** `[3, 5]`
 
-**Solution officielle :** $\lambda_1 = 3,\ \lambda_2 = 5$
+**Official solution:** $\lambda_1 = 3,\ \lambda_2 = 5$
 
-### EIG-B-4 — moyen
+### EIG-B-4 — medium
 
 Find the eigenvalues of $$ A = \begin{pmatrix} 1 & 2 \\ 0 & 3 \end{pmatrix} $$
 
-*Consigne :* Find all eigenvalues $\lambda$:
+*Prompt:* Find all eigenvalues $\lambda$:
 
-*Format de réponse :* Give all eigenvalues as a set. Set notation is accepted, and order does not matter. (ex. `Example: lambda in {2, 5}`)
+*Answer format:* Give all eigenvalues as a set. Set notation is accepted, and order does not matter. (e.g. `Example: lambda in {2, 5}`)
 
-**Réponse attendue (clé CAS) :** `[1, 3]`
+**Expected answer (CAS key):** `[1, 3]`
 
-**Solution officielle :** $\lambda_1 = 1,\ \lambda_2 = 3$
+**Official solution:** $\lambda_1 = 1,\ \lambda_2 = 3$
 
-### EIG-B-5 — difficile
+### EIG-B-5 — hard
 
 Find the eigenvalues of $$ A = \begin{pmatrix} 8 & 1 \\ 1 & 8 \end{pmatrix} $$
 
-*Consigne :* Find all eigenvalues $\lambda$:
+*Prompt:* Find all eigenvalues $\lambda$:
 
-*Format de réponse :* Give all eigenvalues as a set. Set notation is accepted, and order does not matter. (ex. `Example: lambda in {2, 5}`)
+*Answer format:* Give all eigenvalues as a set. Set notation is accepted, and order does not matter. (e.g. `Example: lambda in {2, 5}`)
 
-**Réponse attendue (clé CAS) :** `[7, 9]`
+**Expected answer (CAS key):** `[7, 9]`
 
-**Solution officielle :** $\lambda_1 = 7,\ \lambda_2 = 9$
+**Official solution:** $\lambda_1 = 7,\ \lambda_2 = 9$
 
-### EIG-B-6 — difficile
+### EIG-B-6 — hard
 
 Find the eigenvalues of $$ A = \begin{pmatrix} 3 & 1 \\ 1 & 3 \end{pmatrix} $$
 
-*Consigne :* Find all eigenvalues $\lambda$:
+*Prompt:* Find all eigenvalues $\lambda$:
 
-*Format de réponse :* Give all eigenvalues as a set. Set notation is accepted, and order does not matter. (ex. `Example: lambda in {2, 5}`)
+*Answer format:* Give all eigenvalues as a set. Set notation is accepted, and order does not matter. (e.g. `Example: lambda in {2, 5}`)
 
-**Réponse attendue (clé CAS) :** `[2, 4]`
+**Expected answer (CAS key):** `[2, 4]`
 
-**Solution officielle :** $\lambda_1 = 2,\ \lambda_2 = 4$
+**Official solution:** $\lambda_1 = 2,\ \lambda_2 = 4$
 
-## Clé de réponse — Eigenvalues & Eigenvectors (2×2)
+## Answer key — Eigenvalues & Eigenvectors (2×2)
 
-| Item | Palier | Clé CAS |
+| Item | Tier | CAS key |
 |---|---|---|
-| EIG-A-1 | facile | `[6, 9]` |
-| EIG-A-2 | facile | `[2, 5]` |
-| EIG-A-3 | moyen | `[3, 6]` |
-| EIG-A-4 | moyen | `[1, 3]` |
-| EIG-A-5 | difficile | `[4, 6]` |
-| EIG-A-6 | difficile | `[6, 8]` |
-| EIG-B-1 | facile | `[4, 5]` |
-| EIG-B-2 | facile | `[2, 6]` |
-| EIG-B-3 | moyen | `[3, 5]` |
-| EIG-B-4 | moyen | `[1, 3]` |
-| EIG-B-5 | difficile | `[7, 9]` |
-| EIG-B-6 | difficile | `[2, 4]` |
+| EIG-A-1 | easy | `[6, 9]` |
+| EIG-A-2 | easy | `[2, 5]` |
+| EIG-A-3 | medium | `[3, 6]` |
+| EIG-A-4 | medium | `[1, 3]` |
+| EIG-A-5 | hard | `[4, 6]` |
+| EIG-A-6 | hard | `[6, 8]` |
+| EIG-B-1 | easy | `[4, 5]` |
+| EIG-B-2 | easy | `[2, 6]` |
+| EIG-B-3 | medium | `[3, 5]` |
+| EIG-B-4 | medium | `[1, 3]` |
+| EIG-B-5 | hard | `[7, 9]` |
+| EIG-B-6 | hard | `[2, 4]` |
 
 ---
 
-# Sujet : Derivatives (`derivatives`)
+# Topic: Derivatives (`derivatives`)
 
-## Version A (pré-test)
+## Version A (pre-test)
 
-### DER-A-1 — facile
+### DER-A-1 — easy
 
 Find the derivative of the function $$ f(x) = 4x^4 + 4x + 1 $$
 
-*Consigne :* Find \(f'(x)\):
+*Prompt:* Find \(f'(x)\):
 
-*Format de réponse :* Apply the power rule to each term. Constants differentiate to 0. (ex. `Example: 16x^3 + 4`)
+*Answer format:* Apply the power rule to each term. Constants differentiate to 0. (e.g. `Example: 16x^3 + 4`)
 
-**Réponse attendue (clé CAS) :** `16*x^3+4`
+**Expected answer (CAS key):** `16*x^3+4`
 
-**Solution officielle :** \(16x^3 + 4\)
+**Official solution:** \(16x^3 + 4\)
 
-### DER-A-2 — facile
+### DER-A-2 — easy
 
 Find the derivative of the function $$ f(x) = 4x^5 + 4x + 1 $$
 
-*Consigne :* Find \(f'(x)\):
+*Prompt:* Find \(f'(x)\):
 
-*Format de réponse :* Apply the power rule to each term. Constants differentiate to 0. (ex. `Example: 20x^4 + 4`)
+*Answer format:* Apply the power rule to each term. Constants differentiate to 0. (e.g. `Example: 20x^4 + 4`)
 
-**Réponse attendue (clé CAS) :** `20*x^4+4`
+**Expected answer (CAS key):** `20*x^4+4`
 
-**Solution officielle :** \(20x^4 + 4\)
+**Official solution:** \(20x^4 + 4\)
 
-### DER-A-3 — moyen
+### DER-A-3 — medium
 
 Find the derivative of the function $$ g(x) = \ln(2x^2 + 5) $$
 
-*Consigne :* Find \(g'(x)\):
+*Prompt:* Find \(g'(x)\):
 
-*Format de réponse :* Write the derivative as a simplified fraction. Equivalent forms are accepted. (ex. `Example: 4x/(2x^2+5)`)
+*Answer format:* Write the derivative as a simplified fraction. Equivalent forms are accepted. (e.g. `Example: 4x/(2x^2+5)`)
 
-**Réponse attendue (clé CAS) :** `4*(2*x^2+5)^(-1)*x`
+**Expected answer (CAS key):** `4*(2*x^2+5)^(-1)*x`
 
-**Solution officielle :** \(\dfrac{4x}{2x^2 + 5}\)
+**Official solution:** \(\dfrac{4x}{2x^2 + 5}\)
 
-### DER-A-4 — moyen
+### DER-A-4 — medium
 
 Find the derivative of the function $$ f(x) = 2 \cos(2x) $$
 
-*Consigne :* Find \(f'(x)\):
+*Prompt:* Find \(f'(x)\):
 
-*Format de réponse :* Write the derivative as a mathematical expression. Use \\sin, \\cos notation or plain text. Order and spacing do not matter. (ex. `Example: -6 sin(2x)`)
+*Answer format:* Write the derivative as a mathematical expression. Use \\sin, \\cos notation or plain text. Order and spacing do not matter. (e.g. `Example: -6 sin(2x)`)
 
-**Réponse attendue (clé CAS) :** `-4*sin(2*x)`
+**Expected answer (CAS key):** `-4*sin(2*x)`
 
-**Solution officielle :** \(-4 \sin(2x)\)
+**Official solution:** \(-4 \sin(2x)\)
 
-### DER-A-5 — difficile
+### DER-A-5 — hard
 
 Find the derivative of the function $$ f(x) = \frac{4x + 4}{3x + 4} $$
 
-*Consigne :* Find \(f'(x)\):
+*Prompt:* Find \(f'(x)\):
 
-*Format de réponse :* Apply the quotient rule. Give the simplified result with the denominator squared. (ex. `Example: 4/(3x+ 4)^2`)
+*Answer format:* Apply the quotient rule. Give the simplified result with the denominator squared. (e.g. `Example: 4/(3x+ 4)^2`)
 
-**Réponse attendue (clé CAS) :** `-3*(3*x+4)^(-2)*(4+4*x)+4*(3*x+4)^(-1)`
+**Expected answer (CAS key):** `-3*(3*x+4)^(-2)*(4+4*x)+4*(3*x+4)^(-1)`
 
-**Solution officielle :** \(\dfrac{4}{(3x + 4)^2}\)
+**Official solution:** \(\dfrac{4}{(3x + 4)^2}\)
 
-### DER-A-6 — difficile
+### DER-A-6 — hard
 
 Find the derivative of the function $$ f(x) = x^4 \cdot e^{5x} $$
 
-*Consigne :* Find \(f'(x)\):
+*Prompt:* Find \(f'(x)\):
 
-*Format de réponse :* Apply the product rule. Factored or expanded forms are both accepted. (ex. `Example: e^(5x)(4x^3 + 5x^4)`)
+*Answer format:* Apply the product rule. Factored or expanded forms are both accepted. (e.g. `Example: e^(5x)(4x^3 + 5x^4)`)
 
-**Réponse attendue (clé CAS) :** `4*e^(5*x)*x^3+5*e^(5*x)*x^4`
+**Expected answer (CAS key):** `4*e^(5*x)*x^3+5*e^(5*x)*x^4`
 
-**Solution officielle :** \(e^{5x}(4x^{3} + 5x^4)\)
+**Official solution:** \(e^{5x}(4x^{3} + 5x^4)\)
 
 ## Version B (post-test)
 
-### DER-B-1 — facile
+### DER-B-1 — easy
 
 Find the derivative of the function $$ f(x) = 5x^4 + 5x + 2 $$
 
-*Consigne :* Find \(f'(x)\):
+*Prompt:* Find \(f'(x)\):
 
-*Format de réponse :* Apply the power rule to each term. Constants differentiate to 0. (ex. `Example: 20x^3 + 5`)
+*Answer format:* Apply the power rule to each term. Constants differentiate to 0. (e.g. `Example: 20x^3 + 5`)
 
-**Réponse attendue (clé CAS) :** `20*x^3+5`
+**Expected answer (CAS key):** `20*x^3+5`
 
-**Solution officielle :** \(20x^3 + 5\)
+**Official solution:** \(20x^3 + 5\)
 
-### DER-B-2 — facile
+### DER-B-2 — easy
 
 Find the derivative of the function $$ f(x) = 4x^3 + 3x + 1 $$
 
-*Consigne :* Find \(f'(x)\):
+*Prompt:* Find \(f'(x)\):
 
-*Format de réponse :* Apply the power rule to each term. Constants differentiate to 0. (ex. `Example: 12x^2 + 3`)
+*Answer format:* Apply the power rule to each term. Constants differentiate to 0. (e.g. `Example: 12x^2 + 3`)
 
-**Réponse attendue (clé CAS) :** `12*x^2+3`
+**Expected answer (CAS key):** `12*x^2+3`
 
-**Solution officielle :** \(12x^2 + 3\)
+**Official solution:** \(12x^2 + 3\)
 
-### DER-B-3 — moyen
+### DER-B-3 — medium
 
 Find the derivative of the function $$ f(x) = 3 \cos(2x) $$
 
-*Consigne :* Find \(f'(x)\):
+*Prompt:* Find \(f'(x)\):
 
-*Format de réponse :* Write the derivative as a mathematical expression. Use \\sin, \\cos notation or plain text. Order and spacing do not matter. (ex. `Example: -6 sin(2x)`)
+*Answer format:* Write the derivative as a mathematical expression. Use \\sin, \\cos notation or plain text. Order and spacing do not matter. (e.g. `Example: -6 sin(2x)`)
 
-**Réponse attendue (clé CAS) :** `-6*sin(2*x)`
+**Expected answer (CAS key):** `-6*sin(2*x)`
 
-**Solution officielle :** \(-6 \sin(2x)\)
+**Official solution:** \(-6 \sin(2x)\)
 
-### DER-B-4 — moyen
+### DER-B-4 — medium
 
 Find the derivative of the function $$ g(x) = \ln(2x^2 + 2) $$
 
-*Consigne :* Find \(g'(x)\):
+*Prompt:* Find \(g'(x)\):
 
-*Format de réponse :* Write the derivative as a simplified fraction. Equivalent forms are accepted. (ex. `Example: 4x/(2x^2+2)`)
+*Answer format:* Write the derivative as a simplified fraction. Equivalent forms are accepted. (e.g. `Example: 4x/(2x^2+2)`)
 
-**Réponse attendue (clé CAS) :** `4*(2+2*x^2)^(-1)*x`
+**Expected answer (CAS key):** `4*(2+2*x^2)^(-1)*x`
 
-**Solution officielle :** \(\dfrac{4x}{2x^2 + 2}\)
+**Official solution:** \(\dfrac{4x}{2x^2 + 2}\)
 
-### DER-B-5 — difficile
+### DER-B-5 — hard
 
 Find the derivative of the function $$ f(x) = \frac{3x + 2}{5x + 5} $$
 
-*Consigne :* Find \(f'(x)\):
+*Prompt:* Find \(f'(x)\):
 
-*Format de réponse :* Apply the quotient rule. Give the simplified result with the denominator squared. (ex. `Example: 5/(5x+ 5)^2`)
+*Answer format:* Apply the quotient rule. Give the simplified result with the denominator squared. (e.g. `Example: 5/(5x+ 5)^2`)
 
-**Réponse attendue (clé CAS) :** `-5*(2+3*x)*(5+5*x)^(-2)+3*(5+5*x)^(-1)`
+**Expected answer (CAS key):** `-5*(2+3*x)*(5+5*x)^(-2)+3*(5+5*x)^(-1)`
 
-**Solution officielle :** \(\dfrac{5}{(5x + 5)^2}\)
+**Official solution:** \(\dfrac{5}{(5x + 5)^2}\)
 
-### DER-B-6 — difficile
+### DER-B-6 — hard
 
 Find the derivative of the function $$ f(x) = x^3 \cdot e^{2x} $$
 
-*Consigne :* Find \(f'(x)\):
+*Prompt:* Find \(f'(x)\):
 
-*Format de réponse :* Apply the product rule. Factored or expanded forms are both accepted. (ex. `Example: e^(2x)(3x^2 + 2x^3)`)
+*Answer format:* Apply the product rule. Factored or expanded forms are both accepted. (e.g. `Example: e^(2x)(3x^2 + 2x^3)`)
 
-**Réponse attendue (clé CAS) :** `2*e^(2*x)*x^3+3*e^(2*x)*x^2`
+**Expected answer (CAS key):** `2*e^(2*x)*x^3+3*e^(2*x)*x^2`
 
-**Solution officielle :** \(e^{2x}(3x^{2} + 2x^3)\)
+**Official solution:** \(e^{2x}(3x^{2} + 2x^3)\)
 
-## Clé de réponse — Derivatives
+## Answer key — Derivatives
 
-| Item | Palier | Clé CAS |
+| Item | Tier | CAS key |
 |---|---|---|
-| DER-A-1 | facile | `16*x^3+4` |
-| DER-A-2 | facile | `20*x^4+4` |
-| DER-A-3 | moyen | `4*(2*x^2+5)^(-1)*x` |
-| DER-A-4 | moyen | `-4*sin(2*x)` |
-| DER-A-5 | difficile | `-3*(3*x+4)^(-2)*(4+4*x)+4*(3*x+4)^(-1)` |
-| DER-A-6 | difficile | `4*e^(5*x)*x^3+5*e^(5*x)*x^4` |
-| DER-B-1 | facile | `20*x^3+5` |
-| DER-B-2 | facile | `12*x^2+3` |
-| DER-B-3 | moyen | `-6*sin(2*x)` |
-| DER-B-4 | moyen | `4*(2+2*x^2)^(-1)*x` |
-| DER-B-5 | difficile | `-5*(2+3*x)*(5+5*x)^(-2)+3*(5+5*x)^(-1)` |
-| DER-B-6 | difficile | `2*e^(2*x)*x^3+3*e^(2*x)*x^2` |
+| DER-A-1 | easy | `16*x^3+4` |
+| DER-A-2 | easy | `20*x^4+4` |
+| DER-A-3 | medium | `4*(2*x^2+5)^(-1)*x` |
+| DER-A-4 | medium | `-4*sin(2*x)` |
+| DER-A-5 | hard | `-3*(3*x+4)^(-2)*(4+4*x)+4*(3*x+4)^(-1)` |
+| DER-A-6 | hard | `4*e^(5*x)*x^3+5*e^(5*x)*x^4` |
+| DER-B-1 | easy | `20*x^3+5` |
+| DER-B-2 | easy | `12*x^2+3` |
+| DER-B-3 | medium | `-6*sin(2*x)` |
+| DER-B-4 | medium | `4*(2+2*x^2)^(-1)*x` |
+| DER-B-5 | hard | `-5*(2+3*x)*(5+5*x)^(-2)+3*(5+5*x)^(-1)` |
+| DER-B-6 | hard | `2*e^(2*x)*x^3+3*e^(2*x)*x^2` |
 
 ---
 
-## Feuille de calcul des indices (à remplir après le pilote)
+## Index worksheet (to fill in after the pilot)
 
-| Item | n réponses | n correctes | p | D | Verdict (garder / remplacer) |
+| Item | n responses | n correct | p | D | Verdict (keep / replace) |
 |---|---|---|---|---|---|
 | DET-A-1 |  |  |  |  |  |
 | DET-A-2 |  |  |  |  |  |

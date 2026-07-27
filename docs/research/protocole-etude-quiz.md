@@ -1,250 +1,250 @@
-# Protocole expérimental — Étude quiz : validation du reward pédagogique
+# Experimental Protocol — Quiz Study: Validating the Pedagogical Reward
 
-**Titre de travail :** *Does AI-judged feedback actually teach? A randomized study of RLAIF, expert-in-the-loop, and outcome-based reward signals for automated mathematics feedback.*
+**Working title:** *Does AI-judged feedback actually teach? A randomized study of RLAIF, expert-in-the-loop, and outcome-based reward signals for automated mathematics feedback.*
 
-**Version :** 1.0 — 16 juillet 2026
-**Investigateur principal :** Dogbalou Motognon Wastalas d'Assise
-**Plateforme :** STACK-AI-Math-Course (Next.js + Convex + Gemini/OpenAI)
-**Statut :** brouillon — à pré-enregistrer (OSF) avant tout recrutement
+**Version:** 1.1 — 27 July 2026 (translated to English; content unchanged from v1.0, 16 July 2026)
+**Principal investigator:** Dogbalou Motognon Wastalas d'Assise
+**Platform:** STACK-AI-Math-Course (Next.js + Convex + Gemini/OpenAI)
+**Status:** draft — to be pre-registered (OSF) before any recruitment
 
 ---
 
-## 1. Contexte et justification
+## 1. Background and rationale
 
-Le pipeline de feedback de la plateforme combine trois signaux de qualité :
+The platform's feedback pipeline combines three quality signals:
 
-1. **RLAIF / Best-of-N** (`convex/grading.ts` → `gradeBestOfN`) : N=3 feedbacks candidats générés à température 0.4 ; un LLM-as-Judge (`convex/judge.ts` → `evaluateEvaluator`, ancré sur vérification CAS et corrections d'experts) attribue à chacun un `judgeConfidence` ; le candidat le plus confiant est délivré à l'étudiant.
-2. **Expert-in-the-loop** (`convex/corrections.ts`) : corrections humaines approuvées, réinjectées en few-shot dans le grader et le juge.
-3. **Outcome-Based Reward** (`convex/submissions.ts`) : pour chaque soumission, `outcomeReward = masteryBefore(soumission suivante) − masteryBefore(soumission courante)` sur le même sujet ; les feedbacks avec `outcomeReward ≥ 5` alimentent un pool few-shot « pédagogiquement validé » injecté dans `gradeOptimized`.
+1. **RLAIF / Best-of-N** (`convex/grading.ts` → `gradeBestOfN`): N=3 candidate feedbacks generated at temperature 0.4; an LLM-as-Judge (`convex/judge.ts` → `evaluateEvaluator`, grounded on CAS verification and expert corrections) assigns each a `judgeConfidence`; the most confident candidate is delivered to the student.
+2. **Expert-in-the-loop** (`convex/corrections.ts`): approved human corrections, fed back as few-shot examples into the grader and the judge.
+3. **Outcome-Based Reward** (`convex/submissions.ts`): for each submission, `outcomeReward = masteryBefore(next submission) − masteryBefore(current submission)` on the same topic; feedbacks with `outcomeReward ≥ 5` populate a "pedagogically validated" few-shot pool injected into `gradeOptimized`.
 
-**Problème :** les signaux 1 et 2 mesurent la *plausibilité* du feedback (un juge le trouve correct et aligné). Ils ne mesurent pas son *efficacité pédagogique*. Le signal 3 repose sur l'hypothèse que le gain de maîtrise observé après un feedback est attribuable, au moins en partie, à ce feedback. Aucune de ces hypothèses n'a été testée expérimentalement.
+**Problem:** signals 1 and 2 measure the *plausibility* of the feedback (a judge finds it correct and aligned). They do not measure its *pedagogical effectiveness*. Signal 3 rests on the assumption that the mastery gain observed after a piece of feedback is attributable, at least in part, to that feedback. None of these assumptions has been tested experimentally.
 
-**Thèse à tester :** le signal de récompense le plus honnête en éducation n'est pas ce qu'une seconde IA pense du feedback, mais si l'étudiant progresse après l'avoir reçu.
+**Thesis to be tested:** the most honest reward signal in education is not what a second AI thinks of the feedback, but whether the student improved after receiving it.
 
-## 2. Questions de recherche et hypothèses
+## 2. Research questions and hypotheses
 
-- **RQ1.** Le feedback sélectionné par le juge (Best-of-N) produit-il un gain d'apprentissage supérieur au feedback single-pass ?
-  **H1 :** gain(B) > gain(A), taille d'effet attendue d ≈ 0.3–0.4.
-- **RQ2.** L'ajout d'exemples few-shot validés par l'outcome (pool `outcomeReward ≥ 5`) améliore-t-il le gain par rapport au Best-of-N seul ?
-  **H2 :** gain(C) > gain(B).
-- **RQ3.** Le `judgeConfidence` prédit-il l'`outcomeReward` ?
-  **H3 (hypothèse centrale, directionnelle faible) :** la corrélation est faible (ρ < 0.3) — le juge IA optimise la plausibilité, pas l'apprentissage. *Toute issue est informative* : une corrélation forte validerait le RLAIF comme proxy ; une corrélation faible démontre la nécessité du signal d'outcome.
-- **RQ4 (exploratoire).** Les corrections expertes sont-elles mieux alignées sur l'outcome que le juge IA ? (comparer `outcomeReward` des feedbacks corrigés par un expert vs feedbacks validés par le juge seul).
+- **RQ1.** Does judge-selected feedback (Best-of-N) produce a greater learning gain than single-pass feedback?
+  **H1:** gain(B) > gain(A), expected effect size d ≈ 0.3–0.4.
+- **RQ2.** Does adding outcome-validated few-shot examples (the `outcomeReward ≥ 5` pool) improve the gain relative to Best-of-N alone?
+  **H2:** gain(C) > gain(B).
+- **RQ3.** Does `judgeConfidence` predict `outcomeReward`?
+  **H3 (central hypothesis, weakly directional):** the correlation is weak (ρ < 0.3) — the AI judge optimises plausibility, not learning. *Every outcome is informative*: a strong correlation would validate RLAIF as a proxy; a weak one demonstrates the necessity of the outcome signal.
+- **RQ4 (exploratory).** Are expert corrections better aligned with outcome than the AI judge is? (compare `outcomeReward` for expert-corrected feedbacks vs judge-validated-only feedbacks).
 
-## 3. Design expérimental
+## 3. Experimental design
 
-### 3.1 Conditions (trois bras)
+### 3.1 Conditions (three arms)
 
-| Bras | Nom | Implémentation | Ce que reçoit l'étudiant |
+| Arm | Name | Implementation | What the student receives |
 |---|---|---|---|
-| **A** | Single-pass (contrôle) | `gradeOptimized`, `useBestOfN=false`, contexte outcome-validated **désactivé** | Feedback du grader seul (avec CAS + corrections expertes few-shot, comme avant juin 2026) |
-| **B** | RLAIF Best-of-N | `gradeBestOfN` (N=3, sélection par `judgeConfidence`) | Meilleur candidat selon le juge |
-| **C** | Best-of-N + Outcome | `gradeBestOfN` **+** pool few-shot `outcomeReward ≥ 5` injecté dans la génération des candidats | Meilleur candidat, généré avec ancrage sur des feedbacks pédagogiquement validés |
+| **A** | Single-pass (control) | `gradeOptimized`, `useBestOfN=false`, outcome-validated context **disabled** | Grader-only feedback (with CAS + expert-correction few-shots, as before June 2026) |
+| **B** | RLAIF Best-of-N | `gradeBestOfN` (N=3, selection by `judgeConfidence`) | Best candidate according to the judge |
+| **C** | Best-of-N + Outcome | `gradeBestOfN` **plus** the `outcomeReward ≥ 5` few-shot pool injected into candidate generation | Best candidate, generated with grounding on pedagogically validated feedbacks |
 
-Tous les bras conservent : vérification CAS, structure de feedback en trois sections (Answer/Reasoning/Verdict), délimiteurs LaTeX, juge en arrière-plan (pour la journalisation, sans modifier le feedback délivré dans le bras A).
+All arms retain: CAS verification, three-section feedback structure (Answer/Reasoning/Verdict), LaTeX delimiters, and the background judge (for logging, without altering the feedback delivered in arm A).
 
-### 3.2 Unité de randomisation : étudiant × sujet (within-subject)
+### 3.2 Randomisation unit: student × topic (within-subject)
 
-Chaque étudiant travaille **trois sujets** (ex. : *Determinants*, *Eigenvalues*, *Derivative Rules* — à fixer selon le programme de la cohorte). Pour chaque étudiant, les trois conditions sont assignées aux trois sujets par **permutation aléatoire contrebalancée** (carré latin 3×3 sur l'ordre de passage × condition), stratifiée par score au pré-test global (médiane split).
+Each student works through **three topics** (e.g. *Determinants*, *Eigenvalues*, *Derivative Rules* — to be fixed according to the cohort's syllabus). For each student, the three conditions are assigned to the three topics by **counterbalanced random permutation** (3×3 Latin square over presentation order × condition), stratified by overall pre-test score (median split).
 
-Justification : le design intra-sujet neutralise les différences interindividuelles (le facteur de variance dominant en éducation) et divise l'échantillon requis par ~2 par rapport à un design inter-sujets. Le risque de contamination entre conditions est faible : l'étudiant ne voit jamais deux feedbacks concurrents pour la même soumission.
+Rationale: a within-subject design neutralises between-individual differences (the dominant source of variance in education) and roughly halves the required sample relative to a between-subjects design. The risk of cross-condition contamination is low: a student never sees two competing feedbacks for the same submission.
 
-### 3.3 Deux phases
+### 3.3 Two phases
 
-- **Phase 1 — Bootstrap (bras A et B uniquement, 2 sujets/étudiant).** Le pool `outcomeReward` est actuellement quasi vide. La phase 1 (a) compare A vs B, (b) accumule le signal d'outcome nécessaire au bras C. Critère de sortie : ≥ 15 feedbacks avec `outcomeReward ≥ 5` par sujet cible de la phase 2.
-- **Phase 2 — Étude principale (A, B, C, 3 sujets/étudiant).** Le pool outcome-validated est **gelé** au premier jour de la phase 2 (snapshot versionné) pour que le bras C soit stable et reproductible pendant toute la phase.
+- **Phase 1 — Bootstrap (arms A and B only, 2 topics/student).** The `outcomeReward` pool is currently near-empty. Phase 1 (a) compares A vs B, and (b) accumulates the outcome signal needed for arm C. Exit criterion: ≥ 15 feedbacks with `outcomeReward ≥ 5` per topic targeted in phase 2.
+- **Phase 2 — Main study (A, B, C, 3 topics/student).** The outcome-validated pool is **frozen** on the first day of phase 2 (versioned snapshot) so that arm C is stable and reproducible throughout.
 
-Les participants de la phase 1 ne participent pas à la phase 2 (cohortes distinctes).
+Phase 1 participants do not take part in phase 2 (distinct cohorts).
 
 ## 4. Participants
 
-- **Population :** étudiants de première/deuxième année universitaire inscrits en algèbre linéaire ou calcul différentiel. Sites : MMUST (Kenya) en priorité — continuité avec le pilote — plus une éventuelle seconde cohorte pour la généralisabilité.
-- **Critères d'inclusion :** ≥ 18 ans, inscrit au cours correspondant, consentement éclairé signé, accès à un ordinateur/navigateur.
-- **Critères d'exclusion :** participation à la phase 1 (pour la phase 2), participation au pilote qualitatif antérieur avec exposition à la plateforme > 1 session.
-- **Taille d'échantillon (phase 2) :** pour une comparaison appariée A–B avec d = 0.4, α = .05 bilatéral, puissance = .80 et corrélation intra-sujet r ≈ .5 : **n ≈ 52 étudiants complets**. Cible de recrutement : **80 étudiants** (attrition attendue 20–25 %). Phase 1 : 40–50 étudiants suffisent (l'objectif principal est l'accumulation du signal).
-- **Incitation :** certificat de participation + accès complet à la plateforme après l'étude ; conforme aux règles du comité d'éthique local (pas d'incitation financière conditionnée à la performance).
+- **Population:** first/second-year university students enrolled in linear algebra or differential calculus. Sites: MMUST (Kenya) as the priority — continuity with the pilot — plus a possible second cohort for generalisability.
+- **Inclusion criteria:** ≥ 18 years old, enrolled in the relevant course, signed informed consent, access to a computer/browser.
+- **Exclusion criteria:** participation in phase 1 (for phase 2); participation in the earlier qualitative pilot with more than one session of platform exposure.
+- **Sample size (phase 2):** for a paired A–B comparison with d = 0.4, two-sided α = .05, power = .80 and within-subject correlation r ≈ .5: **n ≈ 52 completed students**. Recruitment target: **80 students** (expected attrition 20–25%). Phase 1: 40–50 students suffice (its main purpose is signal accumulation).
+- **Incentive:** certificate of participation + full platform access after the study; compliant with local ethics committee rules (no financial incentive contingent on performance).
 
-## 5. Matériel
+## 5. Materials
 
-### 5.1 Quiz pré/post (instrument de mesure)
+### 5.1 Pre/post quiz (the measurement instrument)
 
-- **6 items par sujet**, réponses numériques ou expressions symboliques **corrigées exclusivement par CAS** (déterministe). L'instrument de mesure ne doit **jamais** dépendre du grader IA manipulé — sinon la mesure est contaminée par la manipulation.
-- Pré-test et post-test **isomorphes** : mêmes squelettes de problèmes, paramètres numériques régénérés (la génération paramétrique de `src/data/topics/` fait exactement cela). Assignation aléatoire de la version (v1/v2) en pré ou post, contrebalancée.
-- Durée : 15 min par sujet, sans feedback, sans indice, une tentative par item.
-- Pilotage préalable des items sur 10–15 étudiants hors étude : viser une difficulté moyenne de 0.4–0.7 et un index de discrimination > 0.2 (les dashboards difficulté/discrimination de STACKAI Math Educator servent ici).
-- **Banque d'items pilotes générée (18 juillet 2026)** : `docs/research/banque-items-pilote.md` (+ `item-bank/item-bank.json`) — 36 items validés CAS (3 sujets × 2 versions isomorphes A/B × 6 items, composition 2/2/2), clés de réponse uniques par forme, génération reproductible par seed (`scripts/generate-item-bank.ts`). Le document inclut la clé de correction et la feuille de calcul des indices p et D.
+- **6 items per topic**, numeric answers or symbolic expressions **marked exclusively by CAS** (deterministic). The measurement instrument must **never** depend on the manipulated AI grader — otherwise the measure is contaminated by the manipulation.
+- Pre-test and post-test are **isomorphic**: same problem skeletons, regenerated numeric parameters (the parametric generation in `src/data/topics/` does exactly this). Random assignment of version (v1/v2) to pre or post, counterbalanced.
+- Duration: 15 min per topic, no feedback, no hints, one attempt per item.
+- Prior piloting of the items on 10–15 students outside the study: target a mean difficulty of 0.4–0.7 and a discrimination index > 0.2 (the difficulty/discrimination dashboards of STACKAI Math Educator serve this purpose).
+- **Pilot item bank generated (18 July 2026):** `docs/research/banque-items-pilote.md` (+ `item-bank/item-bank.json`) — 36 CAS-validated items (3 topics × 2 isomorphic forms A/B × 6 items, 2/2/2 composition), unique answer keys per form, reproducible seeded generation (`scripts/generate-item-bank.ts`). The document includes the marking key and the worksheet for computing p and D indices.
 
-### 5.2 Session de pratique (l'intervention)
+### 5.2 Practice session (the intervention)
 
-- 30 minutes par sujet, **minimum 6 problèmes soumis** (contrôle du dosage : la session n'est validée qu'à 6 soumissions ; au-delà, libre jusqu'au temps limite).
-- Après chaque soumission : feedback selon la condition assignée, temps de lecture minimal imposé de 20 s avant le problème suivant (garantit l'exposition au traitement).
-- **Séquence de problèmes à difficulté contrôlée :** pour neutraliser le confondeur « le gain vient de la difficulté du problème suivant », la progression de difficulté est **fixée par un script commun** (2 faciles → 2 moyens → 2 difficiles) identique dans les trois bras, au lieu du moteur de recommandation adaptatif. Le moteur adaptatif est désactivé pendant l'étude.
-- Indices et solutions (`permissions.ts`) désactivés pendant l'étude : le feedback est la seule aide.
+- 30 minutes per topic, **minimum 6 problems submitted** (dosage control: a session only counts as complete at 6 submissions; beyond that, free practice until the time limit).
+- After each submission: feedback according to the assigned condition, with a mandatory minimum reading time of 20 s before the next problem (guarantees exposure to the treatment).
+- **Difficulty-controlled problem sequence:** to neutralise the "the gain comes from the difficulty of the next problem" confound, the difficulty progression is **fixed by a shared script** (2 easy → 2 medium → 2 hard), identical across the three arms, instead of the adaptive recommendation engine. The adaptive engine is disabled during the study.
+- Hints and solutions (`permissions.ts`) are disabled during the study: feedback is the only support.
 
-### 5.3 Rétention (optionnel mais recommandé)
+### 5.3 Retention (optional but recommended)
 
-Post-test différé (mêmes items, paramètres régénérés) à **J+7**, 10 min par sujet, pour mesurer la rétention. Analysé en secondaire ; l'attrition attendue y est plus forte.
+Delayed post-test (same items, regenerated parameters) at **day 7**, 10 min per topic, to measure retention. Analysed as secondary; expected attrition is higher there.
 
-## 6. Procédure (phase 2, par participant)
+## 6. Procedure (phase 2, per participant)
 
-| Étape | Durée | Contenu |
+| Step | Duration | Content |
 |---|---|---|
-| 0. Accueil | 15 min | Consentement, création de compte, démographie (année, filière, aisance auto-déclarée), tutoriel plateforme sur un sujet neutre |
-| 1. Pré-test | 3 × 15 min | Quiz CAS sur les 3 sujets, ordre contrebalancé |
-| 2. Pratique | 3 × 30 min | Une session par sujet, condition assignée par la randomisation ; pauses de 5 min entre sujets |
-| 3. Post-test immédiat | 3 × 15 min | Quiz isomorphes |
-| 4. Questionnaire | 10 min | Utilité perçue du feedback (échelle de Likert 5 points, 6 items), charge cognitive (NASA-TLX abrégé), commentaire libre |
-| 5. Post-test différé | J+7, 3 × 10 min | En ligne, rappel par email (Resend) |
+| 0. Onboarding | 15 min | Consent, account creation, demographics (year, programme, self-reported confidence), platform tutorial on a neutral topic |
+| 1. Pre-test | 3 × 15 min | CAS quiz on the 3 topics, counterbalanced order |
+| 2. Practice | 3 × 30 min | One session per topic, condition assigned by randomisation; 5-min breaks between topics |
+| 3. Immediate post-test | 3 × 15 min | Isomorphic quizzes |
+| 4. Questionnaire | 10 min | Perceived usefulness of feedback (5-point Likert, 6 items), cognitive load (abbreviated NASA-TLX), free-text comment |
+| 5. Delayed post-test | Day 7, 3 × 10 min | Online, email reminder (Resend) |
 
-Format recommandé : **deux séances en salle surveillée** (étapes 0–3 sur une demi-journée ou deux jours consécutifs) pour contrôler l'environnement, plus l'étape 5 à distance.
+Recommended format: **two proctored in-room sessions** (steps 0–3 over a half-day or two consecutive days) to control the environment, plus step 5 remotely.
 
-## 7. Variables et mesures
+## 7. Variables and measures
 
-### 7.1 Primaire
+### 7.1 Primary
 
-- **Gain d'apprentissage normalisé** par étudiant × sujet :
-  `g = (post − pré) / (max − pré)` (gain de Hake ; si `pré = max`, exclu de l'analyse du sujet concerné).
+- **Normalised learning gain** per student × topic:
+  `g = (post − pre) / (max − pre)` (Hake gain; if `pre = max`, excluded from the analysis for that topic).
 
-### 7.2 Secondaires
+### 7.2 Secondary
 
-- **`outcomeReward` observé** par soumission (échelle native : +10 réponse correcte, +3 partielle, 0 sinon → le reward entre deux soumissions varie de −0 à +10 ; seuil « high-reward » = 5).
-- **Exactitude à la tentative suivante** (probabilité qu'une soumission suivant un feedback soit correcte), par condition.
-- **Rétention** à J+7 (gain normalisé différé).
-- **`judgeConfidence`** de chaque feedback délivré (journalisé dans les trois bras, y compris A où le juge tourne en arrière-plan sans modifier le feedback).
-- **Trajectoire de maîtrise** intra-session (pente du `masteryScore` sur les 6+ soumissions).
-- Utilité perçue, charge cognitive, temps de lecture du feedback, temps par problème.
+- **Observed `outcomeReward`** per submission (native scale: +10 correct answer, +3 partial, 0 otherwise → the reward between two submissions ranges from −0 to +10; "high-reward" threshold = 5).
+- **Accuracy on the next attempt** (probability that a submission following a piece of feedback is correct), by condition.
+- **Retention** at day 7 (delayed normalised gain).
+- **`judgeConfidence`** for every delivered feedback (logged in all three arms, including A where the judge runs in the background without altering the feedback).
+- **Within-session mastery trajectory** (slope of `masteryScore` over the 6+ submissions).
+- Perceived usefulness, cognitive load, feedback reading time, time per problem.
 
-### 7.3 Covariables
+### 7.3 Covariates
 
-Score au pré-test, sujet, ordre de passage, filière, aisance auto-déclarée.
+Pre-test score, topic, presentation order, programme, self-reported confidence.
 
-### 7.4 Journalisation requise — **IMPLÉMENTÉ (17 juillet 2026)**, voir `convex/experiment.ts`
+### 7.4 Required logging — **IMPLEMENTED (17 July 2026)**, see `convex/experiment.ts`
 
-1. ✅ Table `experimentAssignments` : `{ userId, participantCode, phase, topicName, condition, latinSquareRow, topicOrder, enrolledAt }`. L'enrôlement (`experiment:enrollParticipant`) applique automatiquement le carré latin (cyclage des permutations par ordre d'enrôlement, surchargeable via `latinSquareRow`) et attribue le pseudonyme `P<phase>-NNN`.
-2. ✅ Champs `experimentCondition` + `experimentPhase` sur `submissions`, copiés depuis l'assignation au moment de la soumission.
-3. ✅ Forçage de condition dans `gradingPipeline.gradeAndSaveSubmission` : si l'utilisateur a une assignation pour ce sujet **et** que sa phase est active (`experimentConfig.activePhase`), la condition écrase le `useBestOfN` du frontend. Hors phase active, la plateforme se comporte normalement.
-4. ✅ Snapshots des pools few-shot (`experimentPoolSnapshots`) : `experiment:freezePoolsForPhase` gèle corrections expertes + feedbacks outcome-validated par sujet ; pendant l'étude, `gradeOptimized`, `evaluateEvaluator` (y compris le juge d'arrière-plan du bras A) lisent le snapshot. Un pool jamais gelé renvoie une liste vide — pas de repli silencieux sur les données vivantes.
-5. ✅ Journal `experimentGradingLogs` : les 3 candidats Best-of-N et leurs `judgeConfidence` (pas seulement le sélectionné), index sélectionné, latence de grading, modèle, `PROMPT_VERSION` (à incrémenter à chaque modification de prompt).
-6. ✅ Export pseudonymisé (`experiment:exportSubmissions`, `experiment:exportGradingLogs`) : identifiants Clerk remplacés par `participantCode`.
+1. ✅ Table `experimentAssignments`: `{ userId, participantCode, phase, topicName, condition, latinSquareRow, topicOrder, enrolledAt }`. Enrolment (`experiment:enrollParticipant`) applies the Latin square automatically (cycling permutations by enrolment order, overridable via `latinSquareRow`) and assigns the pseudonym `P<phase>-NNN`.
+2. ✅ Fields `experimentCondition` + `experimentPhase` on `submissions`, copied from the assignment at submission time.
+3. ✅ Condition forcing in `gradingPipeline.gradeAndSaveSubmission`: if the user has an assignment for that topic **and** their phase is active (`experimentConfig.activePhase`), the condition overrides the frontend's `useBestOfN`. Outside an active phase, the platform behaves normally.
+4. ✅ Few-shot pool snapshots (`experimentPoolSnapshots`): `experiment:freezePoolsForPhase` freezes expert corrections + outcome-validated feedbacks per topic; during the study, `gradeOptimized` and `evaluateEvaluator` (including arm A's background judge) read from the snapshot. A pool that was never frozen returns an empty list — no silent fallback to live data.
+5. ✅ Log `experimentGradingLogs`: all 3 Best-of-N candidates and their `judgeConfidence` (not just the selected one), selected index, grading latency, model, `PROMPT_VERSION` (to be incremented on every prompt change).
+6. ✅ Pseudonymised export (`experiment:exportSubmissions`, `experiment:exportGradingLogs`): Clerk identifiers replaced by `participantCode`.
 
-**Runbook opérateur** (fonctions internes — CLI ou dashboard Convex uniquement, jamais exposées aux clients) :
+**Operator runbook** (internal functions — CLI or Convex dashboard only, never exposed to clients):
 
 ```bash
-# 1. Au premier jour d'une phase : geler les pools pour les sujets de l'étude
+# 1. On the first day of a phase: freeze the pools for the study topics
 npx convex run experiment:freezePoolsForPhase '{"phase": 2, "topics": ["Determinants", "Eigenvalues & Vectors", "Derivatives"]}'
 
-# 2. Enrôler chaque participant (l'ordre d'enrôlement équilibre le carré latin)
+# 2. Enrol each participant (enrolment order balances the Latin square)
 npx convex run experiment:enrollParticipant '{"userId": "<clerk-id>", "phase": 2, "topics": ["Determinants", "Eigenvalues & Vectors", "Derivatives"]}'
 
-# 3. Activer la phase (le forçage de condition ne s'applique que phase active)
+# 3. Activate the phase (condition forcing only applies while a phase is active)
 npx convex run experiment:setActivePhase '{"phase": 2}'
 
-# 4. Suivi
+# 4. Monitoring
 npx convex run experiment:getExperimentStatus '{}'
 
-# 5. Fin de phase : désactiver, puis exporter
+# 5. End of phase: deactivate, then export
 npx convex run experiment:setActivePhase '{"phase": null}'
 npx convex run experiment:exportSubmissions '{"phase": 2}' > phase2_submissions.json
 npx convex run experiment:exportGradingLogs '{"phase": 2}' > phase2_grading_logs.json
 ```
 
-⚠️ Les `topics` passés à l'enrôlement et au gel doivent utiliser les **slugs** de sujets — la même convention que `submissions.topicName` (ex. `"determinants"`, `"eigenvalues"`, `"derivatives"`, pas les titres affichés). C'est aussi ce que le CAS direct et le mode quiz attendent.
+⚠️ The `topics` passed to enrolment and freezing must use topic **slugs** — the same convention as `submissions.topicName` (e.g. `"determinants"`, `"eigenvalues"`, `"derivatives"`, not the display titles). This is also what the direct CAS check and quiz mode expect.
 
-### 7.5 Mode quiz pré/post — **IMPLÉMENTÉ (17 juillet 2026)**
+### 7.5 Pre/post quiz mode — **IMPLEMENTED (17 July 2026)**
 
-- **Backend** `convex/studyQuiz.ts` + table `studyQuizAttempts` : au démarrage, le client génère ~42 problèmes candidats **équilibrés par palier** depuis le générateur paramétrique du sujet ; le serveur retient 6 items dont la vérité terrain est calculable par le **CAS direct** (`computeDirectGroundTruth`, jamais le repli LLM) en imposant la **composition fixe 2 faciles / 2 moyens / 2 difficiles** (classificateurs partagés `src/data/difficultyClassifiers.ts`, présentés en ordre croissant de difficulté) — garantit que pré et post ont le même mélange de difficultés. Snapshot avec les vérités terrain (jamais envoyées au client). À la soumission, correction 100 % déterministe (`checkEquivalenceDirect`). Réponse vide ou imparsable = incorrecte (pré-spécifié) ; `casChecked=false` journalisé pour transparence. Une seule tentative par participant × sujet × type ; chronomètre serveur (pre/post 15 min, différé 10 min, grâce 60 s, dépassement flaggé `overTime` sans rejet) ; reprise après déconnexion ; autosauvegarde. Aucun score ni feedback montré à l'étudiant.
-- **Frontend** : `/study` (tableau de bord participant — sujets assignés dans l'ordre, sans jamais révéler la condition) et `/study/quiz/[topicId]?type=pre|post|delayed` (écran d'instructions, 6 items, compte à rebours avec soumission automatique à 0:00, confirmation de soumission).
-- **Export** : `npx convex run studyQuiz:exportQuizAttempts '{"phase": 2}'` (pseudonymisé par `participantCode`).
-- **Tests** : `convex/studyQuiz.test.ts` (bun test) vérifie pour chaque sujet de l'étude que ≥ 6/40 problèmes générés sont corrigeables par CAS direct, que la solution officielle du générateur est notée correcte, et qu'une réponse absurde ne l'est jamais. Sujets validés : `determinants`, `eigenvalues`, `derivatives`.
+- **Backend** `convex/studyQuiz.ts` + table `studyQuizAttempts`: at start-up the client generates ~42 candidate problems **balanced across difficulty tiers** from the topic's parametric generator; the server retains 6 items whose ground truth is computable by **direct CAS** (`computeDirectGroundTruth`, never the LLM fallback), enforcing the **fixed 2 easy / 2 medium / 2 hard composition** (shared classifiers in `src/data/difficultyClassifiers.ts`, presented in increasing order of difficulty) — guaranteeing that pre and post share the same difficulty mix. Snapshot stores the ground truths (never sent to the client). On submission, marking is 100% deterministic (`checkEquivalenceDirect`). Empty or unparsable answer = incorrect (pre-specified); `casChecked=false` is logged for transparency. One attempt only per participant × topic × type; server-side timer (pre/post 15 min, delayed 10 min, 60 s grace, overrun flagged `overTime` without rejection); resume after disconnection; autosave. No score or feedback is shown to the student.
+- **Frontend**: `/study` (participant dashboard — assigned topics in order, never revealing the condition) and `/study/quiz/[topicId]?type=pre|post|delayed` (instruction screen, 6 items, countdown with automatic submission at 0:00, submission confirmation).
+- **Export**: `npx convex run studyQuiz:exportQuizAttempts '{"phase": 2}'` (pseudonymised by `participantCode`).
+- **Tests**: `convex/studyQuiz.test.ts` (bun test) verifies for each study topic that ≥ 6/40 generated problems are markable by direct CAS, that the generator's official solution is marked correct, and that a nonsense answer never is. Validated topics: `determinants`, `eigenvalues`, `derivatives`.
 
-### 7.6 Contraintes de session de pratique (§5.2) — **IMPLÉMENTÉ (17 juillet 2026)**
+### 7.6 Practice session constraints (§5.2) — **IMPLEMENTED (17 July 2026)**
 
-- **Sessions** (`convex/studyPractice.ts` + table `studyPracticeSessions`) : 30 min par sujet, minimum 6 soumissions pour terminer (à l'expiration du temps, clôture possible sous le minimum, flaggée `underMinimum` pour la règle d'exclusion §9.4 — le participant n'est jamais bloqué). Reprise après déconnexion. Page `/study/practice/[topicId]`.
-- **Ordre protocolaire imposé côté serveur** : pré-quiz soumis → session de pratique débloquée ; session terminée → post-quiz débloqué ; post-quiz soumis → quiz différé débloqué. Le tableau de bord `/study` affiche les trois étapes avec verrous.
-- **Séquence de difficulté fixe** (`src/data/studyDifficulty.ts`) : 2 faciles → 2 moyens → 2 difficiles, identique dans les trois bras, obtenue par classification des variantes des générateurs + échantillonnage par rejet ; au-delà de 6, génération libre. Paliers validés par tests (`studyDifficulty.test.ts`) pour `determinants` (2×2 singulière → calcul 3×3 → 3×3 paramétrique), `eigenvalues` (diagonale → triangulaire → symétrique/équation caractéristique), `derivatives` (polynôme → règle de chaîne → produit/quotient).
-- **Temps de lecture du feedback** : 20 s imposées avant « Next problem » (côté client).
-- **Verrous serveur** (inviolables par l'interface) : indices/solutions désactivés dans `permissions.getPermissions` pour tout participant actif sur son sujet d'étude ; moteur adaptatif coupé dans `recommendations.generatePractice` ; **modèle de grading fixé côté serveur** (`STUDY_MODEL` dans `experiment.ts`, le sélecteur de modèle du client est ignoré) — renforce le gel §10.
-- **Export** : `npx convex run studyPractice:exportPracticeSessions '{"phase": 2}'`.
+- **Sessions** (`convex/studyPractice.ts` + table `studyPracticeSessions`): 30 min per topic, minimum 6 submissions to complete (when time expires, the session may be closed below the minimum, flagged `underMinimum` for the exclusion rule in §9.4 — the participant is never blocked). Resume after disconnection. Page `/study/practice/[topicId]`.
+- **Protocol order enforced server-side**: pre-quiz submitted → practice session unlocked; session completed → post-quiz unlocked; post-quiz submitted → delayed quiz unlocked. The `/study` dashboard displays all three steps with locks.
+- **Fixed difficulty sequence** (`src/data/studyDifficulty.ts`): 2 easy → 2 medium → 2 hard, identical across the three arms, obtained by classifying generator variants + rejection sampling; beyond 6, free generation. Tiers validated by tests (`studyDifficulty.test.ts`) for `determinants` (singular 2×2 → 3×3 computation → parametric 3×3), `eigenvalues` (diagonal → triangular → symmetric/characteristic equation), `derivatives` (polynomial → chain rule → product/quotient).
+- **Feedback reading time**: 20 s enforced before "Next problem" (client-side).
+- **Server-side locks** (not circumventable from the interface): hints/solutions disabled in `permissions.getPermissions` for any active participant on their study topic; adaptive engine switched off in `recommendations.generatePractice`; **grading model fixed server-side** (`STUDY_MODEL` in `experiment.ts`; the client's model selector is ignored) — reinforcing the freeze in §10.
+- **Export**: `npx convex run studyPractice:exportPracticeSessions '{"phase": 2}'`.
 
-**Gel du système pendant chaque phase :** aucun changement de prompt, de modèle LLM, de seuils, ni approbation de nouvelles corrections expertes influençant les pools. Les corrections expertes continuent d'être *collectées* (pour RQ4) mais n'entrent pas dans les few-shot avant la fin de la phase.
+**System freeze during each phase:** no changes to prompts, LLM models or thresholds, and no approval of new expert corrections that would influence the pools. Expert corrections continue to be *collected* (for RQ4) but do not enter the few-shot pools before the phase ends.
 
-## 8. Randomisation et insu
+## 8. Randomisation and blinding
 
-- Séquence d'assignation générée par script (seed enregistré), stratifiée par médiane du pré-test global, blocs de 6 (les 6 permutations du carré latin).
-- **Étudiants :** en insu de la condition (les trois bras produisent des feedbacks visuellement identiques en format).
-- **Experts correcteurs :** en insu de la condition lors de la revue des soumissions (l'interface admin masque `experimentCondition` et les métadonnées Best-of-N).
-- **Analyste :** analyse primaire réalisée sur données avec conditions codées A'/B'/C' masquées jusqu'au gel de la base et du plan d'analyse.
-- L'IP (l'investigateur) n'interagit pas avec les participants pendant les sessions de pratique (surveillant neutre).
+- Assignment sequence generated by script (seed recorded), stratified by median overall pre-test score, in blocks of 6 (the 6 Latin-square permutations).
+- **Students:** blind to condition (all three arms produce feedback that is visually identical in format).
+- **Expert markers:** blind to condition when reviewing submissions (the admin interface hides `experimentCondition` and Best-of-N metadata).
+- **Analyst:** the primary analysis is run on data with conditions coded A'/B'/C', kept masked until the database and analysis plan are frozen.
+- The PI does not interact with participants during practice sessions (neutral proctor).
 
-## 9. Plan d'analyse statistique
+## 9. Statistical analysis plan
 
-Pré-enregistré sur OSF avant le premier participant de la phase 2. Logiciel : R (lme4, emmeans) ou Python (statsmodels, pingouin). Seuil α = .05, corrections de Holm pour les comparaisons par paires.
+Pre-registered on OSF before the first phase-2 participant. Software: R (lme4, emmeans) or Python (statsmodels, pingouin). Threshold α = .05, Holm correction for pairwise comparisons.
 
-### 9.1 H1/H2 — Effet de condition sur le gain
+### 9.1 H1/H2 — Effect of condition on gain
 
-Modèle mixte linéaire :
+Linear mixed model:
 
 ```
-g ~ condition + pré-test_c + sujet + ordre + (1 | étudiant)
+g ~ condition + pretest_c + topic + order + (1 | student)
 ```
 
-Contrastes planifiés : B−A (H1), C−B (H2), C−A (secondaire). Tailles d'effet : d appariés avec IC 95 %. Analyse de sensibilité : ANCOVA sur post-test brut avec pré-test en covariable ; modèle bêta si distribution du gain non normale.
+Planned contrasts: B−A (H1), C−B (H2), C−A (secondary). Effect sizes: paired d with 95% CIs. Sensitivity analysis: ANCOVA on raw post-test with pre-test as covariate; beta model if the gain distribution is non-normal.
 
 ### 9.2 H3 — Judge vs outcome
 
-Sur toutes les soumissions non terminales (celles qui ont un `outcomeReward`) :
+Across all non-terminal submissions (those that have an `outcomeReward`):
 
-- Corrélation de Spearman `judgeConfidence` × `outcomeReward`, avec IC bootstrap par grappes (étudiant).
-- Modèle mixte : `outcomeReward ~ judgeConfidence + grade + difficulté + (1 | étudiant) + (1 | sujet)` — le coefficient de `judgeConfidence` est le test direct de H3.
-- Courbe ROC : `judgeConfidence` comme prédicteur de `outcomeReward ≥ 5` (AUC avec IC).
-- Interprétation pré-spécifiée : AUC < 0.6 ou ρ < 0.3 → le juge n'est pas un proxy fiable de l'efficacité pédagogique.
+- Spearman correlation `judgeConfidence` × `outcomeReward`, with cluster-bootstrap CIs (by student).
+- Mixed model: `outcomeReward ~ judgeConfidence + grade + difficulty + (1 | student) + (1 | topic)` — the `judgeConfidence` coefficient is the direct test of H3.
+- ROC curve: `judgeConfidence` as a predictor of `outcomeReward ≥ 5` (AUC with CI).
+- Pre-specified interpretation: AUC < 0.6 or ρ < 0.3 → the judge is not a reliable proxy for pedagogical effectiveness.
 
-### 9.3 RQ4 — Experts vs juge (exploratoire)
+### 9.3 RQ4 — Experts vs judge (exploratory)
 
-Comparer l'`outcomeReward` moyen des feedbacks (a) modifiés par le juge, (b) corrigés par un expert (hors few-shot pendant la phase), (c) non modifiés.
+Compare mean `outcomeReward` for feedbacks that were (a) modified by the judge, (b) corrected by an expert (kept out of the few-shot pools during the phase), (c) unmodified.
 
-### 9.4 Exclusions et données manquantes (règles pré-spécifiées)
+### 9.4 Exclusions and missing data (pre-specified rules)
 
-- Exclusion d'un couple étudiant×sujet si : < 6 soumissions en pratique, pré-test = score max, temps total de pratique < 15 min, ou anomalie technique journalisée (échec API de grading > 2 fois dans la session).
-- Étudiant exclu entièrement si ≥ 2 sujets exclus.
-- Intention de traiter (toutes les données conservées) en analyse de sensibilité.
-- Rétention J+7 : analyse sur cas complets + modèle avec données manquantes MAR (les absents au différé ne sont pas exclus de l'analyse immédiate).
+- A student×topic pair is excluded if: fewer than 6 practice submissions, pre-test = maximum score, total practice time < 15 min, or a logged technical anomaly (grading API failure more than twice in the session).
+- A student is excluded entirely if ≥ 2 of their topics are excluded.
+- Intention-to-treat (all data retained) as a sensitivity analysis.
+- Day-7 retention: complete-case analysis + a model with MAR missing data (those absent at the delayed test are not excluded from the immediate analysis).
 
-## 10. Menaces à la validité et parades
+## 10. Threats to validity and countermeasures
 
-| Menace | Parade |
+| Threat | Countermeasure |
 |---|---|
-| Le gain reflète la difficulté des problèmes, pas le feedback | Séquence de difficulté fixée, identique dans les 3 bras ; moteur adaptatif désactivé |
-| L'instrument de mesure dépend du système manipulé | Pré/post corrigés exclusivement par CAS |
-| Régression vers la moyenne | Pré-test en covariable ; stratification de la randomisation |
-| Dérive du système pendant l'étude | Gel des prompts, modèles et pools few-shot ; versionnage |
-| Effet d'ordre / fatigue | Carré latin sur ordre × condition ; pauses ; sessions ≤ 30 min |
-| Apprentissage hors plateforme entre pré et post | Post-test immédiat le même jour ; le différé n'est que secondaire |
-| Variabilité inter-LLM (non-déterminisme) | Journalisation des candidats et confidences ; température et version de modèle fixées |
-| Attrition différentielle | Conditions within-subject (l'attrition retire l'étudiant des 3 bras à la fois) |
-| Généralisabilité limitée à un site | Reconnaître en limitation ; seconde cohorte si faisable |
+| The gain reflects problem difficulty, not the feedback | Fixed difficulty sequence, identical across the 3 arms; adaptive engine disabled |
+| The measurement instrument depends on the manipulated system | Pre/post marked exclusively by CAS |
+| Regression to the mean | Pre-test as covariate; stratified randomisation |
+| System drift during the study | Freeze on prompts, models and few-shot pools; versioning |
+| Order effects / fatigue | Latin square over order × condition; breaks; sessions ≤ 30 min |
+| Off-platform learning between pre and post | Immediate post-test on the same day; the delayed test is secondary only |
+| Between-LLM variability (non-determinism) | Logging of candidates and confidences; fixed temperature and model version |
+| Differential attrition | Within-subject conditions (attrition removes the student from all 3 arms at once) |
+| Generalisability limited to one site | Acknowledge as a limitation; second cohort if feasible |
 
-## 11. Éthique et protection des données
+## 11. Ethics and data protection
 
-- **Approbations requises avant recrutement :** comité d'éthique institutionnel de rattachement du doctorat **et**, pour le site kényan : comité d'éthique du MMUST (IERC) + licence de recherche **NACOSTI** (National Commission for Science, Technology and Innovation — obligatoire pour toute recherche au Kenya, y compris pour un chercheur étranger). Prévoir 6–10 semaines.
-- **Consentement éclairé écrit** : objectif (comparaison de types de feedback automatisé), volontariat, retrait sans conséquence sur les notes du cours, mention explicite que le feedback est généré par IA et peut contenir des erreurs.
-- **Non-malfaisance :** le bras contrôle (A) reçoit le système standard, pas une absence de feedback — aucun participant n'est désavantagé pédagogiquement. Accès complet à la plateforme (meilleure condition) offert à tous après l'étude.
-- **Données :** conformité au **Kenya Data Protection Act 2019** et au RGPD le cas échéant. Pseudonymisation à l'export (identifiants Clerk remplacés par des codes), pas de données de santé, âge/institution stockés séparément des réponses. Conservation : 5 ans sur stockage chiffré institutionnel. Les soumissions transitent par les API Gemini/OpenAI : le consentement le mentionne, et aucun nom n'est inclus dans les prompts.
-- **Mineurs :** exclus (≥ 18 ans).
+- **Approvals required before recruitment:** the institutional ethics committee of the doctoral host institution **and**, for the Kenyan site: the MMUST ethics committee (IERC) + a **NACOSTI** research licence (National Commission for Science, Technology and Innovation — mandatory for all research in Kenya, including by a foreign researcher). Allow 6–10 weeks.
+- **Written informed consent**: purpose (comparison of automated feedback types), voluntary participation, withdrawal without consequence for course grades, and an explicit statement that the feedback is AI-generated and may contain errors.
+- **Non-maleficence:** the control arm (A) receives the standard system, not an absence of feedback — no participant is pedagogically disadvantaged. Full platform access (the best condition) is offered to everyone after the study.
+- **Data:** compliance with the **Kenya Data Protection Act 2019** and with the GDPR where applicable. Pseudonymisation at export (Clerk identifiers replaced by codes), no health data, age/institution stored separately from responses. Retention: 5 years on encrypted institutional storage. Submissions transit through the Gemini/OpenAI APIs: the consent form states this, and no names are included in prompts.
+- **Minors:** excluded (≥ 18 years old).
 
-## 12. Calendrier prévisionnel
+## 12. Provisional timeline
 
-| Période | Jalon |
+| Period | Milestone |
 |---|---|
-| Août 2026 | Instrumentation (§7.4), pilotage des items de quiz, dossiers éthique (IERC + NACOSTI) |
-| Sept.–oct. 2026 | Pré-enregistrement OSF ; approbations éthiques |
-| Oct.–nov. 2026 | **Phase 1** (bootstrap, 40–50 étudiants, bras A/B) |
-| Déc. 2026 | Analyse intermédiaire phase 1 ; gel du pool outcome-validated ; critère de sortie vérifié |
-| Janv.–févr. 2027 | **Phase 2** (80 étudiants, 3 bras) + différés J+7 |
-| Mars 2027 | Gel de la base, levée de l'insu, analyse |
-| Avr.–mai 2027 | Rédaction — cible : IJAIED (journal) ; version courte AIED/EDM si le calendrier des deadlines s'y prête |
+| Aug 2026 | Instrumentation (§7.4), quiz item piloting, ethics submissions (IERC + NACOSTI) |
+| Sep–Oct 2026 | OSF pre-registration; ethics approvals |
+| Oct–Nov 2026 | **Phase 1** (bootstrap, 40–50 students, arms A/B) |
+| Dec 2026 | Interim analysis of phase 1; freeze of the outcome-validated pool; exit criterion verified |
+| Jan–Feb 2027 | **Phase 2** (80 students, 3 arms) + day-7 delayed tests |
+| Mar 2027 | Database freeze, unblinding, analysis |
+| Apr–May 2027 | Writing — target: IJAIED (journal); short version at AIED/EDM if the deadline calendar allows |
 
-## 13. Livrables et critères de succès
+## 13. Deliverables and success criteria
 
-- Jeu de données anonymisé + code d'analyse publiés (OSF/GitHub) avec le papier.
-- L'étude est concluante pour le papier **quelle que soit l'issue de H1–H3** : c'est la mesure conjointe (gain randomisé + corrélation judge/outcome) qui constitue la contribution, pas la confirmation des hypothèses.
+- Anonymised dataset + analysis code published (OSF/GitHub) alongside the paper.
+- The study is publishable **whatever the outcome of H1–H3**: the contribution is the joint measurement (randomised gain + judge/outcome correlation), not the confirmation of the hypotheses.
