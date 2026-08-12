@@ -17,6 +17,7 @@ import { polynomialInnerProductLogic } from "./linear/polynomial_inner_products"
 import { eigenvalues3x3Logic } from "./linear/eigenvalues_3x3";
 import { eigenspaces2x2Logic } from "./linear/eigenspaces_2x2";
 import { vectorSpaceAxiomsLogic } from "./linear/vector_space_axioms";
+import type { ExercisePedagogyInstance } from "@/data/pedagogy";
 
 export interface AnswerFormat {
   placeholder: string;
@@ -40,6 +41,7 @@ export interface GeneratedProblem {
   guide?: { title: string; content: string };
   answerFormat?: AnswerFormat;
   reasoningSteps?: string;
+  pedagogy?: ExercisePedagogyInstance;
   [key: string]: unknown;
 }
 

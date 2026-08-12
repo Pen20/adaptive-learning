@@ -1,3 +1,5 @@
+import { buildExercisePedagogyInstance } from "@/data/pedagogy";
+
 export const determinantLogic = {
   generate: () => {
     const type = Math.floor(Math.random() * 3);
@@ -35,6 +37,17 @@ Step 5 — Set up the non-zero condition: det ≠ 0 ⟺ the linear expression �
 - Non-singular: determinant is non-zero (matrix is invertible).
 - Expanding along a row with zeros reduces the calculation.`,
         },
+        pedagogy: buildExercisePedagogyInstance(
+          "determinants",
+          "DET-NONZERO-3X3",
+          {
+            "cofactor-expansion": {
+              determinantExpression: `${20 * a1} - 20k`,
+              excludedValue: String(a1),
+            },
+            "row-comparison": { equalRowsWhen: `k = ${a1}` },
+          },
+        ),
       };
     }
 
@@ -47,6 +60,9 @@ Step 5 — Set up the non-zero condition: det ≠ 0 ⟺ the linear expression �
         a[0] * (a[4] * a[8] - a[5] * a[7]) -
         a[1] * (a[3] * a[8] - a[5] * a[6]) +
         a[2] * (a[3] * a[7] - a[4] * a[6]);
+      const minor1 = a[4] * a[8] - a[5] * a[7];
+      const minor2 = a[3] * a[8] - a[5] * a[6];
+      const minor3 = a[3] * a[7] - a[4] * a[6];
       return {
         title: "Determinants — Computation",
         statement: `Compute the determinant:
@@ -74,6 +90,20 @@ Step 5 — Sum the three products and state det(A) = [result].`,
           content: `Cofactor expansion along row 1:
 $$ \\det(A) = a_{11}(a_{22}a_{33} - a_{23}a_{32}) - a_{12}(a_{21}a_{33} - a_{23}a_{31}) + a_{13}(a_{21}a_{32} - a_{22}a_{31}) $$`,
         },
+        pedagogy: buildExercisePedagogyInstance(
+          "determinants",
+          "DET-COMPUTE-3X3",
+          {
+            "cofactor-expansion": {
+              firstMinor: String(minor1),
+              secondMinor: String(minor2),
+              thirdMinor: String(minor3),
+              finalDeterminant: String(det),
+            },
+            "sarrus-rule": { finalDeterminant: String(det) },
+            "row-reduction": { finalDeterminant: String(det) },
+          },
+        ),
       };
     }
 
@@ -112,6 +142,16 @@ Step 4 — State k = [value] and verify by substitution.`,
 - $\\det \\begin{bmatrix} a & b \\\\ c & d \\end{bmatrix} = ad - bc$
 - Singular ↔ $\\det = 0$ ↔ rows/columns are linearly dependent.`,
       },
+      pedagogy: buildExercisePedagogyInstance(
+        "determinants",
+        "DET-SINGULAR-2X2",
+        {
+          "two-by-two-formula": {
+            determinantExpression: `${p}k - ${prod}`,
+            parameterValue: singular !== null ? String(singular) : `${prod}/${p}`,
+          },
+        },
+      ),
     };
   },
 };

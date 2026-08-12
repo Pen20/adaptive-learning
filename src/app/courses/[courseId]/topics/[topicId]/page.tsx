@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useAction, useMutation } from "convex/react";
 import { useUser } from "@clerk/nextjs";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
@@ -17,8 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useRole } from "@/hooks/useRole";
-import { api } from "@/lib/convex";
-import { AdaptivePracticeSection } from "./_components/AdaptivePracticeSection";
+import { GuidedMistakeCorrection } from "./_components/GuidedMistakeCorrection";
 import { AnswerPanel } from "./_components/AnswerPanel";
 import { FeedbackCard } from "./_components/FeedbackCard";
 import { ProblemStatementCard } from "./_components/ProblemStatementCard";
@@ -27,7 +25,6 @@ import { useGeneratedProblem } from "./_hooks/useGeneratedProblem";
 import { useImageTranscription } from "./_hooks/useImageTranscription";
 import { useProblemGrading } from "./_hooks/useProblemGrading";
 import { useProblemPermissions } from "./_hooks/useProblemPermissions";
-import type { PracticeRecommendations } from "./_types";
 
 export default function ProblemPage() {
   const { user } = useUser();
@@ -45,9 +42,6 @@ export default function ProblemPage() {
   const [showExplanation, setShowExplanation] = useState(false);
   const [debouncedReasoning, setDebouncedReasoning] = useState("");
   const [debouncedFinalAnswer, setDebouncedFinalAnswer] = useState("");
-  const [recommending, setRecommending] = useState(false);
-  const [recommendations, setRecommendations] =
-    useState<PracticeRecommendations | null>(null);
 
   const reasoningRef = useRef<HTMLTextAreaElement>(null);
   const savedCursorRef = useRef({ start: 0, end: 0 });
@@ -68,9 +62,6 @@ export default function ProblemPage() {
     useBestOfN,
   });
 
-  const generatePractice = useAction(api.recommendations.generatePractice);
-  const updateMastery = useMutation(api.users.updateMastery);
-
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedReasoning(reasoning), 500);
     return () => clearTimeout(timer);
@@ -87,7 +78,6 @@ export default function ProblemPage() {
     setShowExplanation(false);
     setReasoning("");
     setFinalAnswer("");
-    setRecommendations(null);
   }, [topicId]);
 
   const rememberReasoningCursor = () => {
@@ -125,39 +115,6 @@ export default function ProblemPage() {
     setFinalAnswer(final);
     setReasoning(reasoningText || final);
     toast.success("Answer and reasoning filled for testing.");
-  };
-
-  const handleGetRecommendations = async () => {
-    if (!user) return;
-
-    setRecommending(true);
-    try {
-      const data = (await generatePractice({
-        courseName:
-          courseId === "linear_algebra"
-            ? "Linear Algebra"
-            : "Differential Calculus",
-        topicName: topicId,
-        currentProblemType: problemData?.title,
-      })) as PracticeRecommendations;
-      setRecommendations(data);
-    } catch (error) {
-      console.error(error);
-      toast.error("Could not generate recommendations. Please try again.");
-    } finally {
-      setRecommending(false);
-    }
-  };
-
-  const handleCompletePractice = async () => {
-    if (!user) return;
-
-    await updateMastery({
-      topicName: topicId,
-      scoreIncrement: 10,
-    });
-    toast.success("Practice Complete! +10 mastery points earned.");
-    setRecommendations(null);
   };
 
   if (!problemData) {
@@ -269,25 +226,25 @@ export default function ProblemPage() {
           />
 
           {result && (
-            <FeedbackCard
-              result={result}
-              allowRLHF={permissions.allowRLHF}
-              isAdmin={isAdmin}
-              lastSubmissionId={lastSubmissionId}
-              userId={user?.id}
-              topicName={topicId}
-            />
+            <>
+              <FeedbackCard
+                result={result}
+                allowRLHF={permissions.allowRLHF}
+                isAdmin={isAdmin}
+                lastSubmissionId={lastSubmissionId}
+                userId={user?.id}
+                topicName={topicId}
+              />
+              {topicId === "determinants" && result.grade < 1 && lastSubmissionId && permissions.allowPractice && (
+                <GuidedMistakeCorrection
+                  submissionId={lastSubmissionId}
+                  evaluation={result.pedagogicalEvaluation}
+                />
+              )}
+            </>
           )}
         </div>
 
-        <AdaptivePracticeSection
-          allowPractice={permissions.allowPractice}
-          recommendations={recommendations}
-          recommending={recommending}
-          onGetRecommendations={handleGetRecommendations}
-          onCompletePractice={handleCompletePractice}
-          onDismiss={() => setRecommendations(null)}
-        />
       </div>
     </div>
   );

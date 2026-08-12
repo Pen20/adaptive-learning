@@ -15,6 +15,12 @@ interface FeedbackCardProps {
   topicName: string;
 }
 
+function conciseFeedback(feedback: string, hasPedagogicalEvaluation: boolean) {
+  if (!hasPedagogicalEvaluation) return feedback;
+  const withoutVerdict = feedback.split(/\n\n\*\*Verdict:\*\*/)[0] ?? feedback;
+  return withoutVerdict.split(/\n\n\*\*Learning focus:\*\*/)[0] ?? withoutVerdict;
+}
+
 export function FeedbackCard({
   result,
   allowRLHF,
@@ -67,8 +73,33 @@ export function FeedbackCard({
             )}
           </div>
           <div className="bg-slate-50 p-4 rounded-md">
-            <MathRenderer content={result.feedback || "No feedback provided."} />
+            <MathRenderer content={conciseFeedback(result.feedback || "No feedback provided.", !!result.pedagogicalEvaluation)} />
           </div>
+
+          {result.pedagogicalEvaluation && (
+            <div className="mt-4 space-y-3 rounded-md border border-indigo-100 bg-indigo-50/40 p-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">Your approach</p>
+                <p className="mt-1 text-sm text-slate-800">{result.pedagogicalEvaluation.techniqueLabel}</p>
+              </div>
+              {result.pedagogicalEvaluation.misconceptionLabel && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">First point to correct</p>
+                  <p className="mt-1 text-sm text-slate-800">
+                    Your reasoning diverges when applying: {result.pedagogicalEvaluation.misconceptionLabel.toLowerCase()}.
+                  </p>
+                </div>
+              )}
+              {result.pedagogicalEvaluation.remediationPrompt && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">How to improve your reasoning</p>
+                  <div className="mt-1 text-sm text-slate-800">
+                    <MathRenderer content={result.pedagogicalEvaluation.remediationPrompt} />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {(isAdmin || allowRLHF) && lastSubmissionId && userId && (

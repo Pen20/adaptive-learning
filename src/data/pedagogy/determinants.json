@@ -1,0 +1,155 @@
+{
+  "schemaVersion": "1.1",
+  "ficheId": "determinants-evaluation",
+  "ficheVersion": "1.1.0",
+  "topicId": "determinants",
+  "title": "Topic-level fiche pédagogique d’évaluation — Determinants",
+  "learningObjectives": [
+    { "objectiveId": "DET-O1", "description": "Compute a determinant using a mathematically valid technique." },
+    { "objectiveId": "DET-O2", "description": "Justify intermediate operations, signs, and simplifications." },
+    { "objectiveId": "DET-O3", "description": "Use determinant conditions to characterize singularity or invertibility." }
+  ],
+  "prerequisites": [
+    { "prerequisiteId": "DET-P1", "description": "Signed arithmetic and simplification." },
+    { "prerequisiteId": "DET-P2", "description": "Two-by-two determinant formula ad-bc." },
+    { "prerequisiteId": "DET-P3", "description": "Solving a linear equation or inequality." }
+  ],
+  "taskTypes": [
+    {
+      "taskTypeId": "DET-COMPUTE-3X3",
+      "name": "Compute a three-by-three determinant",
+      "objectiveIds": ["DET-O1", "DET-O2"],
+      "reasoningCriterionIds": ["DET-R1", "DET-R2", "DET-R3"],
+      "acceptedTechniques": [
+        {
+          "techniqueId": "cofactor-expansion",
+          "label": "Cofactor expansion",
+          "reasoningComponents": [
+            { "componentId": "choose-expansion", "description": "Choose a valid row or column for expansion.", "required": false, "acceptableEvidence": ["Names a row or column", "The written expansion unambiguously shows the chosen row or column"] },
+            { "componentId": "construct-minors", "description": "Construct the relevant two-by-two minors.", "required": true, "acceptableEvidence": ["Displays each minor", "Writes equivalent minor products in a condensed expansion"], "insufficientEvidence": ["Lists numbers without a traceable expansion"] },
+            { "componentId": "apply-cofactor-signs", "description": "Apply the alternating cofactor signs correctly.", "required": true, "acceptableEvidence": ["Shows the correct signed expansion", "Uses an algebraically equivalent sign arrangement"] },
+            { "componentId": "compute-minors", "description": "Compute each minor using ad-bc.", "required": true, "acceptableEvidence": ["Shows ad-bc products", "Shows correctly evaluated minor values inside a condensed calculation"] },
+            { "componentId": "combine-terms", "description": "Combine and simplify the cofactor terms.", "required": true, "acceptableEvidence": ["The arithmetic chain evaluates to the determinant", "An equivalent unsimplified expression evaluates to the determinant"] }
+          ]
+        },
+        {
+          "techniqueId": "row-reduction",
+          "label": "Row reduction",
+          "reasoningComponents": [
+            { "componentId": "state-row-operations", "description": "Use valid row operations.", "required": true, "acceptableEvidence": ["States each row operation", "Shows successive matrices from which each operation is unambiguous"] },
+            { "componentId": "track-determinant-effect", "description": "Track swaps, scaling, and row additions correctly.", "required": true, "acceptableEvidence": ["Accounts for every swap and scaling", "Uses only determinant-preserving row additions"] },
+            { "componentId": "reach-triangular-form", "description": "Reach a triangular matrix through valid operations.", "required": true, "acceptableEvidence": ["Displays a valid triangular form"] },
+            { "componentId": "diagonal-product", "description": "Use the diagonal product and accumulated factors.", "required": true, "acceptableEvidence": ["Multiplies diagonal entries and applies tracked factors"] }
+          ]
+        },
+        {
+          "techniqueId": "sarrus-rule",
+          "label": "Sarrus’ rule",
+          "constraints": ["Only valid for a three-by-three determinant."],
+          "reasoningComponents": [
+            { "componentId": "positive-diagonals", "description": "Compute the three downward diagonal products.", "required": true, "acceptableEvidence": ["Shows or correctly sums all three downward products"] },
+            { "componentId": "negative-diagonals", "description": "Compute the three upward diagonal products.", "required": true, "acceptableEvidence": ["Shows or correctly sums all three upward products"] },
+            { "componentId": "subtract-diagonal-sums", "description": "Subtract the upward sum from the downward sum.", "required": true, "acceptableEvidence": ["Shows an equivalent subtraction producing the determinant"] }
+          ]
+        }
+      ]
+    },
+    {
+      "taskTypeId": "DET-SINGULAR-2X2",
+      "name": "Find a parameter that makes a two-by-two matrix singular",
+      "objectiveIds": ["DET-O1", "DET-O3"],
+      "reasoningCriterionIds": ["DET-R1", "DET-R2", "DET-R3", "DET-R4"],
+      "acceptedTechniques": [
+        {
+          "techniqueId": "two-by-two-formula",
+          "label": "Two-by-two determinant equation",
+          "reasoningComponents": [
+            { "componentId": "write-ad-bc", "description": "Write and substitute into ad-bc.", "required": true, "acceptableEvidence": ["Writes ad-bc with substituted entries", "Writes a simplified but equivalent determinant expression"], "insufficientEvidence": ["States only a value of the parameter"] },
+            { "componentId": "set-zero", "description": "Set the determinant equal to zero for singularity.", "required": true, "acceptableEvidence": ["Explicitly states det(A)=0", "Directly writes the computed determinant expression equal to zero"], "insufficientEvidence": ["Stops after computing det(A)"] },
+            { "componentId": "solve-parameter", "description": "Solve the resulting equation for the parameter.", "required": true, "acceptableEvidence": ["Shows valid algebra leading to the parameter", "States the correct parameter after a clear determinant equation"], "insufficientEvidence": ["Leaves the zero equation unsolved"] },
+            { "componentId": "verify-parameter", "description": "Verify that the determinant becomes zero.", "required": false, "acceptableEvidence": ["Substitutes the parameter and obtains zero", "States a correct singularity conclusion"] }
+          ]
+        }
+      ]
+    },
+    {
+      "taskTypeId": "DET-NONZERO-3X3",
+      "name": "Find parameter values for which a determinant is non-zero",
+      "objectiveIds": ["DET-O1", "DET-O2", "DET-O3"],
+      "reasoningCriterionIds": ["DET-R1", "DET-R2", "DET-R3", "DET-R4"],
+      "acceptedTechniques": [
+        {
+          "techniqueId": "cofactor-expansion",
+          "label": "Cofactor expansion",
+          "reasoningComponents": [
+            { "componentId": "choose-expansion", "description": "Choose a convenient row or column.", "required": false, "acceptableEvidence": ["Names it", "Makes it unambiguous through the expansion"] },
+            { "componentId": "construct-minors", "description": "Construct and compute the relevant minors.", "required": true, "acceptableEvidence": ["Shows minors", "Writes equivalent minor products in a condensed expansion"] },
+            { "componentId": "apply-cofactor-signs", "description": "Apply cofactor signs correctly.", "required": true, "acceptableEvidence": ["Uses the alternating signs or an equivalent signed expression"] },
+            { "componentId": "form-parameter-expression", "description": "Simplify to an expression in the parameter.", "required": true, "acceptableEvidence": ["Writes the expected expression or any algebraically equivalent form"] },
+            { "componentId": "solve-nonzero-condition", "description": "Solve the non-zero condition and state the excluded value.", "required": true, "acceptableEvidence": ["Sets the expression non-zero and solves", "Finds the zero case and explicitly excludes it"] }
+          ]
+        },
+        {
+          "techniqueId": "row-comparison",
+          "label": "Row comparison and determinant properties",
+          "reasoningComponents": [
+            { "componentId": "compare-rows", "description": "Identify when two rows become equal or dependent.", "required": true, "acceptableEvidence": ["Correctly identifies the parameter producing equal or dependent rows"] },
+            { "componentId": "connect-singularity", "description": "Connect row dependence to a zero determinant.", "required": true, "acceptableEvidence": ["States or clearly uses that dependent rows imply determinant zero"] },
+            { "componentId": "state-excluded-value", "description": "State the parameter value to exclude.", "required": true, "acceptableEvidence": ["States the correct non-equality or equivalent set condition"] }
+          ]
+        }
+      ]
+    }
+  ],
+  "evaluationRubric": {
+    "finalAnswerWeight": 0.5,
+    "reasoningWeight": 0.5,
+    "reasoningCriteria": [
+      { "criterionId": "DET-R1", "description": "A valid technique is selected and applied within its constraints.", "weight": 0.1 },
+      { "criterionId": "DET-R2", "description": "The determinant construction, operations, minors, or products are correct.", "weight": 0.2 },
+      { "criterionId": "DET-R3", "description": "Signs, arithmetic, and algebraic simplification are correct.", "weight": 0.1 },
+      { "criterionId": "DET-R4", "description": "The required determinant condition is applied and the requested conclusion is reached.", "weight": 0.1 }
+    ]
+  },
+  "reasoningStatuses": [
+    { "status": "correct", "definition": "The reasoning provides a valid mathematical justification, including any required conclusion.", "penalizesReasoning": false },
+    { "status": "correct_but_incomplete", "definition": "The displayed mathematics is correct but stops before a required condition, solution, or conclusion.", "penalizesReasoning": true },
+    { "status": "incorrect", "definition": "A genuine mathematical error changes a value, sign, solution set, or logical condition.", "penalizesReasoning": true },
+    { "status": "missing", "definition": "There is not enough mathematical work to assess the method.", "penalizesReasoning": true },
+    { "status": "not_applicable", "definition": "The component is not required for the technique or task used.", "penalizesReasoning": false }
+  ],
+  "equivalencePolicy": {
+    "mustCheckBeforeDeclaringError": true,
+    "acceptedTransformations": ["multiplication or division by 1", "addition or subtraction of 0", "equivalent fractions", "expanded and factored forms", "reordered sums and products", "omitted zero terms", "condensed cofactor calculations"],
+    "rule": "A difference in notation or simplification is not a reasoning error unless it changes the value, sign, solution set, or logical condition."
+  },
+  "scoringPolicy": {
+    "mode": "binary",
+    "maximumReasoningScore": 0.5,
+    "fullCreditRule": "Award 0.5 when the reasoning provides a mathematically valid justification, even if condensed or differently organized.",
+    "zeroCreditRule": "Award 0 only when a genuine mathematical error or required logical omission prevents the reasoning from justifying the requested conclusion.",
+    "criteriaPurpose": "diagnosis_and_feedback"
+  },
+  "feedbackPolicy": {
+    "acknowledgeCorrectWorkFirst": true,
+    "identifyFirstGenuineDivergence": true,
+    "doNotMentionInternalStepIds": true,
+    "doNotCallEquivalentExpressionsErrors": true,
+    "distinguishIncompleteFromIncorrect": true,
+    "maximumActionableCorrections": 1,
+    "preferredReasoningPhrases": {
+      "incorrect": "Your reasoning diverges when...",
+      "incomplete": "Your reasoning is correct up to..., but it stops before...",
+      "correct": "Your reasoning correctly..."
+    }
+  },
+  "misconceptions": [
+    { "misconceptionId": "DET-M1", "label": "Incorrect minor construction", "classification": "procedural_error", "observableIndicators": ["Wrong row or column is deleted", "A minor contains an entry from the deleted row or column"], "prerequisiteIds": ["DET-P2"], "feedbackStrategy": { "acknowledge": "Your choice of cofactor expansion is valid.", "prompt": "After deleting the selected row and column, which four entries remain?", "avoidGivingAnswerImmediately": true }, "remediationStrategy": "guided-reconstruction" },
+    { "misconceptionId": "DET-M2", "label": "Incorrect cofactor sign", "classification": "procedural_error", "observableIndicators": ["The alternating sign pattern is not respected", "The middle first-row cofactor has the wrong sign"], "prerequisiteIds": ["DET-P1"], "feedbackStrategy": { "acknowledge": "Your expansion structure is appropriate.", "prompt": "What sign belongs to this position in the cofactor checkerboard?", "avoidGivingAnswerImmediately": true }, "remediationStrategy": "sign-pattern-check" },
+    { "misconceptionId": "DET-M3", "label": "Incorrect two-by-two determinant", "classification": "calculation_error", "observableIndicators": ["Uses ad+bc instead of ad-bc", "Reverses or omits one diagonal product"], "prerequisiteIds": ["DET-P1", "DET-P2"], "feedbackStrategy": { "acknowledge": "You identified the relevant two-by-two matrix.", "prompt": "Which product is ad and which product must be subtracted as bc?", "avoidGivingAnswerImmediately": true }, "remediationStrategy": "two-by-two-rebuild" },
+    { "misconceptionId": "DET-M4", "label": "Singularity condition reversed", "classification": "conceptual_error", "observableIndicators": ["Treats singular as determinant non-zero", "Treats invertible as determinant zero"], "prerequisiteIds": ["DET-P3"], "feedbackStrategy": { "acknowledge": "You computed a determinant expression.", "prompt": "For a singular matrix, should the determinant equal zero or be non-zero?", "avoidGivingAnswerImmediately": true }, "remediationStrategy": "concept-recall" },
+    { "misconceptionId": "DET-M5", "label": "Incorrect parameter solving", "classification": "calculation_error", "observableIndicators": ["The determinant condition is correct but the parameter is solved incorrectly", "The excluded value is derived through invalid algebra"], "prerequisiteIds": ["DET-P1", "DET-P3"], "feedbackStrategy": { "acknowledge": "Your determinant condition is useful.", "prompt": "Solve the determinant condition one algebraic operation at a time.", "avoidGivingAnswerImmediately": true }, "remediationStrategy": "parameter-equation" },
+    { "misconceptionId": "DET-M6", "label": "Incomplete singularity reasoning", "classification": "incomplete_reasoning", "observableIndicators": ["The determinant expression is correct but is not set equal to zero", "The singularity condition is stated but the parameter is not solved", "The parameter is solved but the conclusion is not stated"], "prerequisiteIds": ["DET-P3"], "feedbackStrategy": { "acknowledge": "Your determinant expression is correct.", "prompt": "Use the singularity condition by setting this expression equal to zero, then solve for the parameter.", "avoidGivingAnswerImmediately": true }, "remediationStrategy": "complete-singularity-condition" },
+    { "misconceptionId": "DET-M7", "label": "Incomplete non-zero condition", "classification": "incomplete_reasoning", "observableIndicators": ["The determinant expression is correct but the non-zero condition is not solved", "The zero-producing parameter is found but not excluded"], "prerequisiteIds": ["DET-P3"], "feedbackStrategy": { "acknowledge": "Your determinant expression is correct.", "prompt": "Determine when the expression is zero, then exclude that parameter value.", "avoidGivingAnswerImmediately": true }, "remediationStrategy": "complete-nonzero-condition" }
+  ]
+}

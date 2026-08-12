@@ -16,6 +16,28 @@ export type AiDiagnosisResult = {
   reasoningScore: 0 | 0.5;
   conceptTags: string[];
   confidence: number;
+  pedagogicalEvaluation?: PedagogicalEvaluation;
+};
+
+export type PedagogicalCriterionResult = {
+  criterionId: string;
+  status: "satisfied" | "partial" | "incorrect" | "not-evidenced";
+  evidence: string;
+};
+
+export type PedagogicalEvaluation = {
+  ficheId: string;
+  ficheVersion: string;
+  taskTypeId: string;
+  techniqueId: string;
+  techniqueLabel: string;
+  reasoningStatus: "correct" | "correct_but_incomplete" | "incorrect" | "missing" | "not_applicable";
+  completedStepIds: string[];
+  firstIncorrectStepId: string | null;
+  misconceptionId: string | null;
+  misconceptionLabel: string | null;
+  criterionResults: PedagogicalCriterionResult[];
+  remediationPrompt: string | null;
 };
 
 export type PraxeologyResult = {

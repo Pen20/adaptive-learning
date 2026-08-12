@@ -78,6 +78,9 @@ export function useProblemGrading({
           problemData.answerFormat,
         ),
         reasoningStepsContext: problemData.reasoningSteps,
+        exercisePedagogyJson: problemData.pedagogy
+          ? JSON.stringify(problemData.pedagogy)
+          : undefined,
         useBestOfN,
       })) as GradingResult & { submissionId: Id<"submissions"> };
 
@@ -85,6 +88,7 @@ export function useProblemGrading({
         grade: gradeResult.grade,
         feedback: gradeResult.feedback,
         errorType: gradeResult.errorType,
+        pedagogicalEvaluation: gradeResult.pedagogicalEvaluation,
       });
       feedbackReady = true;
       setGrading(false);

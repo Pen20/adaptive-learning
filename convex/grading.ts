@@ -10,6 +10,12 @@ import type {
   DidacticLayerResult,
   PipelineDiagnostics,
 } from "./layerTypes";
+import { getTopicEvaluationFiche } from "../src/data/pedagogy";
+import type { ExercisePedagogyInstance } from "../src/data/pedagogy";
+import {
+  analyzeSingularParameterReasoning,
+  verifyNumericDeterminantReasoning,
+} from "./determinantReasoning";
 
 function formatCasAnswer(value: string | null): string {
   if (!value) return "the verified answer";
@@ -85,7 +91,7 @@ function errorTypeFromScores(
 ) {
   if (finalAnswerScore === 0.5 && reasoningScore === 0.5) return "";
   if (finalAnswerScore === 0 && reasoningScore === 0) {
-    return "Answer and Reasoning";
+    return fallback || "Incorrect mathematical reasoning";
   }
   if (finalAnswerScore === 0) return "Incorrect Final Answer";
   if (reasoningScore === 0) return "Reasoning Issue";
@@ -117,7 +123,7 @@ function buildVerdictSection(finalAnswerScore: number, reasoningScore: number) {
   }
 
   if (finalAnswerScore === 0.5 && reasoningScore === 0) {
-    return "**Verdict:** Your score is \\(0.5/1\\): you earned the final-answer point, but the reasoning point is missing or not mathematically sound yet. Keep the answer, then repair the specific reasoning step named above so your method supports it.";
+    return "**Verdict:** Your score is \\(0.5/1\\): you earned the final-answer point, but the reasoning point is missing or not mathematically sound yet. Keep the answer, then repair the mathematical divergence identified above so your method supports it.";
   }
 
   if (finalAnswerScore === 0 && reasoningScore === 0.5) {
@@ -144,15 +150,16 @@ function replaceStructuredSection(
   return `${replacement}\n\n${feedback}`;
 }
 
-function extractStructuredSectionContent(
+export function replaceVerdictWithSingleSummary(
   feedback: string,
-  label: "Final Answer" | "Reasoning steps" | "Verdict",
+  finalAnswerScore: number,
+  reasoningScore: number,
 ) {
-  const sectionPattern = new RegExp(
-    `\\*\\*${label}:\\*\\*([\\s\\S]*?)(?=\\n\\n\\*\\*(?:Final Answer|Reasoning steps|Verdict):\\*\\*|$)`,
-    "i",
+  return replaceStructuredSection(
+    feedback,
+    "Verdict",
+    buildVerdictSection(finalAnswerScore, reasoningScore),
   );
-  return feedback.match(sectionPattern)?.[1]?.trim() ?? "";
 }
 
 function enforceHalfPointStructure(
@@ -181,17 +188,10 @@ function enforceHalfPointStructure(
     );
   }
 
-  feedback = replaceStructuredSection(
+  feedback = replaceVerdictWithSingleSummary(
     feedback,
-    "Verdict",
-    [
-      buildVerdictSection(finalAnswerScore, reasoningScore),
-      extractStructuredSectionContent(feedback, "Verdict")
-        ? `Additional guidance: ${extractStructuredSectionContent(feedback, "Verdict")}`
-        : "",
-    ]
-      .filter(Boolean)
-      .join(" "),
+    finalAnswerScore,
+    reasoningScore,
   );
 
   return {
@@ -478,6 +478,7 @@ function attachPipelineDiagnostics(
   casResult: CasResult,
   casEquivalence: CasEquivalence,
   aiContent: unknown,
+  exercisePedagogy?: ExercisePedagogyInstance | null,
 ) {
   const casLayer = buildCasLayerResult(casResult, casEquivalence);
   const reasoningScore =
@@ -486,12 +487,17 @@ function attachPipelineDiagnostics(
       : result.grade === 1
         ? 0.5
         : 0;
-  const aiLayer: AiDiagnosisResult = normalizeAiDiagnosis(aiContent, {
-    topicName,
-    errorType: result.errorType,
-    reasoningScore,
-    casLayer,
-  });
+  const aiLayer: AiDiagnosisResult = normalizeAiDiagnosis(
+    aiContent,
+    { topicName, errorType: result.errorType, reasoningScore, casLayer },
+    exercisePedagogy
+      ? {
+          ficheId: exercisePedagogy.ficheId,
+          ficheVersion: exercisePedagogy.ficheVersion,
+          taskTypeId: exercisePedagogy.taskTypeId,
+        }
+      : undefined,
+  );
   const didacticLayer = buildDidacticInterpretation({
     topicName,
     grade: result.grade,
@@ -503,18 +509,185 @@ function attachPipelineDiagnostics(
     aiLayer,
     didacticLayer,
   };
+  const misconceptionId = aiLayer.pedagogicalEvaluation?.misconceptionId;
+  const canonicalMisconception = misconceptionId
+    ? getTopicEvaluationFiche(topicName)?.misconceptions.find(
+        (item) => item.misconceptionId === misconceptionId,
+      )
+    : undefined;
+  if (aiLayer.pedagogicalEvaluation && canonicalMisconception) {
+    aiLayer.pedagogicalEvaluation.misconceptionLabel =
+      canonicalMisconception.label;
+  }
 
   return {
     ...result,
-    feedback: appendDidacticFeedback(result.feedback, didacticLayer),
-    errorType: result.grade === 1 ? "" : result.errorType || aiLayer.errorType,
+    feedback: exercisePedagogy
+      ? removeNumberedStepReferences(
+          appendDidacticFeedback(result.feedback, didacticLayer),
+        )
+      : appendDidacticFeedback(result.feedback, didacticLayer),
+    errorType:
+      result.grade === 1
+        ? ""
+        : canonicalMisconception?.label ||
+          aiLayer.pedagogicalEvaluation?.misconceptionLabel ||
+          aiLayer.misconception ||
+          aiLayer.errorType ||
+          result.errorType ||
+          "Unclassified mathematical error",
     techniqueUsed: aiLayer.techniqueUsed,
     misconception: result.grade === 1 ? "" : aiLayer.misconception,
     conceptTags: didacticLayer.conceptTags,
     praxeology: didacticLayer.praxeology,
     profileUpdate: didacticLayer.profileUpdate,
     layerDiagnostics,
+    pedagogicalEvaluation: aiLayer.pedagogicalEvaluation,
   };
+}
+
+function reconcileVerifiedDeterminantReasoning(
+  result: NormalizedGradingResult,
+  content: Record<string, unknown>,
+  reasoning: string,
+  exercisePedagogy: ExercisePedagogyInstance | null,
+) {
+  const singularExpectations =
+    exercisePedagogy?.taskTypeId === "DET-SINGULAR-2X2"
+      ? exercisePedagogy.expectedIntermediateResults?.["two-by-two-formula"]
+      : undefined;
+  if (
+    singularExpectations?.determinantExpression &&
+    singularExpectations.parameterValue
+  ) {
+    const status = analyzeSingularParameterReasoning(
+      reasoning,
+      singularExpectations.determinantExpression,
+      singularExpectations.parameterValue,
+    );
+    if (status === "correct_but_incomplete") {
+      const feedback = replaceStructuredSection(
+        result.feedback,
+        "Reasoning steps",
+        `**Reasoning steps:** \\(0/0.5\\) Your determinant expression \\(${singularExpectations.determinantExpression}\\) is correct, but your reasoning stops before applying the singularity condition. Set this expression equal to zero, then solve for the parameter.`,
+      );
+      return {
+        result: {
+          ...result,
+          reasoningScore: 0,
+          grade: result.finalAnswerScore,
+          feedback,
+          errorType: "Incomplete singularity reasoning",
+        },
+        content: {
+          ...content,
+          reasoningScore: 0,
+          grade: result.finalAnswerScore,
+          errorType: "Incomplete singularity reasoning",
+          techniqueId: "two-by-two-formula",
+          techniqueUsed: "Two-by-two determinant equation",
+          reasoningStatus: "correct_but_incomplete",
+          misconception: "Incomplete singularity reasoning",
+          firstIncorrectStepId: "set-zero",
+          misconceptionId: "DET-M6",
+          remediationPrompt:
+            "Use the singularity condition by setting your determinant expression equal to zero, then solve for the parameter.",
+        },
+      };
+    }
+    if (status === "correct") {
+      const reasoningScore = 0.5;
+      return {
+        result: {
+          ...result,
+          reasoningScore,
+          grade: addScores(result.finalAnswerScore, reasoningScore),
+          feedback: replaceStructuredSection(
+            result.feedback,
+            "Reasoning steps",
+            "**Reasoning steps:** \\(0.5/0.5\\) Your determinant expression, singularity condition, and parameter solution are mathematically correct.",
+          ),
+          errorType: result.finalAnswerScore === 0.5 ? "" : "Incorrect Final Answer",
+        },
+        content: {
+          ...content,
+          reasoningScore,
+          grade: addScores(result.finalAnswerScore, reasoningScore),
+          errorType: result.finalAnswerScore === 0.5 ? "" : "Incorrect Final Answer",
+          techniqueId: "two-by-two-formula",
+          techniqueUsed: "Two-by-two determinant equation",
+          reasoningStatus: "correct",
+          misconception: "",
+          firstIncorrectStepId: "",
+          misconceptionId: "",
+          remediationPrompt: "",
+        },
+      };
+    }
+  }
+
+  const expected =
+    exercisePedagogy?.taskTypeId === "DET-COMPUTE-3X3"
+      ? exercisePedagogy.expectedIntermediateResults?.["cofactor-expansion"]
+          ?.finalDeterminant
+      : undefined;
+  if (!expected || !verifyNumericDeterminantReasoning(reasoning, expected)) {
+    return { result, content };
+  }
+
+  const finalAnswerScore = result.finalAnswerScore;
+  const reasoningScore = 0.5;
+  const feedback = replaceStructuredSection(
+    result.feedback,
+    "Reasoning steps",
+    "**Reasoning steps:** \\(0.5/0.5\\) Your cofactor expansion, minor calculations, and signs form a valid calculation of the determinant. Your notation is condensed but mathematically correct.",
+  );
+  const correctedContent = {
+    ...content,
+    reasoningScore,
+    grade: addScores(finalAnswerScore, reasoningScore),
+    errorType: finalAnswerScore === 0.5 ? "" : "Incorrect Final Answer",
+    misconception: "",
+    reasoningStatus: "correct",
+    firstIncorrectStepId: "",
+    misconceptionId: "",
+    remediationPrompt: "",
+    criterionResults: Array.isArray(content.criterionResults)
+      ? content.criterionResults.map((criterion) => ({
+          ...(typeof criterion === "object" && criterion ? criterion : {}),
+          status: "satisfied",
+        }))
+      : [],
+  };
+
+  return {
+    result: {
+      ...result,
+      reasoningScore,
+      grade: addScores(finalAnswerScore, reasoningScore),
+      feedback,
+      errorType: finalAnswerScore === 0.5 ? "" : "Incorrect Final Answer",
+    },
+    content: correctedContent,
+  };
+}
+
+export const INTERMEDIATE_EQUIVALENCE_RULE = `
+INTERMEDIATE-EXPRESSION EQUIVALENCE CHECK (MANDATORY):
+- Before marking any intermediate expression as incorrect, simplify both the learner's expression and the expected expression mentally or with the supplied exercise values.
+- Multiplying or dividing by 1, adding or subtracting 0, redundant parentheses, reordered addition or multiplication, expanded/factored forms, and equivalent fractions do NOT create a reasoning divergence.
+- In particular, 2k - 2 and 2k - 2 × 1 are exactly equivalent; never describe one as the correction of the other.
+- Only report a divergence when you can state a non-zero mathematical difference that changes the value, solution set, sign, or logical condition.
+- If the expressions are equivalent, award the reasoning credit supported by the work. You may suggest simplification as a non-penalizing note, but errorType, misconceptionId, firstIncorrectStepId, and remediationPrompt must not identify that notation as an error.
+`;
+
+export function removeNumberedStepReferences(feedback: string) {
+  return feedback
+    .replace(/\b(?:at|in|from)\s+Step\s+\d+\s*[\u2014\u2013:-]?\s*/gi, "where ")
+    .replace(/\bStep\s+\d+\s*[\u2014\u2013:-]?\s*/gi, "")
+    .replace(/Your reasoning (?:first )?diverges where\s*/gi, "Your reasoning diverges when ")
+    .replace(/\s{2,}/g, " ")
+    .replace(/ \n/g, "\n");
 }
 
 export const gradeSubmission = action({
@@ -828,6 +1001,7 @@ export const gradeOptimized = action({
     topicName: v.string(),
     answerFormatInstruction: v.optional(v.string()),
     reasoningStepsContext: v.optional(v.string()),
+    exercisePedagogyJson: v.optional(v.string()),
     temperature: v.optional(v.number()),
     // Quiz study flags (set by gradingPipeline for enrolled participants):
     // includeOutcomeContext=false disables the outcome-validated few-shot pool
@@ -837,6 +1011,10 @@ export const gradeOptimized = action({
     frozenPoolPhase: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const exercisePedagogy = args.exercisePedagogyJson
+      ? (JSON.parse(args.exercisePedagogyJson) as ExercisePedagogyInstance)
+      : null;
+    const topicFiche = getTopicEvaluationFiche(args.topicName);
     // Start independent work together to reduce the synchronous grading wait.
     const casResultPromise = ctx.runAction(internal.cas.computeGroundTruth, {
       problemStatement: args.problemStatement,
@@ -945,7 +1123,34 @@ export const gradeOptimized = action({
 EXPECTED REASONING PROCESS (${args.topicName}):
 ${args.reasoningStepsContext}
 
-When grading "**Reasoning steps:**": Go through the student's work and match it against these steps in order. Identify the FIRST step where the student's reasoning diverges, skips a required computation, or contains an error. Name it by its number and label (e.g. "Step 2 — Form det(A − λI)"). State what was expected versus what the student wrote. If all steps are present and correct, confirm which steps were completed successfully.
+When grading "**Reasoning steps:**": Compare the student's work with the expected reasoning internally and identify the first mathematical divergence. In learner-facing feedback, NEVER mention a numbered step, a step ID, or wording such as "Step 2". Write "Your reasoning diverges when..." and describe the mathematical operation directly. State what was expected versus what the student wrote. If the reasoning is correct, describe the mathematical work completed successfully without listing step numbers.
+`
+      : "";
+
+    const pedagogicalEvaluationContext = topicFiche && exercisePedagogy
+      ? `
+TOPIC-LEVEL FICHE PEDAGOGIQUE D'EVALUATION:
+${JSON.stringify({
+  ficheId: topicFiche.ficheId,
+  ficheVersion: topicFiche.ficheVersion,
+  taskType: topicFiche.taskTypes.find((task) => task.taskTypeId === exercisePedagogy.taskTypeId),
+  evaluationRubric: topicFiche.evaluationRubric,
+  misconceptions: topicFiche.misconceptions,
+  exerciseInstance: exercisePedagogy,
+})}
+
+PEDAGOGICAL EVALUATION RULES:
+- Treat the fiche as the authoritative reasoning-evaluation policy for this task.
+- Identify the valid technique actually explored by the learner. Do not require cofactor expansion when another allowed technique is valid.
+- Evaluate only the applicable reasoningComponents and their acceptableEvidence for the identified technique.
+- Apply the fiche equivalencePolicy before classifying any component.
+- Classify the overall reasoning using exactly one fiche reasoningStatus. Distinguish correct_but_incomplete from incorrect.
+- For correct_but_incomplete reasoning, explicitly acknowledge the correct mathematics before naming the missing condition or conclusion.
+- Identify the first genuine mathematical divergence or omission; later dependent errors are consequences, not separate root causes.
+- Apply the fiche scoringPolicy. Criterion weights are for diagnosis and feedback, not fractional scoring.
+- Follow the fiche feedbackPolicy, including its preferred phrase for the selected status.
+- Use only IDs present in the fiche. Use an empty string when no incorrect step or misconception exists.
+- Give a remediationPrompt that asks the learner to repair the first error without immediately revealing the full solution.
 `
       : "";
 
@@ -980,6 +1185,8 @@ When grading "**Reasoning steps:**": Go through the student's work and match it 
     ${args.answerFormatInstruction ? `Expected Final Answer Format: ${args.answerFormatInstruction}` : ""}
     ${linearAlgebraReasoningInstruction}
     ${reasoningScaffold}
+    ${pedagogicalEvaluationContext}
+    ${INTERMEDIATE_EQUIVALENCE_RULE}
 
     SCORING RUBRIC:
     - The total grade is 1 point.
@@ -996,7 +1203,7 @@ When grading "**Reasoning steps:**": Go through the student's work and match it 
     3. **Final Answer Detection**: If "Student's Final Answer" is empty, find the answer within the "Reasoning" steps. If no answer can be found anywhere, finalAnswerScore is 0.
     4. **Trust the CAS**: If a CAS verified answer is provided above, use it as the ground truth for correctness. Do NOT recompute the answer yourself — AI arithmetic is unreliable. The CAS is always right.
     5. **Reasoning Consistency**: Read the full reasoning sentence or chain before judging. Only assign grade 0 for incorrect reasoning if the whole argument is mathematically wrong, misses a required justification, or directly contradicts the final answer. A different but valid method, condensed steps, or unconventional notation must receive full credit.
-    6. **Semantic Equivalence**: Mathematically equivalent statements MUST receive the same grade regardless of phrasing, notation, or word choice. For example, writing "\\(\\det(A) \\neq 0\\)" is identical to writing "the determinant is non-zero". Rephrasing a correct conclusion in equivalent words is NOT a reasoning error.
+    6. **Semantic Equivalence**: Mathematically equivalent statements and intermediate expressions MUST receive the same grade regardless of phrasing, notation, neutral factors, or algebraic form. Apply the mandatory intermediate-expression equivalence check above before identifying any divergence. Rephrasing or simplifying an equivalent expression is NOT a reasoning error.
     7. **Wrong Answer or Wrong Reasoning → Show the Correct Result**: If the final answer or reasoning is wrong, briefly state what the correct answer/result is after explaining the mistake. One or two sentences is enough.
     8. **Be concise**: Each feedback section should be one short sentence unless a specific mathematical mistake must be named.
     8a. **Notice Rule (no penalty)**: Even when awarding full reasoning marks, if you notice ANY minor issue — wrong sign (e.g., \\(\\det(A + \\lambda I)\\) instead of \\(\\det(A - \\lambda I)\\)), a notation slip, an incorrect intermediate step that did not affect the final answer, or a self-corrected error — you MUST add a brief notice in the "**Reasoning steps:**" section after the score line. Format it as: "Note: [describe the issue clearly and what the correct form is]." This notice does NOT reduce the score. If everything is completely correct, omit the notice.
@@ -1011,7 +1218,7 @@ When grading "**Reasoning steps:**": Go through the student's work and match it 
     Assess only the final answer. Is it correct or not? Show its half-point score \\(x/0.5\\). If incorrect, state the correct answer AND one actionable sentence on what needs to be fixed. If correct, confirm it.
 
     Section 2 — write the literal header "**Reasoning steps:**" then on the same line:
-    Assess only the reasoning steps independently. Show its half-point score \\(x/0.5\\). Read the full reasoning sentence or chain before deciding. If correct, confirm them. If wrong or missing, identify the root mathematical cause that lost the reasoning mark, name where it first appears in the student's work, and give one actionable sentence on what needs to be shown or corrected. Never skip or merge this with Section 1.
+    Assess only the reasoning independently. Show its half-point score \\(x/0.5\\). Read the full reasoning chain and check algebraic equivalence before deciding. If correct, confirm it. If wrong or missing, identify a genuine mathematical divergence that changes the value, sign, solution set, or logic, then give one actionable correction. Never call an equivalent unsimplified expression a divergence. Never skip or merge this with Section 1.
 
     Section 3 — write the literal header "**Verdict:**" then on the same line:
     Justify the grade in 2-3 sentences. List every mistake found. If grade is 1, confirm both parts are correct. Use "you" and "your"; never write "the student".
@@ -1022,12 +1229,20 @@ When grading "**Reasoning steps:**": Go through the student's work and match it 
       "reasoningScore": number (0 or 0.5),
       "grade": number (0, 0.5, or 1),
       "feedback": "**Final Answer:** ... \\n\\n**Reasoning steps:** ... \\n\\n**Verdict:** ...",
-      "errorType": "2-4 word category if grade < 1, else empty",
+      "errorType": "precise 2-5 word mathematical error category if grade < 1, else empty. Never use vague labels such as Answer and Reasoning, Incorrect Answer, or Reasoning Issue",
       "techniqueUsed": "the mathematical technique or strategy you identify",
       "misconception": "the underlying misconception if grade < 1, else empty",
       "errorLocation": "final answer, reasoning steps, calculation, notation, or none detected",
       "conceptTags": ["short mathematical concept tags"],
       "diagnosisConfidence": number between 0 and 1
+      ${topicFiche && exercisePedagogy ? `,
+      "techniqueId": "an allowed techniqueId from the fiche",
+      "reasoningStatus": "correct|correct_but_incomplete|incorrect|missing|not_applicable",
+      "completedStepIds": ["correctly completed stepIds from that technique"],
+      "firstIncorrectStepId": "first incorrect stepId, or empty string",
+      "misconceptionId": "best matching misconceptionId, or empty string",
+      "criterionResults": [{"criterionId":"criterion ID", "status":"satisfied|partial|incorrect|not-evidenced", "evidence":"brief evidence from the submitted reasoning"}],
+      "remediationPrompt": "one focused question that helps repair the first error without giving the complete answer"` : ""}
     }
     `;
 
@@ -1115,15 +1330,27 @@ When grading "**Reasoning steps:**": Go through the student's work and match it 
             casResult,
             casEquivalence,
             null,
+            exercisePedagogy,
           );
         }
         const graded = normalizeGradingResult(content);
+        const reconciled = reconcileVerifiedDeterminantReasoning(
+          graded,
+          content,
+          args.reasoning,
+          exercisePedagogy,
+        );
         return attachPipelineDiagnostics(
-          enforceHalfPointStructure(graded, casResult, casEquivalence),
+          enforceHalfPointStructure(
+            reconciled.result,
+            casResult,
+            casEquivalence,
+          ),
           args.topicName,
           casResult,
           casEquivalence,
-          content,
+          reconciled.content,
+          exercisePedagogy,
         );
       } else {
         const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -1173,6 +1400,25 @@ When grading "**Reasoning steps:**": Go through the student's work and match it 
                         items: { type: "string" },
                       },
                       diagnosisConfidence: { type: "number" },
+                      techniqueId: { type: "string" },
+                      reasoningStatus: { type: "string", enum: ["correct", "correct_but_incomplete", "incorrect", "missing", "not_applicable"] },
+                      completedStepIds: { type: "array", items: { type: "string" } },
+                      firstIncorrectStepId: { type: "string" },
+                      misconceptionId: { type: "string" },
+                      criterionResults: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            criterionId: { type: "string" },
+                            status: { type: "string", enum: ["satisfied", "partial", "incorrect", "not-evidenced"] },
+                            evidence: { type: "string" },
+                          },
+                          required: ["criterionId", "status", "evidence"],
+                          additionalProperties: false,
+                        },
+                      },
+                      remediationPrompt: { type: "string" },
                     },
                     required: [
                       "finalAnswerScore",
@@ -1185,6 +1431,13 @@ When grading "**Reasoning steps:**": Go through the student's work and match it 
                       "errorLocation",
                       "conceptTags",
                       "diagnosisConfidence",
+                      "techniqueId",
+                      "reasoningStatus",
+                      "completedStepIds",
+                      "firstIncorrectStepId",
+                      "misconceptionId",
+                      "criterionResults",
+                      "remediationPrompt",
                     ],
                     additionalProperties: false,
                   },
@@ -1209,15 +1462,27 @@ When grading "**Reasoning steps:**": Go through the student's work and match it 
             casResult,
             casEquivalence,
             null,
+            exercisePedagogy,
           );
         const content = JSON.parse(data.choices[0].message.content);
         const graded = normalizeGradingResult(content);
+        const reconciled = reconcileVerifiedDeterminantReasoning(
+          graded,
+          content,
+          args.reasoning,
+          exercisePedagogy,
+        );
         return attachPipelineDiagnostics(
-          enforceHalfPointStructure(graded, casResult, casEquivalence),
+          enforceHalfPointStructure(
+            reconciled.result,
+            casResult,
+            casEquivalence,
+          ),
           args.topicName,
           casResult,
           casEquivalence,
-          content,
+          reconciled.content,
+          exercisePedagogy,
         );
       }
     } catch (e: any) {
@@ -1234,6 +1499,7 @@ When grading "**Reasoning steps:**": Go through the student's work and match it 
         casResult,
         casEquivalence,
         null,
+        exercisePedagogy,
       );
     }
   },
@@ -1313,6 +1579,7 @@ export const gradeWithJudge = action({
     topicName: v.string(),
     answerFormatInstruction: v.optional(v.string()),
     reasoningStepsContext: v.optional(v.string()),
+    exercisePedagogyJson: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // 1. Get initial grade
@@ -1534,6 +1801,7 @@ export const gradeBestOfN = action({
     topicName: v.string(),
     answerFormatInstruction: v.optional(v.string()),
     reasoningStepsContext: v.optional(v.string()),
+    exercisePedagogyJson: v.optional(v.string()),
     n: v.optional(v.number()),
     // Quiz study flags — forwarded to gradeOptimized (candidate generation)
     // and evaluateEvaluator (judge few-shot pool). See gradeOptimized.
@@ -1551,6 +1819,7 @@ export const gradeBestOfN = action({
       topicName: args.topicName,
       answerFormatInstruction: args.answerFormatInstruction,
       reasoningStepsContext: args.reasoningStepsContext,
+      exercisePedagogyJson: args.exercisePedagogyJson,
       temperature: 0.4,
       includeOutcomeContext: args.includeOutcomeContext,
       frozenPoolPhase: args.frozenPoolPhase,

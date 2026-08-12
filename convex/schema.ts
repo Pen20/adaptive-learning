@@ -129,6 +129,26 @@ export default defineSchema({
   }).index("by_submission", ["submissionId"])
     .index("by_user_topic", ["userId", "topicName"]),
 
+  remediationSessions: defineTable({
+    userId: v.string(),
+    submissionId: v.id("submissions"),
+    topicName: v.string(),
+    ficheId: v.string(),
+    ficheVersion: v.string(),
+    taskTypeId: v.string(),
+    techniqueId: v.string(),
+    misconceptionId: v.optional(v.string()),
+    misconceptionLabel: v.optional(v.string()),
+    activitiesJson: v.string(),
+    responsesJson: v.string(),
+    currentActivityIndex: v.number(),
+    successfulChecks: v.number(),
+    status: v.union(v.literal("in_progress"), v.literal("completed")),
+    startedAt: v.number(),
+    completedAt: v.optional(v.number()),
+  }).index("by_user_submission", ["userId", "submissionId"])
+    .index("by_user_status", ["userId", "status"]),
+
   feedback: defineTable({
     name: v.optional(v.string()),
     email: v.optional(v.string()),

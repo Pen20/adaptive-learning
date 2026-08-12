@@ -2,7 +2,7 @@ import { action } from "./_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import type { PipelineDiagnostics } from "./layerTypes";
+import type { PedagogicalEvaluation, PipelineDiagnostics } from "./layerTypes";
 import { STUDY_MODEL } from "./experiment";
 
 type GradeAndSaveResult = {
@@ -10,6 +10,7 @@ type GradeAndSaveResult = {
   feedback: string;
   errorType?: string;
   layerDiagnostics?: PipelineDiagnostics;
+  pedagogicalEvaluation?: PedagogicalEvaluation;
   submissionId: Id<"submissions">;
 };
 
@@ -40,6 +41,7 @@ export const gradeAndSaveSubmission = action({
     usedHints: v.boolean(),
     answerFormatInstruction: v.optional(v.string()),
     reasoningStepsContext: v.optional(v.string()),
+    exercisePedagogyJson: v.optional(v.string()),
     // RLHF: when true, runs Best-of-N sampling with the judge as reward model
     useBestOfN: v.optional(v.boolean()),
   },
@@ -78,6 +80,7 @@ export const gradeAndSaveSubmission = action({
       topicName: args.topicName,
       answerFormatInstruction: args.answerFormatInstruction,
       reasoningStepsContext: args.reasoningStepsContext,
+      exercisePedagogyJson: args.exercisePedagogyJson,
       ...(assignment
         ? {
             includeOutcomeContext: assignment.condition === "best_of_n_outcome",
@@ -95,6 +98,7 @@ export const gradeAndSaveSubmission = action({
       feedback: string;
       errorType?: string;
       layerDiagnostics?: PipelineDiagnostics;
+      pedagogicalEvaluation?: PedagogicalEvaluation;
       bestOfNMetadata?: BestOfNMetadata;
     };
     const gradingLatencyMs = Date.now() - gradingStartedAt;

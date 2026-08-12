@@ -1,4 +1,9 @@
-import type { AiDiagnosisResult, CasLayerResult } from "./layerTypes";
+import type {
+  AiDiagnosisResult,
+  CasLayerResult,
+  PedagogicalCriterionResult,
+  PedagogicalEvaluation,
+} from "./layerTypes";
 
 type DiagnosisFallback = {
   topicName: string;
@@ -35,6 +40,48 @@ function asStringArray(value: unknown, fallback: string[]): string[] {
     .map((item) => item.trim())
     .filter(Boolean);
   return cleaned.length ? Array.from(new Set(cleaned)) : fallback;
+}
+
+function asNullableString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function normalizeCriterionResults(value: unknown): PedagogicalCriterionResult[] {
+  if (!Array.isArray(value)) return [];
+  const statuses = new Set(["satisfied", "partial", "incorrect", "not-evidenced"]);
+  return value.flatMap((item) => {
+    const record = asRecord(item);
+    const criterionId = asNullableString(record.criterionId);
+    if (!criterionId) return [];
+    const rawStatus = asString(record.status, "not-evidenced");
+    const status = statuses.has(rawStatus)
+      ? (rawStatus as PedagogicalCriterionResult["status"])
+      : "not-evidenced";
+    return [{ criterionId, status, evidence: asString(record.evidence, "No evidence identified.") }];
+  });
+}
+
+function normalizePedagogicalEvaluation(
+  content: Record<string, unknown>,
+  expected?: Omit<PedagogicalEvaluation, "techniqueId" | "techniqueLabel" | "reasoningStatus" | "completedStepIds" | "firstIncorrectStepId" | "misconceptionId" | "misconceptionLabel" | "criterionResults" | "remediationPrompt">,
+): PedagogicalEvaluation | undefined {
+  if (!expected) return undefined;
+  return {
+    ...expected,
+    techniqueId: asString(content.techniqueId, "unidentified-technique"),
+    techniqueLabel: asString(content.techniqueUsed, "Unidentified technique"),
+    reasoningStatus: (["correct", "correct_but_incomplete", "incorrect", "missing", "not_applicable"] as const).includes(
+      content.reasoningStatus as "correct",
+    )
+      ? (content.reasoningStatus as PedagogicalEvaluation["reasoningStatus"])
+      : "missing",
+    completedStepIds: asStringArray(content.completedStepIds, []),
+    firstIncorrectStepId: asNullableString(content.firstIncorrectStepId),
+    misconceptionId: asNullableString(content.misconceptionId),
+    misconceptionLabel: asNullableString(content.misconception),
+    criterionResults: normalizeCriterionResults(content.criterionResults),
+    remediationPrompt: asNullableString(content.remediationPrompt),
+  };
 }
 
 function defaultTechnique(topicName: string): string {
@@ -78,6 +125,7 @@ export function buildFallbackAiDiagnosis({
 export function normalizeAiDiagnosis(
   content: unknown,
   fallback: DiagnosisFallback,
+  pedagogicalContext?: Omit<PedagogicalEvaluation, "techniqueId" | "techniqueLabel" | "reasoningStatus" | "completedStepIds" | "firstIncorrectStepId" | "misconceptionId" | "misconceptionLabel" | "criterionResults" | "remediationPrompt">,
 ): AiDiagnosisResult {
   const record = asRecord(content);
   const fallbackDiagnosis = buildFallbackAiDiagnosis(fallback);
@@ -106,5 +154,9 @@ export function normalizeAiDiagnosis(
       ...(errorType ? [errorType] : []),
     ]),
     confidence: asConfidence(record.diagnosisConfidence),
+    pedagogicalEvaluation: normalizePedagogicalEvaluation(
+      record,
+      pedagogicalContext,
+    ),
   };
 }
