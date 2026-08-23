@@ -1,6 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { findActiveAssignment } from "./experiment";
+import { getTopicEvaluationFiche } from "../src/data/pedagogy";
 
 type Activity = {
   id: string;
@@ -29,7 +30,11 @@ function normalizeAnswer(value: string) {
 }
 
 function buildActivities(
+  topicName: string,
   misconceptionId: string,
+  misconceptionLabel: string,
+  techniqueLabel: string,
+  conceptPrompt: string,
   remediationPrompt: string,
 ): Activity[] {
   const targeted: Record<string, Activity[]> = {
@@ -64,7 +69,7 @@ function buildActivities(
         id: "concept-2x2",
         stage: "concept_activation",
         title: "Recall the two-by-two determinant",
-        prompt: "For [[a,b],[c,d]], which expression gives the determinant?",
+        prompt: "For $\\begin{bmatrix} a & b \\\\ c & d \\end{bmatrix}$, which expression gives the determinant?",
         responseType: "choice",
         options: ["ad − bc", "ad + bc", "ac − bd"],
         expectedAnswer: "ad − bc",
@@ -100,7 +105,67 @@ function buildActivities(
     ],
   };
 
-  const activation = targeted[misconceptionId] ?? targeted["DET-M3"];
+  const isDeterminant = topicName === "determinants";
+  const activation = isDeterminant
+    ? targeted[misconceptionId] ?? targeted["DET-M3"]
+    : [
+        {
+          id: "activate-target-concept",
+          stage: "concept_activation" as const,
+          title: "Recall the key idea",
+          prompt:
+            conceptPrompt ||
+            `State the mathematical rule that prevents this error: ${misconceptionLabel}.`,
+          responseType: "text" as const,
+          successFeedback: "Good. You identified the key idea needed to repair the reasoning.",
+          retryFeedback: "State the relevant mathematical rule in one complete sentence.",
+        },
+      ];
+
+  if (!isDeterminant) {
+    return [
+      ...activation,
+      {
+        id: "repair-original-step",
+        stage: "guided_correction",
+        title: "Correct your original reasoning",
+        prompt:
+          remediationPrompt ||
+          `Rewrite the first part affected by “${misconceptionLabel}” and explain why your correction is valid.`,
+        responseType: "text",
+        successFeedback: "Your corrected step is recorded. Now make the method explicit.",
+        retryFeedback: "Include a mathematical expression or rule and a short justification.",
+      },
+      {
+        id: "explain-technique",
+        stage: "focused_check",
+        title: "Explain the method",
+        prompt: `Using your own words, explain when and how to apply ${techniqueLabel}.`,
+        responseType: "text",
+        successFeedback: "Good. You connected the correction to the underlying method.",
+        retryFeedback: "Name the operation or condition, and explain what it accomplishes.",
+      },
+      {
+        id: "verify-correction",
+        stage: "transfer_task",
+        title: "Verify the correction",
+        prompt: "Apply the corrected method to the original values and state one check showing that the result is consistent.",
+        responseType: "text",
+        successFeedback: "Good. You verified the correction instead of relying only on the final result.",
+        retryFeedback: "Show the substituted values and one mathematical consistency check.",
+      },
+      {
+        id: "reflection",
+        stage: "reflection",
+        title: "Make the strategy reusable",
+        prompt: `In one sentence, what will you check next time to avoid “${misconceptionLabel}”?`,
+        responseType: "text",
+        successFeedback: "Good. Naming the check makes the strategy easier to reuse.",
+        retryFeedback: "Write one concrete check you can apply before submitting an answer.",
+      },
+    ];
+  }
+
   return [
     ...activation,
     {
@@ -116,7 +181,7 @@ function buildActivities(
       id: "focused-check",
       stage: "focused_check",
       title: "Focused check",
-      prompt: "Compute det([[3,2],[1,4]]).",
+      prompt: "Compute $\\det\\begin{bmatrix} 3 & 2 \\\\ 1 & 4 \\end{bmatrix}$.",
       responseType: "text",
       expectedAnswer: "10",
       successFeedback: "Correct: 3×4 − 2×1 = 10.",
@@ -126,7 +191,7 @@ function buildActivities(
       id: "transfer-task",
       stage: "transfer_task",
       title: "Transfer to a new case",
-      prompt: "Find k so that [[2,3],[4,k]] is singular.",
+      prompt: "Find $k$ so that $\\begin{bmatrix} 2 & 3 \\\\ 4 & k \\end{bmatrix}$ is singular.",
       responseType: "text",
       expectedAnswer: "6",
       successFeedback: "Correct. You transferred the determinant condition to a new matrix.",
@@ -154,9 +219,6 @@ export const startRemediation = mutation({
     if (!submission || submission.userId !== identity.subject) {
       throw new Error("Submission not found");
     }
-    if (submission.topicName !== "determinants") {
-      throw new Error("Guided remediation is currently available for Determinants only.");
-    }
     const studyAssignment = await findActiveAssignment(
       ctx,
       identity.subject,
@@ -181,14 +243,37 @@ export const startRemediation = mutation({
     if (!diagnostics) throw new Error("Pedagogical diagnosis is not available.");
     const aiLayer = asRecord(JSON.parse(diagnostics.aiLayer));
     const evaluation = asRecord(aiLayer.pedagogicalEvaluation);
-    const ficheId = asString(evaluation.ficheId, "determinants-evaluation");
-    const ficheVersion = asString(evaluation.ficheVersion, "1.1.0");
-    const taskTypeId = asString(evaluation.taskTypeId, "DET-COMPUTE-3X3");
-    const techniqueId = asString(evaluation.techniqueId, "unidentified-technique");
-    const misconceptionId = asString(evaluation.misconceptionId, "DET-M3");
-    const misconceptionLabel = asString(evaluation.misconceptionLabel, diagnostics.misconception ?? "Determinant reasoning error");
+    const fiche = getTopicEvaluationFiche(submission.topicName);
+    if (!fiche) throw new Error("Pedagogical evaluation fiche is not available for this topic.");
+    const defaultTask = fiche.taskTypes[0];
+    const defaultMisconception = fiche.misconceptions[0];
+    const ficheId = asString(evaluation.ficheId, fiche.ficheId);
+    const ficheVersion = asString(evaluation.ficheVersion, fiche.ficheVersion);
+    const taskTypeId = asString(evaluation.taskTypeId, defaultTask.taskTypeId);
+    const techniqueId = asString(
+      evaluation.techniqueId,
+      defaultTask.acceptedTechniques[0]?.techniqueId ?? "unidentified-technique",
+    );
+    const misconceptionId = asString(
+      evaluation.misconceptionId,
+      defaultMisconception?.misconceptionId ?? "unclassified-misconception",
+    );
+    const canonicalMisconception = fiche.misconceptions.find(
+      (item) => item.misconceptionId === misconceptionId,
+    ) ?? defaultMisconception;
+    const misconceptionLabel = asString(
+      evaluation.misconceptionLabel,
+      canonicalMisconception?.label ?? diagnostics.misconception ?? "Reasoning error",
+    );
+    const technique = fiche.taskTypes
+      .flatMap((task) => task.acceptedTechniques)
+      .find((item) => item.techniqueId === techniqueId);
     const activities = buildActivities(
+      submission.topicName,
       misconceptionId,
+      misconceptionLabel,
+      technique?.label ?? defaultTask.acceptedTechniques[0]?.label ?? "the valid method",
+      canonicalMisconception?.feedbackStrategy.prompt ?? "",
       asString(evaluation.remediationPrompt),
     );
 

@@ -1,4 +1,5 @@
 import determinantsData from "./determinants.json";
+import { standardTopicFiches } from "./standardFiches";
 import {
   validateTopicEvaluationFiche,
   type ExercisePedagogyInstance,
@@ -11,10 +12,27 @@ const determinantsFiche = validateTopicEvaluationFiche(
 
 const fiches: Record<string, TopicEvaluationFiche> = {
   determinants: determinantsFiche,
+  ...Object.fromEntries(
+    standardTopicFiches.map((fiche) => [
+      fiche.topicId,
+      validateTopicEvaluationFiche(fiche),
+    ]),
+  ),
+};
+
+const topicAliases: Record<string, string> = {
+  limits_continuity: "limits",
+  continuity: "piecewise_continuity",
+  piecewise: "piecewise_continuity",
+  derivatives_practice: "derivatives",
+  quadratic: "quadratic_equations",
+  systems: "linear_systems",
+  equations: "linear_equations",
+  matrices: "determinants",
 };
 
 export function getTopicEvaluationFiche(topicId: string) {
-  return fiches[topicId] ?? null;
+  return fiches[topicAliases[topicId] ?? topicId] ?? null;
 }
 
 export function buildExercisePedagogyInstance(

@@ -154,7 +154,10 @@ export default defineSchema({
     email: v.optional(v.string()),
     type: v.string(),
     message: v.string(),
-    submittedAt: v.number(),
+    // Optional for legacy rows created before this field replaced `createdAt`.
+    // New submissions always set it in convex/feedback.ts.
+    submittedAt: v.optional(v.number()),
+    createdAt: v.optional(v.number()),
     institution: v.optional(v.string()),
     gender: v.optional(v.string()),
     profession: v.optional(v.string()),

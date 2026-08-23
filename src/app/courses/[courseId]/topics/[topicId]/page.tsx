@@ -201,6 +201,16 @@ export default function ProblemPage() {
             }
             onInsertNotation={insertNotation}
           />
+          {result &&
+            result.grade < 1 &&
+            lastSubmissionId &&
+            permissions.allowPractice && (
+              <GuidedMistakeCorrection
+                key={lastSubmissionId}
+                submissionId={lastSubmissionId}
+                evaluation={result.pedagogicalEvaluation}
+              />
+            )}
         </div>
 
         <div className="space-y-6">
@@ -235,12 +245,6 @@ export default function ProblemPage() {
                 userId={user?.id}
                 topicName={topicId}
               />
-              {topicId === "determinants" && result.grade < 1 && lastSubmissionId && permissions.allowPractice && (
-                <GuidedMistakeCorrection
-                  submissionId={lastSubmissionId}
-                  evaluation={result.pedagogicalEvaluation}
-                />
-              )}
             </>
           )}
         </div>

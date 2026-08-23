@@ -17,7 +17,10 @@ import { polynomialInnerProductLogic } from "./linear/polynomial_inner_products"
 import { eigenvalues3x3Logic } from "./linear/eigenvalues_3x3";
 import { eigenspaces2x2Logic } from "./linear/eigenspaces_2x2";
 import { vectorSpaceAxiomsLogic } from "./linear/vector_space_axioms";
-import type { ExercisePedagogyInstance } from "@/data/pedagogy";
+import {
+  buildExercisePedagogyInstance,
+  type ExercisePedagogyInstance,
+} from "@/data/pedagogy";
 
 export interface AnswerFormat {
   placeholder: string;
@@ -48,6 +51,20 @@ export interface GeneratedProblem {
 export interface TopicEngine {
   generate: () => GeneratedProblem;
   guide?: { title: string; content: string };
+}
+
+function withPedagogy(
+  topicId: string,
+  taskTypeId: string,
+  engine: TopicEngine,
+): TopicEngine {
+  return {
+    ...engine,
+    generate: () => ({
+      ...engine.generate(),
+      pedagogy: buildExercisePedagogyInstance(topicId, taskTypeId),
+    }),
+  };
 }
 
 const defaultAnswerFormat: AnswerFormat = {
@@ -226,34 +243,34 @@ export function getAnswerFormat(topicId: string, generated?: Pick<GeneratedProbl
 }
 
 export const topicRegistry: Record<string, TopicEngine> = {
-  "limits": limitsLogic,
-  "limits_continuity": limitsLogic,
-  "derivatives": derivativesLogic,
-  "derivatives_practice": derivativesLogic,
-  "piecewise_continuity": piecewiseLogic,
-  "domain_range": domainRangeLogic,
+  "limits": withPedagogy("limits", "LIM-SOLVE", limitsLogic),
+  "limits_continuity": withPedagogy("limits", "LIM-SOLVE", limitsLogic),
+  "derivatives": withPedagogy("derivatives", "DER-SOLVE", derivativesLogic),
+  "derivatives_practice": withPedagogy("derivatives", "DER-SOLVE", derivativesLogic),
+  "piecewise_continuity": withPedagogy("piecewise_continuity", "PWC-SOLVE", piecewiseLogic),
+  "domain_range": withPedagogy("domain_range", "DOR-SOLVE", domainRangeLogic),
 
   // Linear Algebra Topics
-  "quadratic_equations": quadraticLogic,
-  "linear_systems": systemsLogic,
-  "linear_equations": linearEquationLogic,
-  "eigenvalues": eigenvalueLogic,
+  "quadratic_equations": withPedagogy("quadratic_equations", "QUA-SOLVE", quadraticLogic),
+  "linear_systems": withPedagogy("linear_systems", "SYS-SOLVE", systemsLogic),
+  "linear_equations": withPedagogy("linear_equations", "LEQ-SOLVE", linearEquationLogic),
+  "eigenvalues": withPedagogy("eigenvalues", "EIG-SOLVE", eigenvalueLogic),
   "determinants": determinantLogic,
-  "linear_independence": independenceLogic,
-  "gram_schmidt": gramSchmidtLogic,
-  "inner_product_def": innerProductLogic,
-  "integral_inner_product": integralInnerProductLogic,
-  "integral_axioms": integralAxiomsLogic,
-  "polynomial_inner_product": polynomialInnerProductLogic,
-  "eigenvalues_3x3": eigenvalues3x3Logic,
-  "eigenspaces_2x2": eigenspaces2x2Logic,
-  "vector_space_axioms": vectorSpaceAxiomsLogic,
+  "linear_independence": withPedagogy("linear_independence", "LIN-SOLVE", independenceLogic),
+  "gram_schmidt": withPedagogy("gram_schmidt", "GRS-SOLVE", gramSchmidtLogic),
+  "inner_product_def": withPedagogy("inner_product_def", "IPD-SOLVE", innerProductLogic),
+  "integral_inner_product": withPedagogy("integral_inner_product", "IIP-SOLVE", integralInnerProductLogic),
+  "integral_axioms": withPedagogy("integral_axioms", "IAX-SOLVE", integralAxiomsLogic),
+  "polynomial_inner_product": withPedagogy("polynomial_inner_product", "PIP-SOLVE", polynomialInnerProductLogic),
+  "eigenvalues_3x3": withPedagogy("eigenvalues_3x3", "EI3-SOLVE", eigenvalues3x3Logic),
+  "eigenspaces_2x2": withPedagogy("eigenspaces_2x2", "ESP-SOLVE", eigenspaces2x2Logic),
+  "vector_space_axioms": withPedagogy("vector_space_axioms", "VSA-SOLVE", vectorSpaceAxiomsLogic),
 
   // Aliases for Admin Panel compatibility
-  "systems": systemsLogic,
-  "equations": linearEquationLogic,
-  "quadratic": quadraticLogic,
+  "systems": withPedagogy("linear_systems", "SYS-SOLVE", systemsLogic),
+  "equations": withPedagogy("linear_equations", "LEQ-SOLVE", linearEquationLogic),
+  "quadratic": withPedagogy("quadratic_equations", "QUA-SOLVE", quadraticLogic),
   "matrices": determinantLogic,
-  "continuity": piecewiseLogic,
-  "piecewise": piecewiseLogic,
+  "continuity": withPedagogy("piecewise_continuity", "PWC-SOLVE", piecewiseLogic),
+  "piecewise": withPedagogy("piecewise_continuity", "PWC-SOLVE", piecewiseLogic),
 };

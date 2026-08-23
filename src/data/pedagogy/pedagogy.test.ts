@@ -3,6 +3,28 @@ import {
   buildExercisePedagogyInstance,
   getTopicEvaluationFiche,
 } from "./index";
+import { topicRegistry } from "../topics";
+
+const canonicalTopics = [
+  "limits",
+  "derivatives",
+  "piecewise_continuity",
+  "domain_range",
+  "quadratic_equations",
+  "linear_systems",
+  "linear_equations",
+  "eigenvalues",
+  "determinants",
+  "linear_independence",
+  "gram_schmidt",
+  "inner_product_def",
+  "integral_inner_product",
+  "integral_axioms",
+  "polynomial_inner_product",
+  "eigenvalues_3x3",
+  "eigenspaces_2x2",
+  "vector_space_axioms",
+] as const;
 
 describe("topic-level fiche pédagogique d’évaluation", () => {
   test("the Determinants fiche is valid and versioned", () => {
@@ -70,5 +92,36 @@ describe("topic-level fiche pédagogique d’évaluation", () => {
       message = error instanceof Error ? error.message : String(error);
     }
     expect(message).toBe("Unknown task type DET-UNKNOWN.");
+  });
+
+  test("every canonical topic has a validated evaluation fiche", () => {
+    for (const topicId of canonicalTopics) {
+      const fiche = getTopicEvaluationFiche(topicId);
+      expect(fiche).not.toBeNull();
+      expect(fiche?.equivalencePolicy.mustCheckBeforeDeclaringError).toBe(true);
+      expect(
+        fiche?.evaluationRubric.reasoningCriteria.reduce(
+          (sum, criterion) => sum + criterion.weight,
+          0,
+        ),
+      ).toBe(0.5);
+      expect(fiche?.misconceptions.length).toBeGreaterThan(0);
+    }
+  });
+
+  test("every canonical topic generator carries fiche provenance", () => {
+    for (const topicId of canonicalTopics) {
+      const generated = topicRegistry[topicId].generate();
+      expect(generated.pedagogy).toBeDefined();
+      expect(generated.pedagogy?.ficheId).toBe(
+        getTopicEvaluationFiche(topicId)?.ficheId,
+      );
+    }
+  });
+
+  test("administrative aliases resolve to their canonical fiches", () => {
+    expect(getTopicEvaluationFiche("matrices")?.ficheId).toBe("determinants-evaluation");
+    expect(getTopicEvaluationFiche("systems")?.ficheId).toBe("linear_systems-evaluation");
+    expect(getTopicEvaluationFiche("continuity")?.ficheId).toBe("piecewise_continuity-evaluation");
   });
 });
