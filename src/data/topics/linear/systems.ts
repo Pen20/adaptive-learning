@@ -1,3 +1,5 @@
+import { coeff } from "../format";
+
 export const systemsLogic = {
   generate: () => {
     // Generate a system:
@@ -21,8 +23,8 @@ export const systemsLogic = {
       statement: `Find the value of $k$ such that the following system has no solution:
 $$
 \\begin{cases} 
-${a1}x + ${b1}y = ${c1} \\\\
-${a2}x + ky = ${c2}
+${coeff(a1, "x")} + ${coeff(b1, "y")} = ${c1} \\\\
+${coeff(a2, "x")} + ky = ${c2}
 \\end{cases}
 $$`,
       prompt: "k =",

@@ -2,9 +2,9 @@
 "use client";
 
 import { useUser } from "@clerk/nextjs";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,15 +28,18 @@ export default function OnboardingPage() {
     birthDay: "",
   });
 
-  useEffect(() => {
-    if (user) {
-      setFormData(prev => ({
-        ...prev,
-        firstName: user.firstName || "",
-        surname: user.lastName || "",
-      }));
-    }
-  }, [user]);
+  // Prefill the name fields from the Clerk profile as soon as it loads, without
+  // an effect: adjusting state during render is React's documented pattern for
+  // seeding state from data that arrives asynchronously.
+  const [seededUserId, setSeededUserId] = useState<string | null>(null);
+  if (user && user.id !== seededUserId) {
+    setSeededUserId(user.id);
+    setFormData(prev => ({
+      ...prev,
+      firstName: user.firstName || "",
+      surname: user.lastName || "",
+    }));
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -86,7 +86,7 @@ export default function FeedbackForm() {
           Get in Touch
         </h2>
         <p className="text-lg text-slate-600 dark:text-slate-400">
-          Have a question, feedback, or found a bug? We'd love to hear from you.
+          Have a question, feedback, or found a bug? We&apos;d love to hear from you.
         </p>
       </div>
 

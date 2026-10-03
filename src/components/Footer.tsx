@@ -8,7 +8,7 @@ const Footer = () => {
         
         {/* Professional Identity */}
         <div className="space-y-1">
-            <h3 className="font-semibold text-lg text-slate-900">Dogbalou Motognon Wastalas d'Assise</h3>
+            <h3 className="font-semibold text-lg text-slate-900">Dogbalou Motognon Wastalas d&apos;Assise</h3>
             <p className="text-slate-600 font-medium">PhD Student in Applied Data Science & AI</p>
         </div>
 

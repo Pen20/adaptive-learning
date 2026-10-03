@@ -1,20 +1,4 @@
-function gcd(a: number, b: number): number {
-  a = Math.abs(a);
-  b = Math.abs(b);
-  while (b) {
-    const t = b;
-    b = a % b;
-    a = t;
-  }
-  return a || 1;
-}
-
-function reduceFraction(num: number, den: number): string {
-  const g = gcd(num, den);
-  const n = num / g;
-  const d = den / g;
-  return d === 1 ? String(n) : `\\frac{${n}}{${d}}`;
-}
+import { coeff } from "../format";
 
 export const domainRangeLogic = {
   guide: {
@@ -87,16 +71,16 @@ Step 4 — State the range: [a, ∞).`,
       const b = a * bMult;  // ensures b/a = bMult (integer)
       const lowerBound = bMult;  // b/a as integer
       const lowerLatex = String(lowerBound);
+      const radicand = `${coeff(a, "x")} - ${b}`;
 
       return {
         title: "Domain and Range — Square Root",
-        statement: `Determine the domain and range of the function $$ f(x) = \\sqrt{${a}x - ${b}} $$`,
+        statement: `Determine the domain and range of the function $$ f(x) = \\sqrt{${radicand}} $$`,
         prompt: "State the domain and range using interval notation:",
         solution: `Domain: \\([${lowerLatex}, \\infty)\\),  Range: \\([0, \\infty)\\)`,
         answerFormat: {
           placeholder: "Domain: [N, ∞), Range: [0, ∞)",
-          instruction:
-            "The radicand must be non-negative. Solve \\(${a}x - ${b} \\ge 0\\) to find the domain lower bound.",
+          instruction: `The radicand must be non-negative. Solve \\(${radicand} \\ge 0\\) to find the domain lower bound.`,
           alternatives: [
             `Domain: [${lowerLatex}, \\infty), Range: [0, \\infty)`,
             `[${lowerLatex}, \\infty) and [0, \\infty)`,
@@ -117,13 +101,13 @@ Step 4 — State the range: [a, ∞).`,
         },
         explanation: `**Domain:**
 The square root \\(\\sqrt{u}\\) is defined only when \\(u \\ge 0\\). Solve:
-$$ ${a}x - ${b} \\ge 0 \\implies x \\ge \\frac{${b}}{${a}} = ${lowerLatex} $$
+$$ ${radicand} \\ge 0 \\implies x \\ge ${a === 1 ? lowerLatex : `\\frac{${b}}{${a}} = ${lowerLatex}`} $$
 $$ \\text{Domain} = [${lowerLatex}, \\infty) $$
 
 **Range:**
-When \\(x = ${lowerLatex}\\), \\(f(${lowerLatex}) = \\sqrt{0} = 0\\). As \\(x\\) increases, \\(${a}x - ${b}\\) grows without bound, so \\(\\sqrt{${a}x - ${b}}\\) grows without bound.
+When \\(x = ${lowerLatex}\\), \\(f(${lowerLatex}) = \\sqrt{0} = 0\\). As \\(x\\) increases, \\(${radicand}\\) grows without bound, so \\(\\sqrt{${radicand}}\\) grows without bound.
 $$ \\text{Range} = [0, \\infty) $$`,
-        hint: `Require \\(${a}x - ${b} \\ge 0\\). Solve for \\(x\\) to get the minimum value allowed in the domain.`,
+        hint: `Require \\(${radicand} \\ge 0\\). Solve for \\(x\\) to get the minimum value allowed in the domain.`,
         reasoningSteps: `Step 1 — Domain restriction: the radicand must be non-negative. Set ax − b ≥ 0 and solve for x: x ≥ b/a.
 Step 2 — State the domain: [b/a, ∞).
 Step 3 — Range: √(ax−b) ≥ 0 for all x in the domain, with minimum value 0 at x = b/a.
@@ -135,7 +119,6 @@ Step 5 — State the range: [0, ∞).`,
     // ── Type 2: Rational  f(x) = c / (x - a) ─────────────────────────────
     const a = Math.floor(Math.random() * 6) + 1;   // excluded x-value: 1–6
     const c = Math.floor(Math.random() * 5) + 1;   // numerator: 1–5
-    const aSign = a > 0 ? `- ${a}` : `+ ${Math.abs(a)}`;
 
     return {
       title: "Domain and Range — Rational Function",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
@@ -54,11 +54,15 @@ export default function AdminDashboard() {
 
   const [theme, setTheme] = useState<Theme>("midnight");
 
-  useEffect(() => {
-    if (userProfile?.themePreference) {
-      setTheme(userProfile.themePreference as Theme);
-    }
-  }, [userProfile]);
+  // Adopt the saved preference once the query resolves, and whenever it changes
+  // elsewhere. Adjusting state during render is React's documented alternative
+  // to a synchronous setState inside an effect.
+  const savedTheme = userProfile?.themePreference as Theme | undefined;
+  const [seededTheme, setSeededTheme] = useState<Theme | undefined>(undefined);
+  if (savedTheme && savedTheme !== seededTheme) {
+    setSeededTheme(savedTheme);
+    setTheme(savedTheme);
+  }
 
   const linearTopics = useQuery(api.courses.getCourseTopics, {
     courseId: "linear_algebra",
@@ -308,9 +312,12 @@ export default function AdminDashboard() {
       (p) => p.courseName === courseName && p.topicName === topicName,
     );
     if (!perm) return field === "alwaysShowSolution" ? false : true;
-    return (
-      (perm as any)[field] ?? (field === "alwaysShowSolution" ? false : true)
-    );
+    // Every permission column is a boolean in the schema; the optional ones
+    // default to "enabled", except alwaysShowSolution which defaults to off.
+    const value = perm[field];
+    return typeof value === "boolean"
+      ? value
+      : field !== "alwaysShowSolution";
   };
 
   return (
@@ -484,7 +491,13 @@ export default function AdminDashboard() {
 
 type Theme = "midnight" | "slate" | "oceanic";
 
-function ExamManager({ style }: { style: any }) {
+// The per-theme class-name maps built in AdminDashboard, passed down to the
+// panels below.
+type ThemeStyle = Record<string, string>;
+type CourseName = "Linear Algebra" | "Differential Calculus";
+type FeedbackMode = "immediate" | "on_close";
+
+function ExamManager({ style }: { style: ThemeStyle }) {
   const createExam = useMutation(api.exams.createExam);
   const exams = useQuery(api.exams.getAllExams);
   const toggleStatus = useMutation(api.exams.toggleExamStatus);
@@ -492,17 +505,13 @@ function ExamManager({ style }: { style: any }) {
   const deleteExam = useMutation(api.exams.deleteExam);
 
   const [title, setTitle] = useState("");
-  const [course, setCourse] = useState<
-    "Linear Algebra" | "Differential Calculus"
-  >("Linear Algebra");
+  const [course, setCourse] = useState<CourseName>("Linear Algebra");
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
 
   // Derived from selectedTopics: questionCount = selectedTopics.length
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [feedbackMode, setFeedbackMode] = useState<"immediate" | "on_close">(
-    "immediate",
-  );
+  const [feedbackMode, setFeedbackMode] = useState<FeedbackMode>("immediate");
 
   const availableTopics = useQuery(api.courses.getCourseTopics, {
     courseId:
@@ -572,7 +581,7 @@ function ExamManager({ style }: { style: any }) {
               <Select
                 value={course}
                 onValueChange={(val) => {
-                  setCourse(val as any);
+                  setCourse(val as CourseName);
                   setSelectedTopics([]);
                 }}
               >
@@ -593,7 +602,7 @@ function ExamManager({ style }: { style: any }) {
               </Label>
               <Select
                 value={feedbackMode}
-                onValueChange={(val) => setFeedbackMode(val as any)}
+                onValueChange={(val) => setFeedbackMode(val as FeedbackMode)}
               >
                 <SelectTrigger className="bg-[#0f172a]/50 border-slate-800 text-slate-300 w-full">
                   <SelectValue placeholder="Select Mode" />
@@ -766,7 +775,7 @@ function ExamManager({ style }: { style: any }) {
   );
 }
 
-function StudentMonitor({ style }: { style: any }) {
+function StudentMonitor({ style }: { style: ThemeStyle }) {
   const studentData = useQuery(api.users.getStudentAnalytics);
 
   if (studentData === undefined) {

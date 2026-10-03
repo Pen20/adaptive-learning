@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -92,11 +92,15 @@ export default function DashboardPage() {
 
   const [theme, setTheme] = useState<Theme>("midnight");
 
-  useEffect(() => {
-    if (userData?.themePreference) {
-      setTheme(userData.themePreference as Theme);
-    }
-  }, [userData]);
+  // Adopt the saved preference once the query resolves, and whenever it changes
+  // elsewhere. Adjusting state during render is React's documented alternative
+  // to a synchronous setState inside an effect.
+  const savedTheme = userData?.themePreference as Theme | undefined;
+  const [seededTheme, setSeededTheme] = useState<Theme | undefined>(undefined);
+  if (savedTheme && savedTheme !== seededTheme) {
+    setSeededTheme(savedTheme);
+    setTheme(savedTheme);
+  }
 
   if (!isLoaded || !isSignedIn) {
     return (
@@ -252,7 +256,7 @@ export default function DashboardPage() {
                 <h2 className="text-xl font-black tracking-tight uppercase">Examination Center</h2>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {examData.available.map((exam: any) => (
+                {examData.available.map((exam) => (
                   <Card key={exam._id} className={`${style.card} group overflow-hidden`}>
                     <CardContent className="p-5">
                       <div className="flex justify-between items-start mb-4">
@@ -285,9 +289,9 @@ export default function DashboardPage() {
 
             {/* Course Progress */}
             <section className="space-y-16">
-              {courses.map((course: any) => {
-                const courseTopics = allTopics.filter((t: any) => t.courseId === course.courseId);
-                const chapters = Array.from(new Set(courseTopics.map((t: any) => t.chapter))) as string[];
+              {courses.map((course) => {
+                const courseTopics = allTopics.filter((t) => t.courseId === course.courseId);
+                const chapters = Array.from(new Set(courseTopics.map((t) => t.chapter))) as string[];
                 return (
                   <div key={course.courseId} className="space-y-10">
                     <div className="flex items-center gap-4">
@@ -299,8 +303,8 @@ export default function DashboardPage() {
                         <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">{chapter}</h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           {courseTopics
-                            .filter((t: any) => t.chapter === chapter)
-                            .map((topic: any) => (
+                            .filter((t) => t.chapter === chapter)
+                            .map((topic) => (
                               <CourseModuleCard
                                 key={topic.topicId}
                                 id={topic.topicId}
@@ -338,7 +342,7 @@ export default function DashboardPage() {
                   >
                     All
                   </button>
-                  {topicStats.map((t: any) => {
+                  {topicStats.map((t) => {
                     const rate = t.total > 0 ? Math.round((t.correct / t.total) * 100) : 0;
                     const isActive = historyTopic === t.topic;
                     return (
@@ -367,7 +371,7 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <>
-                    {topicSubmissions.map((sub: any) => {
+                    {topicSubmissions.map((sub) => {
                       const isExpanded = expandedSub === sub._id;
                       const isCorrect = sub.grade >= 1;
                       const isPartial = sub.grade > 0 && sub.grade < 1;

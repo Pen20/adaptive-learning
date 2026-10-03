@@ -1,3 +1,5 @@
+import { coeff, joinTerms, signedTerm } from "../format";
+
 export const integralInnerProductLogic = {
   generate: () => {
     // Type: Integral Inner Product on C[0, 1]
@@ -6,8 +8,15 @@ export const integralInnerProductLogic = {
     const c = Math.floor(Math.random() * 3) + 1; // 1 to 3
     const d = Math.floor(Math.random() * 3) + 1; // 1 to 3
     
-    const f_str = b === 0 ? `${a}x` : `${a}x + ${b}`;
-    const g_str = `${c}x + ${d}`;
+    const f_str = joinTerms(coeff(a, "x"), signedTerm(b));
+    const g_str = joinTerms(coeff(c, "x"), signedTerm(d));
+    // Expanded integrand (ax+b)(cx+d) = ac x^2 + (ad+bc) x + bd, with the
+    // constant term dropped when b = 0 rather than printed as "+ 0".
+    const integrand = joinTerms(
+      coeff(a * c, "x^2"),
+      signedTerm(a * d + b * c, "x"),
+      signedTerm(b * d),
+    );
     
     const statement = `Let $V = C[0, 1]$ be the vector space of continuous functions on $[0, 1]$ with the inner product defined by:
 $$ \\langle f, g \\rangle = \\int_{0}^{1} f(x)g(x) \\, dx $$
@@ -31,11 +40,11 @@ Calculate $\\langle f, g \\rangle$ for the functions $f(x) = ${f_str}$ and $g(x)
     const explanation = `1. Set up the integral for the inner product:
    $$ \\langle f, g \\rangle = \\int_{0}^{1} (${f_str})(${g_str}) \\, dx $$
 2. Expand the integrand:
-   $$ (${f_str})(${g_str}) = ${a*c}x^2 + ${a*d + b*c}x + ${b*d} $$
+   $$ (${f_str})(${g_str}) = ${integrand} $$
 3. Integrate term by term:
-   $$ \\int_{0}^{1} (${a*c}x^2 + ${a*d + b*c}x + ${b*d}) \\, dx = \\left[ \\frac{${a*c}}{3}x^3 + \\frac{${a*d + b*c}}{2}x^2 + ${b*d}x \\right]_0^1 $$
+   $$ \\int_{0}^{1} (${integrand}) \\, dx = \\left[ \\frac{${a*c}}{3}x^3 + \\frac{${a*d + b*c}}{2}x^2 ${signedTerm(b * d, "x")} \\right]_0^1 $$
 4. Evaluate at the limits:
-   $$ \\left( \\frac{${a*c}}{3} + \\frac{${a*d + b*c}}{2} + ${b*d} \\right) - (0) = ${solution.replace(/\$/g, '')} $$`;
+   $$ \\left( \\frac{${a*c}}{3} + \\frac{${a*d + b*c}}{2} ${signedTerm(b * d)} \\right) - (0) = ${solution.replace(/\$/g, '')} $$`;
 
     return {
       title: "Integral Inner Product",

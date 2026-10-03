@@ -29,7 +29,9 @@ export function parseQuadraticCoefficients(problemStatement: string) {
     .replace(/\\\(|\\\)|\\\[|\\\]|\$\$|\$/g, "")
     .replace(/\s+/g, "");
 
-  const match = compact.match(/x\^2(?:([+-])(\d*)x)?([+-]\d+)=0/);
+  // Both non-leading terms are optional: a zero coefficient is simply not
+  // printed, so "x^2 + 3x = 0" (c = 0) and "x^2 = 0" are valid statements.
+  const match = compact.match(/x\^2(?:([+-])(\d*)x)?(?:([+-]\d+))?=0/);
   if (!match) return null;
 
   const bSign = match[1];
@@ -37,7 +39,7 @@ export function parseQuadraticCoefficients(problemStatement: string) {
   const b = bSign
     ? (bSign === "-" ? -1 : 1) * (bCoefficient ? Number(bCoefficient) : 1)
     : 0;
-  const c = Number(match[3]);
+  const c = match[3] ? Number(match[3]) : 0;
 
   if (Number.isNaN(b) || Number.isNaN(c)) return null;
   return { b, c };

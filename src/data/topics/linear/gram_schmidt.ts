@@ -3,7 +3,11 @@ export const gramSchmidtLogic = {
       // Generate a symmetric block matrix: [[a, b, 0], [b, a, 0], [0, 0, c]]
       const a = Math.floor(Math.random() * 4) + 2; // 2 to 5
       const b = Math.floor(Math.random() * 2) + 1; // 1 to 2, ensures non-zero, simple
-      const c = Math.floor(Math.random() * 5) + 1; // 1 to 5
+      // c must differ from a ± b: with a repeated eigenvalue the worked solution's
+      // "eigenvectors of distinct eigenvalues are orthogonal" argument no longer
+      // applies, and the eigenspace of the repeated value is 2-dimensional.
+      let c = Math.floor(Math.random() * 5) + 1; // 1 to 5
+      while (c === a + b || c === a - b) c = (c % 5) + 1;
   
       const lambda1 = a + b;
       const lambda2 = a - b;

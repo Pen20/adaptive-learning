@@ -24,29 +24,50 @@ export const quadraticLogic = {
     const c = r1 * r2;
 
     const expression = formatQuadraticExpression(b, c);
+    // r1 and r2 are drawn independently, so the equation may have a single root
+    // of multiplicity two. That is a legitimate exercise, but the prompt, the
+    // model answer and the input fields must then ask for one root, not two.
+    const isDoubleRoot = r1 === r2;
 
     return {
       title: "Quadratic Equations",
       statement: `Solve for $x$: \n $$${expression} = 0$$`,
-      prompt: "Find the values of x:",
-      solution: `$x_1 = ${r1}, x_2 = ${r2}$`,
-      answerFormat: {
-        placeholder: "$x \\in \\{-2, 3\\}$",
-        instruction:
-          "Give both roots as a set using LaTeX notation. Order does not matter.",
-        alternatives: [
-          "$x \in {-2, 3}$",
-          "x in {-2, 3}",
-          "{-2, 3}",
-          "x = -2, 3",
-          "x = -2 and x = 3",
-        ],
-        fields: [
-          { key: "x1", label: "x_1", placeholder: "-2" },
-          { key: "x2", label: "x_2", placeholder: "3" },
-        ],
-      },
-      explanation: `We are given:
+      prompt: isDoubleRoot ? "Find the value of x:" : "Find the values of x:",
+      solution: isDoubleRoot
+        ? `$x = ${r1}$ (double root)`
+        : `$x_1 = ${r1}, x_2 = ${r2}$`,
+      answerFormat: isDoubleRoot
+        ? {
+            placeholder: "$x = -2$",
+            instruction:
+              "This equation is a perfect square, so it has one repeated root. Give that root; noting the multiplicity is optional.",
+            alternatives: ["x = -2", "-2", "$x = -2$", "x = -2 (double root)"],
+            fields: [{ key: "x1", label: "x", placeholder: "-2" }],
+          }
+        : {
+            placeholder: "$x \\in \\{-2, 3\\}$",
+            instruction:
+              "Give both roots as a set using LaTeX notation. Order does not matter.",
+            alternatives: [
+              "$x \\in {-2, 3}$",
+              "x in {-2, 3}",
+              "{-2, 3}",
+              "x = -2, 3",
+              "x = -2 and x = 3",
+            ],
+            fields: [
+              { key: "x1", label: "x_1", placeholder: "-2" },
+              { key: "x2", label: "x_2", placeholder: "3" },
+            ],
+          },
+      explanation: isDoubleRoot
+        ? `We are given:
+$$ ${expression} = 0 $$
+We look for two numbers that multiply to $c = ${c}$ and add up to $b = ${b}$. Both are $${-r1}$, so the left-hand side is a perfect square:
+$$ (x - (${r1}))^2 = 0 $$
+A product is zero only when the factor is zero, and here the same factor appears twice:
+$$ x = ${r1} \\text{ (a root of multiplicity 2)} $$`
+        : `We are given:
 $$ ${expression} = 0 $$
 We look for two numbers that multiply to $c = ${c}$ and add up to $b = ${b}$.
 The numbers are $${-r1}$ and $${-r2}$.

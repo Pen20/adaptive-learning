@@ -1,4 +1,5 @@
 import { buildExercisePedagogyInstance } from "@/data/pedagogy";
+import { paren } from "../format";
 
 export const determinantLogic = {
   generate: () => {
@@ -76,9 +77,9 @@ $$ \\begin{vmatrix} ${a[0]} & ${a[1]} & ${a[2]} \\\\ ${a[3]} & ${a[4]} & ${a[5]}
           fields: [{ key: "determinant", label: "det(A)", placeholder: "12" }],
         },
         explanation: `Expanding along the first row:
-$$ \\det(A) = ${a[0]} \\begin{vmatrix} ${a[4]} & ${a[5]} \\\\ ${a[7]} & ${a[8]} \\end{vmatrix} - ${a[1]} \\begin{vmatrix} ${a[3]} & ${a[5]} \\\\ ${a[6]} & ${a[8]} \\end{vmatrix} + ${a[2]} \\begin{vmatrix} ${a[3]} & ${a[4]} \\\\ ${a[6]} & ${a[7]} \\end{vmatrix} $$
-$$ = ${a[0]}(${a[4] * a[8]} - ${a[5] * a[7]}) - ${a[1]}(${a[3] * a[8]} - ${a[5] * a[6]}) + ${a[2]}(${a[3] * a[7]} - ${a[4] * a[6]}) $$
-$$ = ${a[0] * (a[4] * a[8] - a[5] * a[7])} - ${a[1] * (a[3] * a[8] - a[5] * a[6])} + ${a[2] * (a[3] * a[7] - a[4] * a[6])} = ${det} $$`,
+$$ \\det(A) = ${paren(a[0])} \\begin{vmatrix} ${a[4]} & ${a[5]} \\\\ ${a[7]} & ${a[8]} \\end{vmatrix} - ${paren(a[1])} \\begin{vmatrix} ${a[3]} & ${a[5]} \\\\ ${a[6]} & ${a[8]} \\end{vmatrix} + ${paren(a[2])} \\begin{vmatrix} ${a[3]} & ${a[4]} \\\\ ${a[6]} & ${a[7]} \\end{vmatrix} $$
+$$ = ${paren(a[0])}(${a[4] * a[8]} - ${paren(a[5] * a[7])}) - ${paren(a[1])}(${a[3] * a[8]} - ${paren(a[5] * a[6])}) + ${paren(a[2])}(${a[3] * a[7]} - ${paren(a[4] * a[6])}) $$
+$$ = ${a[0] * minor1} - ${paren(a[1] * minor2)} + ${paren(a[2] * minor3)} = ${det} $$`,
         hint: "Use cofactor expansion along the first row: $\\det(A) = a_{11}C_{11} + a_{12}C_{12} + a_{13}C_{13}$.",
         reasoningSteps: `Step 1 — Choose a row for cofactor expansion: Row 1 (or any row with convenient entries).
 Step 2 — Compute the three 2×2 minors: Delete row 1 and the corresponding column for each entry; evaluate each minor as ad − bc.

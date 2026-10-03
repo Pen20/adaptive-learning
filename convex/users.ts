@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import type { Doc } from "./_generated/dataModel";
 
 function getGradeCredit(grade: number): number {
   if (!Number.isFinite(grade)) return 0;
@@ -161,7 +162,7 @@ export const updateUser = mutation({
       return;
     }
 
-    const updates: any = {};
+    const updates: Partial<Doc<"users">> = {};
     if (args.firstName !== undefined) updates.firstName = args.firstName;
     if (args.surname !== undefined) updates.surname = args.surname;
     if (args.email !== undefined) updates.email = args.email;

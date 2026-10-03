@@ -1,3 +1,5 @@
+import { paren } from "../format";
+
 export const independenceLogic = {
     generate: () => {
       // Generate two random vectors u and v.
@@ -6,10 +8,17 @@ export const independenceLogic = {
       const v_min = -3; // Reduce range slightly for simpler numbers
       const v_max = 3;
   
-      const u = Array.from({ length: 3 }, () => Math.floor(Math.random() * (v_max - v_min + 1)) + v_min);
-      let v = Array.from({ length: 3 }, () => Math.floor(Math.random() * (v_max - v_min + 1)) + v_min);
-  
+      const randomVector = () =>
+        Array.from({ length: 3 }, () => Math.floor(Math.random() * (v_max - v_min + 1)) + v_min);
+
       const isZero = (vec: number[]) => vec.every(x => x === 0);
+
+      // A zero u would make u x v = 0, and the zero vector can never complete a
+      // linearly independent set — the exercise and its official answer would
+      // both be wrong. Only v is resampled below, so guard u here.
+      let u: number[] = randomVector();
+      while (isZero(u)) u = randomVector();
+      let v = randomVector();
       const areParallel = (v1: number[], v2: number[]) => {
           if (isZero(v1) || isZero(v2)) return true;
           // Find first non-zero ratio
@@ -28,10 +37,12 @@ export const independenceLogic = {
       }
   
       let attempts = 0;
-      while (isZero(u) || isZero(v) || areParallel(u, v)) {
-        v = Array.from({ length: 3 }, () => Math.floor(Math.random() * (v_max - v_min + 1)) + v_min);
+      while (isZero(v) || areParallel(u, v)) {
+        v = randomVector();
         if (++attempts > 50) {
-          v = [1, 0, 0]; // safe fallback that is never parallel to a random u
+          // Deterministic fallback: some standard basis vector is always
+          // non-parallel to a non-zero u (u is parallel to at most one of them).
+          v = [[1, 0, 0], [0, 1, 0], [0, 0, 1]].find((e) => !areParallel(u, e))!;
           break;
         }
       }
@@ -72,8 +83,8 @@ $$
 Expanding the determinant:
 $$
 \\begin{aligned}
-\\mathbf{u} \\times \\mathbf{v} &= \\mathbf{e}_1 (${u[1]} \\cdot ${v[2]} - ${u[2]} \\cdot ${v[1]}) - \\mathbf{e}_2 (${u[0]} \\cdot ${v[2]} - ${u[2]} \\cdot ${v[0]}) \\\\
-&+ \\mathbf{e}_3 (${u[0]} \\cdot ${v[1]} - ${u[1]} \\cdot ${v[0]})
+\\mathbf{u} \\times \\mathbf{v} &= \\mathbf{e}_1 (${paren(u[1])} \\cdot ${paren(v[2])} - ${paren(u[2])} \\cdot ${paren(v[1])}) - \\mathbf{e}_2 (${paren(u[0])} \\cdot ${paren(v[2])} - ${paren(u[2])} \\cdot ${paren(v[0])}) \\\\
+&+ \\mathbf{e}_3 (${paren(u[0])} \\cdot ${paren(v[1])} - ${paren(u[1])} \\cdot ${paren(v[0])})
 \\end{aligned}
 $$
   

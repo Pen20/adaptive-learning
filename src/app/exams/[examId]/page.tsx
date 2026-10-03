@@ -1,10 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { errorMessage } from "@/lib/errors";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useParams, useRouter } from "next/navigation";
 import { topicRegistry } from "@/data/topics";
+import type { GeneratedProblem } from "@/data/topics";
+import type { Id } from "../../../../convex/_generated/dataModel";
 import { MathRenderer } from "@/components/MathRenderer";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,17 +29,37 @@ function formatTime(seconds: number): string {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+// An exam question is a generated problem plus the topic it was drawn from.
+type ExamQuestion = GeneratedProblem & { topicId: string };
+
+// Shape produced by gradeWithMarkingScheme (see the JSON contract in
+// convex/grading.ts): one entry per marking-scheme criterion.
+type CriterionResult = {
+  id?: string;
+  met: boolean;
+  reason: string;
+  awarded: number;
+  marks?: number;
+};
+
+type GradingOutcome = {
+  grade: number;
+  feedback: string;
+  errorType?: string;
+  criteriaResults: CriterionResult[];
+};
+
 export default function ExamPage() {
   const params = useParams();
   const examId = params.examId as string;
   const router = useRouter();
   const { user } = useUser();
 
-  const exam = useQuery(api.exams.getExam, { examId: examId as any });
+  const exam = useQuery(api.exams.getExam, { examId: examId as Id<"exams"> });
   const submitExam = useMutation(api.exams.submitExam);
   const saveAnswers = useMutation(api.exams.saveExamAnswers);
   const existingSubmission = useQuery(api.exams.getUserSubmission, {
-    examId: examId as any,
+    examId: examId as Id<"exams">,
   });
 
   const transcribeReasoning = useAction(api.grading.transcribeReasoning);
@@ -44,13 +67,13 @@ export default function ExamPage() {
   const gradeWithMarkingScheme = useAction(api.grading.gradeWithMarkingScheme);
   const createSubmission = useMutation(api.exams.createExamSubmission);
 
-  const [questions, setQuestions] = useState<any[]>([]);
+  const [questions, setQuestions] = useState<ExamQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [submitted, setSubmitted] = useState(false);
   const [score, setScore] = useState<number | null>(null);
   const [scanningIds, setScanningIds] = useState<Record<number, boolean>>({});
   const [isGrading, setIsGrading] = useState(false);
-  const [gradingResults, setGradingResults] = useState<Record<number, any>>({});
+  const [gradingResults, setGradingResults] = useState<Record<number, GradingOutcome>>({});
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const autoSaveRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -87,7 +110,7 @@ export default function ExamPage() {
           }
         }
       } else if (questions.length === 0) {
-        const generated: any[] = [];
+        const generated: ExamQuestion[] = [];
         const count = exam.questionCount;
         const topics = exam.topics;
 
@@ -167,13 +190,13 @@ export default function ExamPage() {
             ...prev,
             [questionIndex]: (prev[questionIndex] ? prev[questionIndex] + " " : "") + text,
           }));
-        } catch (err) {
+        } catch {
           toast.error("Scan failed. Please try again.");
         } finally {
           setScanningIds((prev) => ({ ...prev, [questionIndex]: false }));
         }
       };
-    } catch (err) {
+    } catch {
       toast.error("Scan failed. Please try again.");
       setScanningIds((prev) => ({ ...prev, [questionIndex]: false }));
     }
@@ -230,7 +253,7 @@ export default function ExamPage() {
       });
 
       const outcomes = await Promise.all(gradingPromises);
-      const newResults: Record<number, any> = {};
+      const newResults: Record<number, GradingOutcome> = {};
       let totalGradeSum = 0;
 
       outcomes.forEach((o) => {
@@ -238,7 +261,7 @@ export default function ExamPage() {
           grade: o.grade,
           feedback: o.feedback,
           errorType: o.errorType,
-          criteriaResults: (o as any).criteriaResults ?? [],
+          criteriaResults: "criteriaResults" in o ? (o.criteriaResults ?? []) : [],
         };
         totalGradeSum += o.grade;
       });
@@ -259,9 +282,9 @@ export default function ExamPage() {
       setSubmitted(true);
       setScore(calculatedScore);
       setGradingResults(newResults);
-    } catch (error: any) {
+    } catch (error) {
       console.error("Submit failed:", error);
-      toast.error("Failed to submit exam: " + (error.message || "Unknown error"));
+      toast.error("Failed to submit exam: " + errorMessage(error));
     } finally {
       setIsGrading(false);
     }
@@ -389,7 +412,7 @@ export default function ExamPage() {
                     <div className="mt-4 p-5 bg-slate-50 border border-slate-200 rounded-xl text-sm shadow-sm">
                       <p className="font-bold text-slate-800 text-sm mb-3 pb-2 border-b border-slate-200">Marking Breakdown</p>
                       <div className="space-y-2">
-                        {res.criteriaResults.map((c: any, ci: number) => (
+                        {res.criteriaResults.map((c, ci) => (
                           <div key={ci} className={`flex items-start gap-3 p-3 rounded-lg border ${c.met ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}>
                             <div className={`mt-0.5 shrink-0 ${c.met ? "text-green-600" : "text-red-500"}`}>
                               {c.met ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}

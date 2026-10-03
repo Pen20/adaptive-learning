@@ -1,5 +1,5 @@
 // convex/auth.config.js
-export default {
+const authConfig = {
   providers: [
     {
       // Match the domain from your error message exactly
@@ -9,3 +9,5 @@ export default {
     },
   ],
 };
+
+export default authConfig;

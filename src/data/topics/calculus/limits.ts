@@ -1,3 +1,5 @@
+import { coeff, paren } from "../format";
+
 function gcd(a: number, b: number): number {
   a = Math.abs(a);
   b = Math.abs(b);
@@ -37,6 +39,8 @@ export const limitsLogic = {
 
     // (x - a) displayed as "x - a" or "x + |a|"
     const term = a < 0 ? `x + ${Math.abs(a)}` : `x - ${a}`;
+    // (x + a) displayed as "x + a" or "x - |a|"
+    const termPlus = a < 0 ? `x - ${Math.abs(a)}` : `x + ${a}`;
 
     const type = Math.floor(Math.random() * 4);
 
@@ -57,16 +61,16 @@ export const limitsLogic = {
             { key: "value", label: "Limit value", placeholder: String(answer) },
           ],
         },
-        explanation: `Direct substitution gives \\(\\frac{${a}^2 - ${a * a}}{${a} - ${a}} = \\frac{0}{0}\\), an indeterminate form.
+        explanation: `Direct substitution gives \\(\\frac{${paren(a)}^2 - ${a * a}}{${paren(a)} - ${paren(a)}} = \\frac{0}{0}\\), an indeterminate form.
 
 Factor the numerator using the difference of squares:
-$$ x^2 - ${a * a} = (x - ${a})(x + ${a}) $$
+$$ x^2 - ${a * a} = (${term})(${termPlus}) $$
 
 Cancel the common factor \\((${term})\\):
-$$ \\lim_{x \\to ${a}} \\frac{(x - ${a})(x + ${a})}{x - ${a}} = \\lim_{x \\to ${a}} (x + ${a}) $$
+$$ \\lim_{x \\to ${a}} \\frac{(${term})(${termPlus})}{${term}} = \\lim_{x \\to ${a}} (${termPlus}) $$
 
 Apply direct substitution:
-$$ ${a} + ${a} = ${answer} $$`,
+$$ ${paren(a)} + ${paren(a)} = ${answer} $$`,
         hint: "You have a \\(0/0\\) indeterminate form. Factor the numerator as a difference of squares: \\(x^2 - a^2 = (x-a)(x+a)\\).",
         reasoningSteps: `Step 1 — Attempt direct substitution: confirm that x = a gives the 0/0 indeterminate form in the numerator and denominator.
 Step 2 — Factor the numerator using the difference-of-squares identity: x² − a² = (x − a)(x + a).
@@ -99,7 +103,7 @@ $$ \\lim_{x \\to ${a}} \\frac{(${b}x + ${c}) \\cdot (${term})}{${term}} = \\lim_
 
 Apply direct substitution:
 $$ ${b}(${a}) + ${c} = ${b * a} + ${c} = ${answer} $$`,
-        hint: "The factor \\((${term})\\) appears in both numerator and denominator — cancel it before substituting.",
+        hint: `The factor \\((${term})\\) appears in both numerator and denominator — cancel it before substituting.`,
         reasoningSteps: `Step 1 — Attempt direct substitution: confirm that x = a makes the denominator (x − a) = 0, giving a 0/0 form.
 Step 2 — Recognise that (x − a) is a factor of the numerator by inspection (it appears explicitly).
 Step 3 — Cancel the common factor (x − a) from numerator and denominator.
@@ -129,7 +133,7 @@ Step 5 — State the limit = ba + c.`,
 
 By the **Direct Substitution Property**:
 $$ \\lim_{x \\to ${a}} (${b}x^2 + ${c}) = ${b}(${a})^2 + ${c} = ${b * a * a} + ${c} = ${answer} $$`,
-        hint: "Polynomials are continuous everywhere. Substitute \\(x = ${a}\\) directly into the expression.",
+        hint: `Polynomials are continuous everywhere. Substitute \\(x = ${a}\\) directly into the expression.`,
         reasoningSteps: `Step 1 — Recognise the function type: a polynomial bx² + c is continuous for all real x, so no indeterminate form arises.
 Step 2 — Apply the Direct Substitution Property: substitute x = a directly into the expression.
 Step 3 — Evaluate: b·a² + c.
@@ -145,7 +149,7 @@ Step 4 — State the limit = [result].`,
 
     return {
       title: "Limits at Infinity",
-      statement: `Compute the limit: $$ \\lim_{x \\to \\infty} \\frac{${numerCoeff}x + ${c}}{${denomCoeff}x + ${b}} $$`,
+      statement: `Compute the limit: $$ \\lim_{x \\to \\infty} \\frac{${coeff(numerCoeff, "x")} + ${c}}{${coeff(denomCoeff, "x")} + ${b}} $$`,
       prompt: "Find the value of the limit:",
       solution: `$${answerStr}$`,
       answerFormat: {
@@ -165,7 +169,7 @@ Step 4 — State the limit = [result].`,
       explanation: `As \\(x \\to \\infty\\), constant terms become negligible relative to linear terms.
 
 **Technique — divide numerator and denominator by \\(x\\):**
-$$ \\lim_{x \\to \\infty} \\frac{${numerCoeff}x + ${c}}{${denomCoeff}x + ${b}} = \\lim_{x \\to \\infty} \\frac{${numerCoeff} + \\dfrac{${c}}{x}}{${denomCoeff} + \\dfrac{${b}}{x}} $$
+$$ \\lim_{x \\to \\infty} \\frac{${coeff(numerCoeff, "x")} + ${c}}{${coeff(denomCoeff, "x")} + ${b}} = \\lim_{x \\to \\infty} \\frac{${numerCoeff} + \\dfrac{${c}}{x}}{${denomCoeff} + \\dfrac{${b}}{x}} $$
 
 Since \\(\\dfrac{1}{x} \\to 0\\) as \\(x \\to \\infty\\):
 $$ = \\frac{${numerCoeff} + 0}{${denomCoeff} + 0} = \\frac{${numerCoeff}}{${denomCoeff}} = ${answerStr} $$`,

@@ -1,4 +1,5 @@
 import { internalAction } from "./_generated/server";
+import { errorMessage } from "./errors";
 import { v } from "convex/values";
 import nerdamer from "nerdamer";
 import "nerdamer/Algebra.js";
@@ -12,11 +13,15 @@ import {
   parseSingleNumericAnswer,
 } from "./mathAnswerUtils";
 import {
-  gcdCalc,
+  isDomainRangeEquivalent,
   parseLimitGroundTruth,
   parsePiecewiseGroundTruth,
   parseDomainRangeGroundTruth,
 } from "./calculusCasUtils";
+import {
+  parseLinearEquationGroundTruth,
+  parseLinearSystemGroundTruth,
+} from "./linearAlgebraCasUtils";
 
 /**
  * Strips LaTeX wrappers and converts to nerdamer-compatible syntax.
@@ -61,11 +66,18 @@ function toNerdamerExpr(raw: string): string {
     .trim();
 }
 
-function formatResult(result: any): string {
+/**
+ * nerdamer returns an Expression object (with .text()) for most operations, but
+ * plain strings and numbers for others, so the input is narrowed rather than
+ * typed against the library.
+ */
+function formatResult(result: unknown): string {
   if (result === null || result === undefined) return "";
   if (typeof result === "string") return result;
-  if (typeof result.text === "function") return result.text();
-  if (typeof result.toString === "function") return result.toString();
+  if (typeof result === "object" && "text" in result) {
+    const { text } = result as { text: unknown };
+    if (typeof text === "function") return String(text.call(result));
+  }
   return String(result);
 }
 
@@ -421,13 +433,34 @@ function computeDerivativeDirectly(problemStatement: string) {
 
 // ── Main dispatcher ───────────────────────────────────────────────────────────
 
+// The admin panel and older records address some topics by an alias (see the
+// aliases at the bottom of src/data/topics/index.ts). Those problems come from
+// the same generator, so they must reach the same deterministic grader instead
+// of silently falling through to the AI grader.
+const TOPIC_ALIASES: Record<string, string> = {
+  limits_continuity: "limits",
+  continuity: "piecewise_continuity",
+  piecewise: "piecewise_continuity",
+  derivatives_practice: "derivatives",
+  quadratic: "quadratic_equations",
+  systems: "linear_systems",
+  equations: "linear_equations",
+  matrices: "determinants",
+};
+
+export function canonicalTopicName(topicName: string): string {
+  return TOPIC_ALIASES[topicName] ?? topicName;
+}
+
 // Exported for the quiz study (convex/studyQuiz.ts): quiz items must be graded
 // fully deterministically, so only this direct path is allowed — never the
 // LLM-extraction fallback inside computeGroundTruth.
 export function computeDirectGroundTruth(
   problemStatement: string,
-  topicName: string,
+  rawTopicName: string,
 ) {
+  const topicName = canonicalTopicName(rawTopicName);
+
   if (topicName === "eigenvalues") {
     const result = computeEigenvalues2x2Direct(problemStatement);
     if (result) return result;
@@ -438,7 +471,7 @@ export function computeDirectGroundTruth(
     if (result) return result;
   }
 
-  if (topicName === "quadratic_equations" || topicName === "quadratic") {
+  if (topicName === "quadratic_equations") {
     const roots = computeQuadraticRoots(problemStatement);
     if (roots) {
       return {
@@ -519,6 +552,16 @@ export function computeDirectGroundTruth(
         }
       }
     }
+  }
+
+  if (topicName === "linear_equations") {
+    const result = parseLinearEquationGroundTruth(problemStatement);
+    if (result) return result;
+  }
+
+  if (topicName === "linear_systems") {
+    const result = parseLinearSystemGroundTruth(problemStatement);
+    if (result) return result;
   }
 
   // ── Calculus topics ──
@@ -681,8 +724,8 @@ Return JSON:
         expression: extracted.expression,
         description: extracted.description ?? "",
       };
-    } catch (err: any) {
-      console.error("[CAS] computeGroundTruth failed:", err?.message ?? err);
+    } catch (err) {
+      console.error("[CAS] computeGroundTruth failed:", errorMessage(err));
       return { isComputable: false, groundTruth: null, expression: null };
     }
   },
@@ -728,12 +771,25 @@ export function checkEquivalenceDirect(
         return { isEquivalent, casChecked: true };
       }
 
-      // 3. Domain / Range answers — too complex for strict CAS check; let AI grade
+      // 3. Domain / Range answers — canonicalise both sides (interval, set-minus
+      // and inequality notations all reduce to the same normal form). Anything
+      // the canonicaliser does not recognise still falls through to the AI
+      // grader, so an unusual but correct notation is never marked wrong here.
       if (
         args.groundTruth.startsWith("Domain:") ||
         args.groundTruth.startsWith("R\\")
       ) {
-        return { isEquivalent: null, casChecked: false };
+        const domainRange = isDomainRangeEquivalent(
+          args.studentAnswer,
+          args.groundTruth,
+        );
+        console.log(
+          `[CAS] Domain/Range check: "${args.studentAnswer}" vs "${args.groundTruth}" → ${domainRange}`,
+        );
+        if (domainRange === null) {
+          return { isEquivalent: null, casChecked: false };
+        }
+        return { isEquivalent: domainRange, casChecked: true };
       }
 
       // 4. Simple parameter relations such as "k != 3"
@@ -792,10 +848,10 @@ export function checkEquivalenceDirect(
         `[CAS] Numeric sampling: "${cleaned}" vs "${args.groundTruth}" → ${numericMatch}`,
       );
       return { isEquivalent: numericMatch, casChecked: true };
-    } catch (err: any) {
+    } catch (err) {
       console.log(
         "[CAS] checkAnswerEquivalence could not parse student answer:",
-        err?.message,
+        errorMessage(err),
       );
       return { isEquivalent: null, casChecked: false };
     }

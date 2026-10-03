@@ -1,3 +1,5 @@
+import { coeff } from "../format";
+
 export const piecewiseLogic = {
   guide: {
     title: "Continuity at a Point",
@@ -27,7 +29,7 @@ If any condition fails, the function is **discontinuous** at \\(c\\).
     return {
       title: "Piecewise Continuity",
       statement: ` Determine if the function is continuous or discontinuous at $x = ${x1}$
-$$f(x) = \\begin{cases} ${m}x + ${b}, & x < ${x1} \\\\ x ${qDisplay}, & x \\ge ${x1} \\end{cases} $$`,
+$$f(x) = \\begin{cases} ${coeff(m, "x")} + ${b}, & x < ${x1} \\\\ x ${qDisplay}, & x \\ge ${x1} \\end{cases} $$`,
       prompt:
         "Is the function continuous or discontinuous at the given point?",
       x1,

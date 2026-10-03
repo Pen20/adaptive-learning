@@ -6,9 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Check, X, ExternalLink } from "lucide-react";
-import { MathRenderer } from "@/components/MathRenderer";
 
-export function CorrectionModerator({ style }: { style?: any }) {
+export function CorrectionModerator({ style }: { style?: Record<string, string> }) {
   const pendingCorrections = useQuery(api.corrections.getPendingCorrections);
   const approvedHistory = useQuery(api.corrections.getRecentApprovedCorrections, { limit: 10 });
   const approve = useMutation(api.corrections.approveCorrection);
@@ -93,7 +92,7 @@ export function CorrectionModerator({ style }: { style?: any }) {
                   <div className="space-y-3">
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Expert Feedback</p>
                     <div className="text-sm p-4 bg-[#0f172a] rounded-xl border border-slate-800/60 text-slate-300 italic font-medium leading-relaxed">
-                      "{correction.correctedFeedback}"
+                      &quot;{correction.correctedFeedback}&quot;
                     </div>
                   </div>
                 </div>
@@ -134,7 +133,7 @@ export function CorrectionModerator({ style }: { style?: any }) {
                          </div>
                          <div className="flex-1">
                             <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">Feedback</p>
-                            <p className="text-xs text-slate-400 font-medium line-clamp-1 italic">"{correction.correctedFeedback}"</p>
+                            <p className="text-xs text-slate-400 font-medium line-clamp-1 italic">&quot;{correction.correctedFeedback}&quot;</p>
                          </div>
                     </div>
                 </div>

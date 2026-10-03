@@ -21,7 +21,7 @@ export default function TopicsPage() {
   const groupedTopics: Record<string, typeof topics> = {};
   const chapterOrder: string[] = [];
 
-  topics.forEach((topic: any) => {
+  topics.forEach((topic) => {
     const chapter = topic.chapter || "Other";
     if (!groupedTopics[chapter]) {
       groupedTopics[chapter] = [];

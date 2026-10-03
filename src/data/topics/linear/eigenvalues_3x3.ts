@@ -1,13 +1,24 @@
+import { signedTerm } from "../format";
+
 export const eigenvalues3x3Logic = {
   generate: () => {
     // Generate roots: r1 (integer), r2,3 = p +/- sqrt(q)
     // Characteristic poly: (L - r1)(L^2 - 2pL + p^2 - q) = L^3 - (r1+2p)L^2 + (2pr1 + p^2-q)L - r1(p^2-q) = 0
     
     // Randomize roots to keep numbers manageable
-    const r1 = Math.floor(Math.random() * 6) + 1; // 1 to 6
+    let r1 = Math.floor(Math.random() * 6) + 1; // 1 to 6
     const p = Math.floor(Math.random() * 4) + 1;  // 1 to 4
     const qList = [2, 3, 5, 6, 4]; // Some non-squares + one square for variety
     const q = qList[Math.floor(Math.random() * qList.length)];
+
+    // When q is a perfect square the three roots are integers, and r1 may
+    // coincide with p ± sqrt(q). A repeated root would be listed once in the
+    // solution while the CAS ground truth lists it with multiplicity, so a
+    // student answering correctly would be marked wrong. Keep r1 distinct.
+    if (Number.isInteger(Math.sqrt(q))) {
+      const root = Math.sqrt(q);
+      while (r1 === p + root || r1 === p - root) r1 = (r1 % 6) + 1;
+    }
     
     const c2 = -(r1 + 2 * p);
     const c1 = (2 * p * r1) + (p * p - q);
@@ -26,7 +37,7 @@ export const eigenvalues3x3Logic = {
     const statement = `Find the eigenvalues of the following $3 \\times 3$ matrix:
 $$ ${matrixStr} $$`;
 
-    const charPolyStr = `\\det(\\lambda I - A) = \\lambda^3 ${c2 >= 0 ? "+" : ""}${c2}\\lambda^2 ${c1 >= 0 ? "+" : ""}${c1}\\lambda ${c0 >= 0 ? "+" : ""}${c0} = 0`;
+    const charPolyStr = `\\det(\\lambda I - A) = \\lambda^3 ${signedTerm(c2, "\\lambda^2")} ${signedTerm(c1, "\\lambda")} ${signedTerm(c0)} = 0`;
 
     // Solution formatting
     const isSquare = Math.sqrt(q) % 1 === 0;
@@ -51,17 +62,17 @@ $$ ${matrixStr} $$`;
 2. Find an Integer Root:
    Using the Rational Root Theorem, we check divisors of the constant term $c_0 = ${c0}$.
    By substitution, we find that $\\lambda = ${r1}$ is a root:
-   $$ (${r1})^3 ${c2}(${r1})^2 + ${c1}(${r1}) + ${c0} = 0 $$
+   $$ (${r1})^3 ${signedTerm(c2)}(${r1})^2 ${signedTerm(c1)}(${r1}) ${signedTerm(c0)} = 0 $$
    Thus, $(\\lambda - ${r1})$ is a factor.
 
 3. Polynomial Division:
    Divide the cubic polynomial by $(\\lambda - ${r1})$ to find the quadratic factor:
-   $$ (\\lambda - ${r1})(\\lambda^2 - ${2*p}\\lambda + ${p*p - q}) = 0 $$
+   $$ (\\lambda - ${r1})(\\lambda^2 - ${2*p}\\lambda ${signedTerm(p*p - q)}) = 0 $$
 
 4. Solve the Quadratic Factor:
-   Set the quadratic factor to zero: $\\lambda^2 - ${2*p}\\lambda + ${p*p - q} = 0$.
+   Set the quadratic factor to zero: $\\lambda^2 - ${2*p}\\lambda ${signedTerm(p*p - q)} = 0$.
    Using the quadratic formula:
-   $$ \\lambda = \\frac{-(-${2*p}) \\pm \\sqrt{(-${2*p})^2 - 4(1)(${p*p - q})}}{2(1)} = \\frac{${2*p} \\pm \\sqrt{${4*q}}}{2} = ${p} \\pm \\sqrt{${q}} $$
+   $$ \\lambda = \\frac{-(-${2*p}) \\pm \\sqrt{(-${2*p})^2 - 4(1)(${p*p - q})}}{2(1)} = \\frac{${2*p} \\pm \\sqrt{${4*q}}}{2} = ${p} \\pm ${isSquare ? Math.sqrt(q) : `\\sqrt{${q}}`} $$
 
 5. Final Eigenvalues:
    The eigenvalues are $ ${solution.replace(/\$/g, "")} $.`;

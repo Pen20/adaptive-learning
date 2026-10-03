@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Camera, Loader2, Sparkles, Wand2 } from "lucide-react";
 import type { ChangeEvent, Dispatch, RefObject, SetStateAction } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef } from "react";
 import type { AnswerFormat } from "@/data/topics";
 import {
   SCAN_IMAGE_ACCEPT,
@@ -59,22 +59,21 @@ export function AnswerPanel({
     [answerFormat.fields],
   );
   const hasStructuredFields = hasStructuredAnswerFields(answerFormat);
-  const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
+  // The per-field values are fully derived from the composed final answer: an
+  // edit to any field rewrites finalAnswer, and the effect that used to mirror
+  // it back into state always settled on exactly this parse. Deriving it during
+  // render keeps the single source of truth and drops a render cycle per
+  // keystroke.
+  const fieldValues = useMemo(
+    () =>
+      hasStructuredFields
+        ? parseStructuredAnswer(finalAnswer, structuredFields)
+        : {},
+    [finalAnswer, hasStructuredFields, structuredFields],
+  );
   const finalAnswerComplete = hasStructuredFields
     ? structuredFields.every((field) => fieldValues[field.key]?.trim())
     : Boolean(finalAnswer.trim());
-
-  useEffect(() => {
-    if (!hasStructuredFields) {
-      setFieldValues({});
-      return;
-    }
-
-    const parsed = parseStructuredAnswer(finalAnswer, structuredFields);
-    setFieldValues((current) =>
-      JSON.stringify(current) === JSON.stringify(parsed) ? current : parsed,
-    );
-  }, [finalAnswer, hasStructuredFields, structuredFields]);
 
   const saveFinalAnswerCursor = () => {
     const el = finalAnswerRef.current;
@@ -100,7 +99,6 @@ export function AnswerPanel({
 
   const updateStructuredField = (key: string, value: string) => {
     const next = { ...fieldValues, [key]: value };
-    setFieldValues(next);
     setFinalAnswer(composeStructuredAnswer(structuredFields, next));
   };
 

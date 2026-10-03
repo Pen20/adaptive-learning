@@ -64,7 +64,7 @@ export default function ExamsListPage() {
             <p className="text-muted-foreground italic">No past exams found.</p>
           ) : (
              <div className="grid gap-4">
-                {submitted.map((exam: any) => {
+                {submitted.map((exam) => {
                     const resultsReady = exam.feedbackMode === "immediate" || exam.resultsReleased;
                     return (
                         <Card key={exam._id} className={`hover:shadow-md transition-shadow border-l-4 ${resultsReady ? "border-l-green-500" : "border-l-amber-500"}`}>

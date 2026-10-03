@@ -52,8 +52,7 @@ Let \\(u = ${b}x\\), so \\(f(x) = ${a}\\cos(u)\\).
 
 Combine:
 $$ f'(x) = -${a}\\sin(${b}x) \\cdot ${b} = -${ab}\\sin(${b}x) $$`,
-        hint:
-          "Apply the Chain Rule. The outer function is \\(${a}\\cos(u)\\) and the inner function is \\(u = ${b}x\\).",
+        hint: `Apply the Chain Rule. The outer function is \\(${a}\\cos(u)\\) and the inner function is \\(u = ${b}x\\).`,
         reasoningSteps: `Step 1 — Identify the composition: f(x) = a·cos(u) where u = bx is the inner function.
 Step 2 — Differentiate the outer function: d/du[a·cos(u)] = −a·sin(u).
 Step 3 — Differentiate the inner function: u' = b.
@@ -96,8 +95,7 @@ Let \\(u = ${a}x^2 + ${b}\\).
 
 Combine:
 $$ g'(x) = \\frac{${twoA}x}{${a}x^2 + ${b}} $$`,
-        hint:
-          "Use \\([\\ln(u)]' = u'/u\\). Identify \\(u = ${a}x^2 + ${b}\\) and compute its derivative first.",
+        hint: `Use \\([\\ln(u)]' = u'/u\\). Identify \\(u = ${a}x^2 + ${b}\\) and compute its derivative first.`,
         reasoningSteps: `Step 1 — Identify the composition: g(x) = ln(u) where u = ax² + b is the inner function.
 Step 2 — Differentiate the outer function: d/du[ln(u)] = 1/u.
 Step 3 — Differentiate the inner function: u' = 2ax.
@@ -141,8 +139,7 @@ Step 5 — State the simplified result.`,
 
 Therefore:
 $$ f'(x) = ${na}x^{${n - 1}} + ${k} $$`,
-        hint:
-          "Apply \\(\\frac{d}{dx}[cx^n] = cnx^{n-1}\\) to each term. The constant \\(${m}\\) disappears.",
+        hint: `Apply \\(\\frac{d}{dx}[cx^n] = cnx^{n-1}\\) to each term. The constant \\(${m}\\) disappears.`,
         reasoningSteps: `Step 1 — Apply the Power Rule term by term: d/dx[axⁿ] = naxⁿ⁻¹.
 Step 2 — Differentiate the linear term: d/dx[kx] = k.
 Step 3 — Differentiate the constant: d/dx[m] = 0 (constant rule).
@@ -188,8 +185,7 @@ $$ f'(x) = ${n}x^{${nm1}} \\cdot e^{${b}x} + x^{${n}} \\cdot ${b}e^{${b}x} $$
 
 Factor out \\(x^{${nm1}} e^{${b}x}\\):
 $$ f'(x) = x^{${nm1}} e^{${b}x}(${n} + ${b}x) $$`,
-        hint:
-          "Set \\(u = x^${n}\\) and \\(v = e^{${b}x}\\). Then \\(u' = ${n}x^${nm1}\\) and \\(v' = ${b}e^{${b}x}\\) by the chain rule.",
+        hint: `Set \\(u = x^{${n}}\\) and \\(v = e^{${b}x}\\). Then \\(u' = ${n}x^{${nm1}}\\) and \\(v' = ${b}e^{${b}x}\\) by the chain rule.`,
         reasoningSteps: `Step 1 — Identify the two factors: u = xⁿ and v = e^(bx).
 Step 2 — Differentiate u using the Power Rule: u' = nxⁿ⁻¹.
 Step 3 — Differentiate v using the Chain Rule: v' = be^(bx).
@@ -204,7 +200,11 @@ Step 5 — Factor the result: f'(x) = xⁿ⁻¹·e^(bx)·(n + bx).`,
     const coeffA = a;
     const coeffB = b;
     const coeffC = k;
-    const coeffD = m;
+    // ad - bc = 0 would make f a constant function: the "quotient rule" exercise
+    // would collapse to f'(x) = 0/(cx+d)^2, which is not the skill being tested
+    // and which the CAS grades against the ground truth 0. Nudging d keeps the
+    // determinant non-zero (a(d+1) - bc = a > 0) without an extra random draw.
+    const coeffD = coeffA * m - coeffB * coeffC === 0 ? m + 1 : m;
     const numeratorDet = coeffA * coeffD - coeffB * coeffC;
     const bSign4 = coeffB > 0 ? `+ ${coeffB}` : `- ${Math.abs(coeffB)}`;
     const dSign4 = coeffD > 0 ? `+ ${coeffD}` : `- ${Math.abs(coeffD)}`;

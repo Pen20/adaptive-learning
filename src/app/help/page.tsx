@@ -5,13 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
     AlertTriangle, 
-    BookOpen, 
     CheckCircle, 
     Info, 
     Keyboard, 
-    Lightbulb,
-    Mail, 
-    MessageSquare, 
     RotateCcw, 
     ShieldAlert, 
     Timer,
@@ -84,7 +80,7 @@ export default function HelpPage() {
                                     <SearchIcon className="h-4 w-4 text-amber-400" />
                                 </div>
                                 <h3 className="font-black text-xs text-slate-200 uppercase tracking-wider">Pattern Detection</h3>
-                                <p className="text-xs text-slate-400 leading-relaxed">AI analyzes step-consistency to detect and penalize ungrounded "lucky guesses".</p>
+                                <p className="text-xs text-slate-400 leading-relaxed">AI analyzes step-consistency to detect and penalize ungrounded &quot;lucky guesses&quot;.</p>
                             </div>
                         </div>
                     </CardContent>
@@ -133,7 +129,7 @@ export default function HelpPage() {
                                     </div>
                                     <h3 className="font-black text-xs uppercase tracking-widest text-slate-200">Notation Center</h3>
                                 </div>
-                                <p className="text-[11px] text-slate-400 leading-relaxed">Click symbols in the "Notation Guide" to auto-inject LaTeX into your solution. No manual typing required.</p>
+                                <p className="text-[11px] text-slate-400 leading-relaxed">Click symbols in the &quot;Notation Guide&quot; to auto-inject LaTeX into your solution. No manual typing required.</p>
                             </Card>
                             <Card className="border-slate-800/60 bg-[#1e293b]/30 backdrop-blur-sm p-6 space-y-4">
                                 <div className="flex items-center gap-3">
@@ -142,7 +138,7 @@ export default function HelpPage() {
                                     </div>
                                     <h3 className="font-black text-xs uppercase tracking-widest text-slate-200">Optical Preview</h3>
                                 </div>
-                                <p className="text-[11px] text-slate-400 leading-relaxed">Always cross-verify your "Live Preview" to ensure your mathematical intent is rendered correctly before finalization.</p>
+                                <p className="text-[11px] text-slate-400 leading-relaxed">Always cross-verify your &quot;Live Preview&quot; to ensure your mathematical intent is rendered correctly before finalization.</p>
                             </Card>
                         </div>
 
@@ -154,7 +150,7 @@ export default function HelpPage() {
                                 <h3 className="font-black text-sm uppercase tracking-widest text-slate-200">Adaptive Mastery Loop</h3>
                             </div>
                             <p className="text-sm text-slate-400 leading-relaxed">
-                                Our platform identifies specific weaknesses in your problem history. "Adaptive Practice" sessions are structurally curated to force engagement with your most frequent logical errors.
+                                Our platform identifies specific weaknesses in your problem history. &quot;Adaptive Practice&quot; sessions are structurally curated to force engagement with your most frequent logical errors.
                             </p>
                         </Card>
                     </div>
@@ -174,7 +170,7 @@ export default function HelpPage() {
                                 </p>
                                 <div className="bg-black/20 p-4 rounded-xl border border-red-500/10">
                                     <p className="text-xs text-red-100/80 font-medium">
-                                        Use the <strong>"Submit for Review"</strong> protocol found in the <strong>"QUALITY REPORT"</strong> widget. 
+                                        Use the <strong>&quot;Submit for Review&quot;</strong> protocol found in the <strong>&quot;QUALITY REPORT&quot;</strong> widget. 
                                         This escalates your case to a human expert for final arbitration.
                                     </p>
                                 </div>
@@ -202,7 +198,7 @@ export default function HelpPage() {
     );
 }
 
-function SearchIcon(props: any) {
+function SearchIcon(props: React.SVGProps<SVGSVGElement>) {
     return (
         <svg
             {...props}
@@ -222,7 +218,7 @@ function SearchIcon(props: any) {
     )
 }
 
-function ChevronRight(props: any) {
+function ChevronRight(props: React.SVGProps<SVGSVGElement>) {
     return (
         <svg
             {...props}

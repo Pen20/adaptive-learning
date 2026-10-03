@@ -72,13 +72,19 @@ export default function ProblemPage() {
     return () => clearTimeout(timer);
   }, [finalAnswer]);
 
-  useEffect(() => {
+  // Reset the workspace when the student navigates to another topic. Adjusting
+  // state during render (rather than in an effect) is React's documented
+  // pattern for "state that depends on a prop": it avoids the extra commit a
+  // synchronous setState inside useEffect would cause.
+  const [activeTopicId, setActiveTopicId] = useState(topicId);
+  if (topicId !== activeTopicId) {
+    setActiveTopicId(topicId);
     setShowHint(false);
     setShowSolution(false);
     setShowExplanation(false);
     setReasoning("");
     setFinalAnswer("");
-  }, [topicId]);
+  }
 
   const rememberReasoningCursor = () => {
     if (!reasoningRef.current) return;

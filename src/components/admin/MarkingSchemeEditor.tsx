@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -128,12 +129,12 @@ export function MarkingSchemeEditor() {
     setSaving(true);
     try {
       await updateSchemes({
-        examId: selectedExamId as any,
+        examId: selectedExamId as Id<"exams">,
         markingSchemes: JSON.stringify(toSave),
       });
       toast.success("Marking schemes saved successfully.");
-    } catch (e: any) {
-      toast.error(e.message ?? "Failed to save.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to save.");
     } finally {
       setSaving(false);
     }

@@ -1,4 +1,5 @@
 import { action, internalAction } from "./_generated/server";
+import { errorMessage } from "./errors";
 import { v } from "convex/values";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { api, internal } from "./_generated/api";
@@ -276,9 +277,19 @@ function parseJsonObject(text: string) {
   }
 }
 
-function extractGeminiText(response: any) {
+/**
+ * Structural view of a Gemini `generateContent` response: only the members this
+ * file reads, so the SDK's own types are not needed at the call sites.
+ */
+type GeminiPart = { text?: string; thought?: boolean };
+type GeminiResponse = {
+  text?: () => string;
+  candidates?: Array<{ content?: { parts?: GeminiPart[] } }>;
+};
+
+function extractGeminiText(response: GeminiResponse) {
   try {
-    const text = response.text();
+    const text = response.text?.();
     if (text?.trim()) return text;
   } catch {
     // Fall back to filtering raw candidate parts below.
@@ -287,14 +298,40 @@ function extractGeminiText(response: any) {
   // Gemini 2.5 Flash includes thinking parts (thought: true) — skip them
   return (
     response.candidates?.[0]?.content?.parts
-      ?.filter((part: any) => !part.thought)
-      ?.map((part: any) => part.text ?? "")
+      ?.filter((part) => !part.thought)
+      ?.map((part) => part.text ?? "")
       .join("")
       .trim() ?? ""
   );
 }
 
-function normalizeGradingResult(content: any): NormalizedGradingResult {
+/**
+ * Few-shot example shapes. The frozen-pool query returns rows validated as
+ * v.any(), so its element type is unknown at the call site; these describe the
+ * fields the prompt builder actually reads.
+ */
+type ExpertCorrectionExample = {
+  correctedFeedback?: string;
+  correctedGrade?: number;
+};
+
+type OutcomeValidatedExample = {
+  judgeFeedback?: string;
+  aiFeedback?: string;
+  outcomeReward?: number;
+  grade?: number;
+};
+
+/** The JSON object an LLM grader returns, before validation. */
+type RawGradingContent = {
+  feedback?: unknown;
+  grade?: unknown;
+  finalAnswerScore?: unknown;
+  reasoningScore?: unknown;
+  errorType?: unknown;
+};
+
+function normalizeGradingResult(content: RawGradingContent): NormalizedGradingResult {
   const rawFeedback =
     typeof content.feedback === "string"
       ? content.feedback
@@ -322,7 +359,8 @@ function normalizeGradingResult(content: any): NormalizedGradingResult {
     finalAnswerScore,
     reasoningScore,
     feedback: normalizeFeedbackStructure(rawFeedback),
-    errorType: grade === 1 ? "" : content.errorType || "",
+    errorType:
+      grade === 1 ? "" : typeof content.errorType === "string" ? content.errorType : "",
     isOptimized: true,
   };
 }
@@ -797,7 +835,7 @@ export const gradeSubmission = action({
             feedback: normalizeSecondPersonFeedback(parsed.feedback),
             errorType: "",
           };
-        } catch (e) {
+        } catch {
           console.error("Gemini JSON Parse Error", text);
           return {
             grade: 0,
@@ -850,11 +888,11 @@ export const gradeSubmission = action({
           errorType: parsed.errorType || "",
         };
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error("Unexpected Grading Error:", err);
       return {
         grade: 0,
-        feedback: `Unexpected system error: ${err.message}`,
+        feedback: `Unexpected system error: ${errorMessage(err)}`,
         errorType: "System Error",
       };
     }
@@ -912,7 +950,7 @@ export const checkPracticeAnswer = action({
         isCorrect: content.isCorrect,
         feedback: normalizeSecondPersonFeedback(content.feedback),
       };
-    } catch (e: any) {
+    } catch (e) {
       console.error("Practice Grading Error:", e);
       return {
         isCorrect: false,
@@ -985,7 +1023,7 @@ export const transcribeReasoning = action({
       if (data.error) throw new Error(data.error.message);
 
       return data.choices[0].message.content;
-    } catch (err: any) {
+    } catch (err) {
       console.error("Transcription Error:", err);
       throw new Error("Failed to transcribe image. Please try again.");
     }
@@ -1080,9 +1118,9 @@ export const gradeOptimized = action({
     if (expertCorrections && expertCorrections.length > 0) {
       fewShotContext = `
       ### Reference Standards (Expert Professor Corrections):
-      ${expertCorrections
+      ${(expertCorrections as ExpertCorrectionExample[])
         .map(
-          (c: any, i: number) => `
+          (c, i) => `
       Example ${i + 1}:
       - AI Feedback was corrected to: "${c.correctedFeedback}"
       - Corrected Grade: ${c.correctedGrade}
@@ -1096,7 +1134,7 @@ export const gradeOptimized = action({
     const highRewardSubmissions = await highRewardPromise;
     let outcomeValidatedContext = "";
     if (highRewardSubmissions && highRewardSubmissions.length > 0) {
-      const examples = (highRewardSubmissions as any[]).filter(
+      const examples = (highRewardSubmissions as OutcomeValidatedExample[]).filter(
         (s) => s.judgeFeedback || s.aiFeedback,
       );
       if (examples.length > 0) {
@@ -1104,7 +1142,7 @@ export const gradeOptimized = action({
       ### Outcome-Validated Feedback Examples (these feedback styles produced measurable mastery improvement):
       ${examples
         .map(
-          (s: any, i: number) => `
+          (s, i) => `
       Example ${i + 1} (mastery gain: +${s.outcomeReward} points, grade: ${s.grade}):
       - Feedback that worked: "${s.judgeFeedback || s.aiFeedback}"
       `,
@@ -1269,7 +1307,7 @@ PEDAGOGICAL EVALUATION RULES:
           answerFormatSystemInstruction +
           "\n\nYou MUST use the same instruction as the OpenAI grader. Format feedback with **Final Answer:**, **Reasoning steps:**, and **Verdict:** sections.";
 
-        let content: any = null;
+        let content: RawGradingContent | null = null;
         let lastGeminiText = "";
 
         try {
@@ -1280,7 +1318,7 @@ PEDAGOGICAL EVALUATION RULES:
               responseMimeType: "application/json",
               temperature: args.temperature ?? 0,
               maxOutputTokens: 2000,
-            } as any,
+            },
           });
 
           const result = await geminiModel.generateContent(unifiedPrompt);
@@ -1300,7 +1338,7 @@ PEDAGOGICAL EVALUATION RULES:
               generationConfig: {
                 temperature: args.temperature ?? 0,
                 maxOutputTokens: 2000,
-              } as any,
+              },
             });
 
             const fallbackPrompt = `${geminiSystemInstruction}\n\n${unifiedPrompt}\n\nReturn ONLY a valid JSON object.`;
@@ -1485,7 +1523,7 @@ PEDAGOGICAL EVALUATION RULES:
           exercisePedagogy,
         );
       }
-    } catch (e: any) {
+    } catch (e) {
       console.error("Optimized Grading Error:", e);
       return attachPipelineDiagnostics(
         {
@@ -1700,7 +1738,7 @@ Return ONLY valid JSON (no markdown):
         const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
         const geminiModel = genAI.getGenerativeModel({
           model: "gemini-2.5-flash",
-          generationConfig: { responseMimeType: "application/json" } as any,
+          generationConfig: { responseMimeType: "application/json" },
         });
         const result = await geminiModel.generateContent(
           `${systemMsg}\n\n${prompt}`,
@@ -1768,7 +1806,7 @@ Return ONLY valid JSON (no markdown):
           errorType: content.totalGrade === 1 ? "" : "Partial / Incorrect",
         };
       }
-    } catch (e: any) {
+    } catch (e) {
       console.error("Marking scheme grading error:", e);
       return {
         grade: 0,
@@ -1879,7 +1917,6 @@ export const gradeBestOfN = action({
     }
 
     const bestCandidate = candidates[bestIndex];
-    const bestJudge = judgeResults[bestIndex];
 
     // The judge is used as a reward model for ranking only. Once a candidate
     // has been CAS-backed and selected, we do not let the judge overwrite its

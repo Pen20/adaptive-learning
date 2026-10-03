@@ -1,3 +1,5 @@
+import { coeff, joinTerms, paren, signedTerm } from "../format";
+
 export const eigenspaces2x2Logic = {
   generate: () => {
     // We want matrices with integer eigenvalues.
@@ -52,8 +54,10 @@ export const eigenspaces2x2Logic = {
     const statement = `Find the characteristic equation, the eigenvalues, and bases for the eigenspaces of the following $2 \\times 2$ matrix:
 $$ ${matrixStr} $$`;
 
-    const charEq = `\\lambda^2 - ${a + d}\\lambda + ${a * d - b * c} = 0`;
-    const factoredCharEq = L1 === L2 ? `(\\lambda - ${L1})^2 = 0` : `(\\lambda - ${L1})(\\lambda - ${L2}) = 0`;
+    const charEq = `\\lambda^2 ${signedTerm(-(a + d), "\\lambda")} ${signedTerm(a * d - b * c)} = 0`;
+    const factoredCharEq = L1 === L2
+      ? `(\\lambda - ${paren(L1)})^2 = 0`
+      : `(\\lambda - ${paren(L1)})(\\lambda - ${paren(L2)}) = 0`;
     
     const formatVector = (x: number, y: number) => `\\begin{bmatrix} ${x} \\\\ ${y} \\end{bmatrix}`;
     
@@ -89,19 +93,19 @@ $$ ${matrixStr} $$`;
 
     let solution;
     if (L1 === L2) {
-      solution = `Equation: $\\lambda^2 - ${a+d}\\lambda + ${a*d-b*c} = 0$, Eigenvalue: $\\lambda = ${L1}$, Basis: $\\{ ${basis1.join(", ")} \\}$`;
+      solution = `Equation: $${charEq}$, Eigenvalue: $\\lambda = ${L1}$, Basis: $\\{ ${basis1.join(", ")} \\}$`;
     } else {
       const sortedL = [L1, L2].sort((x, y) => x - y);
       const bA = (sortedL[0] === L1 ? basis1 : basis2) || [];
       const bB = (sortedL[0] === L1 ? basis2 : basis1) || [];
-      solution = `Equation: $\\lambda^2 - ${a+d}\\lambda + ${a*d-b*c} = 0$, Eigenvalues: $\\lambda = ${sortedL[0]}, ${sortedL[1]}$, Bases: $\\lambda = ${sortedL[0]}: \\{ ${bA.join(", ")} \\}, \\lambda = ${sortedL[1]}: \\{ ${bB.join(", ")} \\}$`;
+      solution = `Equation: $${charEq}$, Eigenvalues: $\\lambda = ${sortedL[0]}, ${sortedL[1]}$, Bases: $\\lambda = ${sortedL[0]}: \\{ ${bA.join(", ")} \\}, \\lambda = ${sortedL[1]}: \\{ ${bB.join(", ")} \\}$`;
     }
 
     const explanation = `To find the eigenvalues and eigenspaces of $A$:
 
 1. Find the Characteristic Equation:
    Solve $\\det(\\lambda I - A) = 0$:
-   $$ \\det \\begin{bmatrix} \\lambda - ${a} & -${b} \\\\ -${c} & \\lambda - ${d} \\end{bmatrix} = (\\lambda - ${a})(\\lambda - ${d}) - (-${b})(-${c}) = 0 $$
+   $$ \\det \\begin{bmatrix} \\lambda - ${paren(a)} & ${-b} \\\\ ${-c} & \\lambda - ${paren(d)} \\end{bmatrix} = (\\lambda - ${paren(a)})(\\lambda - ${paren(d)}) - (${paren(-b)})(${paren(-c)}) = 0 $$
    $$ ${charEq} $$
 
 2. Find the Eigenvalues:
@@ -115,14 +119,14 @@ $$ ${matrixStr} $$`;
    Case $\\lambda = ${L1}$:
    The system is:
    $$ \\begin{bmatrix} ${a - L1} & ${b} \\\\ ${c} & ${d - L1} \\end{bmatrix} \\begin{bmatrix} x_1 \\\\ x_2 \\end{bmatrix} = \\begin{bmatrix} 0 \\\\ 0 \\end{bmatrix} $$
-   This simplifies to the equation: $ ${a - L1 === 0 && b === 0 ? "0 = 0" : `${a-L1}x_1 + ${b}x_2 = 0`} $
+   This simplifies to the equation: $ ${a - L1 === 0 && b === 0 ? "0 = 0" : `${joinTerms(coeff(a - L1, "x_1"), signedTerm(b, "x_2"))} = 0`} $
    A basis for this eigenspace is: $\\{ ${basis1.join(", ")} \\}$.
 
    ${L1 !== L2 ? `
    Case $\\lambda = ${L2}$:
    The system is:
    $$ \\begin{bmatrix} ${a - L2} & ${b} \\\\ ${c} & ${d - L2} \\end{bmatrix} \\begin{bmatrix} x_1 \\\\ x_2 \\end{bmatrix} = \\begin{bmatrix} 0 \\\\ 0 \\end{bmatrix} $$
-   This simplifies to: $ ${a - L2 === 0 && b === 0 ? "0 = 0" : `${a-L2}x_1 + ${b}x_2 = 0`} $
+   This simplifies to: $ ${a - L2 === 0 && b === 0 ? "0 = 0" : `${joinTerms(coeff(a - L2, "x_1"), signedTerm(b, "x_2"))} = 0`} $
    A basis for this eigenspace is: $\\{ ${basis2!.join(", ")} \\}$.` : ""}
 
 Final Summary:

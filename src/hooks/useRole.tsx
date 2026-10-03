@@ -3,7 +3,7 @@
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
-import { useState, useEffect } from "react";
+import { useSyncExternalStore } from "react";
 
 // Global state for viewing mode - simple implementation without Context for now since it's just Navbar/Admin pages
 // Actually, strict React would use Context or Zustand. Let's use a simple detailed hook or context?
@@ -33,23 +33,51 @@ type RoleContextType = {
 
 const RoleContext = createContext<RoleContextType | undefined>(undefined);
 
+// The "view as student" preference lives in localStorage, which is not React
+// state. Exposing it through useSyncExternalStore keeps the server snapshot
+// (false) separate from the client one, so there is no hydration mismatch and
+// no setState inside an effect; it also keeps other tabs in sync for free.
+const VIEW_AS_STUDENT_KEY = "view_as_student";
+const viewModeListeners = new Set<() => void>();
+
+function subscribeViewMode(onStoreChange: () => void) {
+  viewModeListeners.add(onStoreChange);
+  window.addEventListener("storage", onStoreChange);
+  return () => {
+    viewModeListeners.delete(onStoreChange);
+    window.removeEventListener("storage", onStoreChange);
+  };
+}
+
+function readViewMode() {
+  try {
+    return localStorage.getItem(VIEW_AS_STUDENT_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function writeViewMode(next: boolean) {
+  try {
+    localStorage.setItem(VIEW_AS_STUDENT_KEY, String(next));
+  } catch {
+    // Storage can be unavailable (private mode); the toggle still applies to
+    // this render pass via the listeners below.
+  }
+  for (const listener of viewModeListeners) listener();
+}
+
 export function RoleProvider({ children }: { children: ReactNode }) {
   const { user, isLoaded: clerkLoaded } = useUser();
   const userProfile = useQuery(api.users.getUser, { userId: user?.id || "" });
   
-  const [viewAsStudent, setViewAsStudent] = useState(false);
+  const viewAsStudent = useSyncExternalStore(
+    subscribeViewMode,
+    readViewMode,
+    () => false,
+  );
 
-  // Load view preference from local storage once mounted
-  useEffect(() => {
-    const stored = localStorage.getItem("view_as_student");
-    if (stored === "true") setViewAsStudent(true);
-  }, []);
-
-  const toggleViewMode = () => {
-    const newState = !viewAsStudent;
-    setViewAsStudent(newState);
-    localStorage.setItem("view_as_student", String(newState));
-  };
+  const toggleViewMode = () => writeViewMode(!viewAsStudent);
   
   const isLoading = !clerkLoaded || userProfile === undefined;
   

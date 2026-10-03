@@ -3,6 +3,7 @@ import type { GenericActionCtx } from "convex/server";
 import type { DataModel, Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
+import { errorMessage } from "./errors";
 
 // ─── Internal helpers ──────────────────────────────────────────────────────────
 
@@ -199,9 +200,10 @@ export const runPhase1EvalBatch = action({
         console.log(
           `[eval] ${submissionId} — SP: ${result.spConfidence.toFixed(2)} | BoN: ${result.bonConfidence.toFixed(2)} | Δ: ${result.confidenceDelta.toFixed(2)}`,
         );
-      } catch (err: any) {
-        console.error(`[eval] failed for ${submissionId}:`, err.message);
-        results.push({ submissionId, status: "error", error: err.message });
+      } catch (err) {
+        const message = errorMessage(err);
+        console.error(`[eval] failed for ${submissionId}:`, message);
+        results.push({ submissionId, status: "error", error: message });
       }
     }
 

@@ -2,7 +2,7 @@
 
 **Version:** 1.2 — 27 July 2026 (§4.2, §4.3, §5 and §7 pre-filled with the real survey data; document translated to English)
 **Status:** outline for drafting
-**Data:** [`donnees-enquetes.md`](donnees-enquetes.md) — all descriptives and verbatims, verified
+**Data:** [`donnees-enquetes.md`](donnees-enquetes.md) — all descriptives and verbaNtims, verified
 
 ---
 
