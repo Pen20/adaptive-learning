@@ -1,0 +1,24 @@
+# Files excluded from the Vercel deployment upload.
+#
+# These stay tracked in git — they are versioned and backed up on GitHub —
+# they are simply not shipped to the build. Nothing listed here is imported
+# by application code; docs/research is referenced only in source comments.
+
+# Research and writing (PhD outputs, survey data, study protocol)
+docs/
+
+# One-off authoring and maintenance scripts, not part of the build
+scripts/
+
+# Papers, slides and survey exports that sit at the repo root
+*.pdf
+*.xlsx
+presentation_guide.md
+
+# Debug artefacts
+topics_debug.json
+eslint_output.txt
+
+# Tests — run in CI and locally, never needed at build time
+**/*.test.ts
+**/*.test.tsx
